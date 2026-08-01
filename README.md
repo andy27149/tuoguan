@@ -4,4 +4,21 @@
 
 ## 本地开发
 
-（启动步骤见 Task 5 补全后的说明）
+1. 复制环境变量文件：`cp .env.example .env`
+2. 启动后端基础设施（MySQL + MinIO + backend 容器）：
+   ```bash
+   docker compose up --build -d
+   ```
+3. 启动前端 dev server（会自动代理 `/api` 到 `http://localhost:8080`）：
+   ```bash
+   cd frontend
+   pnpm install
+   pnpm dev
+   ```
+4. 浏览器打开 `http://localhost:5173`，页面应显示"✅ 后端已连接"
+
+## 常用命令
+
+- 后端测试：`cd backend && mvn test`
+- 前端测试：`cd frontend && pnpm vitest run`
+- 停止所有容器：`docker compose down`
