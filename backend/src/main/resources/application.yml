@@ -4,3 +4,10 @@ server:
 spring:
   application:
     name: tuoguan-backend
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:tuoguan}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    username: ${DB_USERNAME:tuoguan}
+    password: ${DB_PASSWORD:tuoguan}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
