@@ -1,1 +1,15 @@
+# backend
+backend/target/
+backend/.mvn/
+!backend/.mvn/wrapper/
+
+# frontend
+frontend/node_modules/
+frontend/dist/
+
+# env
+.env
+
+# os
 .DS_Store
+*.log
