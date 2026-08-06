@@ -23,6 +23,19 @@
 - 前端测试：`cd frontend && pnpm vitest run`
 - 停止所有容器：`docker compose down`
 
+### 后端集成测试依赖 Docker（colima 用户需额外配置）
+
+后端集成测试（继承 `IntegrationTestBase` 的测试类）通过 Testcontainers 启动真实 MySQL 容器。若本地用 colima 而非 Docker Desktop 运行 Docker，较新版本的 Docker Engine（本项目环境为 29.5.2，API 1.54）已不再兼容 Testcontainers 默认使用的旧版 Docker API，需要在运行测试前设置以下环境变量（建议写入 shell 配置文件，一次性生效）：
+
+```bash
+export DOCKER_HOST=unix:///Users/<你的用户名>/.colima/default/docker.sock
+export DOCKER_API_VERSION=1.44
+export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
+export JAVA_TOOL_OPTIONS="-Dapi.version=1.44"
+```
+
+之后直接 `mvn test` 即可。四个变量缺一不可：`DOCKER_API_VERSION` 环境变量本身不够，docker-java 实际读取的是 `api.version` JVM 系统属性，因此需要通过 `JAVA_TOOL_OPTIONS` 传给 Maven fork 出的测试子进程；`TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE` 用于修正 Testcontainers 清理容器（Ryuk）挂载 socket 路径的问题（colima 的 socket 在宿主机和虚拟机内部路径不同）。Docker Desktop 用户通常不需要这些配置。
+
 ## 阶段1：账号体系与数据隔离
 
 后端新增基于 JWT 的登录鉴权，以及机构（Institution）/老师（Teacher）多租户数据隔离。
