@@ -1,7 +1,9 @@
 package com.tuoguan.backend.config;
 
+import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.security.JwtAuthenticationFilter;
 import com.tuoguan.backend.auth.security.JwtService;
+import com.tuoguan.backend.auth.security.MustChangePasswordFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -16,9 +18,11 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtService jwtService;
+    private final TeacherDao teacherDao;
 
-    public SecurityConfig(JwtService jwtService) {
+    public SecurityConfig(JwtService jwtService, TeacherDao teacherDao) {
         this.jwtService = jwtService;
+        this.teacherDao = teacherDao;
     }
 
     @Bean
@@ -30,7 +34,8 @@ public class SecurityConfig {
                         .anyRequest().authenticated())
                 .exceptionHandling(handling -> handling
                         .authenticationEntryPoint((req, res, ex) -> res.sendError(HttpStatus.UNAUTHORIZED.value())))
-                .addFilterBefore(new JwtAuthenticationFilter(jwtService), UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(new JwtAuthenticationFilter(jwtService), UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(new MustChangePasswordFilter(teacherDao), JwtAuthenticationFilter.class);
         return http.build();
     }
 }

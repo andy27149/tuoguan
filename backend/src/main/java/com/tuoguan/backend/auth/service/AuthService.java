@@ -28,4 +28,13 @@ public class AuthService {
         String token = jwtService.issueToken(teacher.id(), teacher.institutionId(), teacher.role());
         return new LoginResponse(token, teacher.mustChangePassword());
     }
+
+    public void changePassword(Long teacherId, String oldPassword, String newPassword) {
+        Teacher teacher = teacherDao.findById(teacherId)
+                .orElseThrow(() -> new IllegalStateException("Authenticated teacher not found: " + teacherId));
+        if (!passwordEncoder.matches(oldPassword, teacher.passwordHash())) {
+            throw new BadCredentialsException("Old password does not match");
+        }
+        teacherDao.updatePassword(teacherId, passwordEncoder.encode(newPassword));
+    }
 }
