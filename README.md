@@ -59,3 +59,30 @@ java -jar app.jar --seed --seed.institution="示例机构" --seed.phone="1380000
 - `POST /api/auth/login`：手机号+密码登录，成功返回 `{ "token": "<jwt>", "mustChangePassword": true }`；账号不存在或密码错误统一返回 `401`。
 - `POST /api/auth/change-password`：需携带 `Authorization: Bearer <token>`，请求体 `{ "oldPassword": "...", "newPassword": "..." }`，成功返回 `204`，旧密码错误返回 `401`。
 - `GET /api/teachers/me`：需携带 `Authorization: Bearer <token>`，返回当前登录老师自身信息 `{ "id": ..., "phone": "...", "institutionId": ..., "role": "..." }`；`institutionId`/`teacherId` 一律从 JWT 读取，不接受客户端传参。
+
+## 阶段2：任务库与学生名册
+
+新增机构内共享的任务模板库、托管班级只读接口，以及老师对自己班级学生的名册维护。
+
+### 创建班级：种子命令扩展
+
+班级（`class_room`）的创建仍需管理员完成，阶段 7 前通过种子命令的 `--seed-class` 参数手工创建，指定班级归属的老师手机号：
+
+```bash
+java -jar app.jar --seed-class --seed-class.teacherPhone="13800000000" --seed-class.name="三年级托管班"
+```
+
+老师必须已存在（手机号需先通过 `--seed`/管理员创建的账号登录过），班级的 `institutionId` 自动取自该老师所属机构。`--seed` 与 `--seed-class` 可在同一次启动中同时使用。
+
+### 阶段2新增接口
+
+以下接口均需携带 `Authorization: Bearer <token>`；`institutionId`/`teacherId` 一律从 JWT 读取，不接受客户端传参。
+
+- `POST /api/task-templates`：创建任务模板，机构内共享。请求体 `{ "subject": "数学", "name": "口算练习" }`，返回 `201`。
+- `GET /api/task-templates`：列出当前机构下的所有任务模板。
+- `DELETE /api/task-templates/{id}`：删除任务模板；模板不属于当前机构时返回 `404`。
+- `GET /api/classes`：列出当前老师名下的托管班级（`{ "id": ..., "name": ... }`）。
+- `POST /api/classes/{classId}/students`：在自己名下的班级中新增学生，请求体 `{ "name": "小明", "schoolClassName": "三年级2班" }`，默认在读状态为 `true`；班级不属于当前老师时返回 `404`。
+- `GET /api/classes/{classId}/students`：列出该班级学生名册；班级不属于当前老师时返回 `404`。
+- `PUT /api/students/{id}`：更新学生信息，请求体 `{ "name": ..., "schoolClassName": ..., "enrolled": ... }`；学生所在班级不属于当前老师时返回 `404`。
+- `DELETE /api/students/{id}`：删除学生；学生所在班级不属于当前老师时返回 `404`。
