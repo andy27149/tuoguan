@@ -41,4 +41,21 @@ class SeedCommandLineRunnerTest {
         assertThatThrownBy(() -> runner.run("--seed", "--seed.institution=测试机构", "--seed.phone=13800005099"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void parsesSeedClassArgumentsAndInvokesSeedService() throws Exception {
+        SeedCommandLineRunner runner = new SeedCommandLineRunner(seedService);
+
+        runner.run("--seed-class", "--seed-class.teacherPhone=13800005099", "--seed-class.name=三年级托管班");
+
+        verify(seedService).seedClass("13800005099", "三年级托管班");
+    }
+
+    @Test
+    void throwsWhenSeedClassArgumentIsMissing() {
+        SeedCommandLineRunner runner = new SeedCommandLineRunner(seedService);
+
+        assertThatThrownBy(() -> runner.run("--seed-class", "--seed-class.teacherPhone=13800005099"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }

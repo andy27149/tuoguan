@@ -16,13 +16,17 @@ public class SeedCommandLineRunner implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        if (Arrays.stream(args).noneMatch(arg -> arg.equals("--seed"))) {
-            return;
+        if (Arrays.stream(args).anyMatch(arg -> arg.equals("--seed"))) {
+            String institution = requireArg(args, "--seed.institution=");
+            String phone = requireArg(args, "--seed.phone=");
+            String password = requireArg(args, "--seed.password=");
+            seedService.seed(institution, phone, password);
         }
-        String institution = requireArg(args, "--seed.institution=");
-        String phone = requireArg(args, "--seed.phone=");
-        String password = requireArg(args, "--seed.password=");
-        seedService.seed(institution, phone, password);
+        if (Arrays.stream(args).anyMatch(arg -> arg.equals("--seed-class"))) {
+            String teacherPhone = requireArg(args, "--seed-class.teacherPhone=");
+            String className = requireArg(args, "--seed-class.name=");
+            seedService.seedClass(teacherPhone, className);
+        }
     }
 
     private String requireArg(String[] args, String prefix) {
