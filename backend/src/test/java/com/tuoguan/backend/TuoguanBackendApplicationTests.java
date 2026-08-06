@@ -1,10 +1,9 @@
 package com.tuoguan.backend;
 
+import com.tuoguan.backend.support.IntegrationTestBase;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
-class TuoguanBackendApplicationTests {
+class TuoguanBackendApplicationTests extends IntegrationTestBase {
 
     @Test
     void contextLoads() {

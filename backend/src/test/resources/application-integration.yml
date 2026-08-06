@@ -1,3 +1,3 @@
-spring:
-  autoconfigure:
-    exclude: []
+security:
+  jwt:
+    secret: test-application-integration-yml-jwt-secret-32b
