@@ -86,3 +86,22 @@ java -jar app.jar --seed-class --seed-class.teacherPhone="13800000000" --seed-cl
 - `GET /api/classes/{classId}/students`：列出该班级学生名册；班级不属于当前老师时返回 `404`。
 - `PUT /api/students/{id}`：更新学生信息，请求体 `{ "name": ..., "schoolClassName": ..., "enrolled": ... }`；学生所在班级不属于当前老师时返回 `404`。
 - `DELETE /api/students/{id}`：删除学生；学生所在班级不属于当前老师时返回 `404`。
+
+## 阶段3：看板核心：任务分配与完成
+
+每日任务（`daily_task`）保存的是任务名称/科目的**快照**，不引用任务模板的实时状态——模板后续被编辑或删除，不影响已下发的历史记录；`class_room_id` 同样是分配当时的快照，学生转班不会改变历史记录归属（对应 PRD 第九节两条建议默认值）。每日任务从空白开始，不带入前一天。
+
+### 阶段3新增接口
+
+以下接口均需携带 `Authorization: Bearer <token>`；`institutionId`/`teacherId` 一律从 JWT 读取，不接受客户端传参。
+
+- `POST /api/classes/{classId}/daily-tasks/batch`：从任务库批量分配任务给班级内**全部在读学生**。请求体 `{ "taskTemplateIds": [1, 2], "date": "2026-08-06" }`，返回 `201` 及创建的每日任务列表；`taskTemplateId` 不属于当前机构或班级不属于当前老师时返回 `404`。
+- `POST /api/students/{studentId}/daily-tasks`：给单个学生新增一项任务，可来自任务库（`{ "taskTemplateId": 1, "date": "..." }`）或直接定制（`{ "subject": "语文", "name": "阅读打卡", "date": "..." }`，返回的 `custom` 为 `true`）。**按学校班级批量同步**：系统会自动将同一项任务追加给同一托管班级内、`schoolClassName` 相同的其他在读学生，无需老师确认；接口只返回目标学生本人创建的那一条记录，同步出去的记录需通过班级任务列表接口查看。学生所在班级不属于当前老师时返回 `404`。
+- `GET /api/classes/{classId}/daily-tasks?date=YYYY-MM-DD`：列出该班级当天的全部每日任务（每条记录含 `studentId`）；班级不属于当前老师时返回 `404`。
+- `PATCH /api/daily-tasks/{id}`：打勾/取消打勾，请求体 `{ "completed": true }`；任务所在班级不属于当前老师时返回 `404`。
+- `DELETE /api/daily-tasks/{id}`：删除单条每日任务（用于老师撤销某个学生身上被自动同步的任务，不影响其他学生）；任务所在班级不属于当前老师时返回 `404`。
+- `POST /api/classes/{classId}/dismissal`：将班级标记为当天已放学，请求体 `{ "date": "2026-08-06" }`，返回 `204`；仅影响当前托管班级。
+- `DELETE /api/classes/{classId}/dismissal?date=YYYY-MM-DD`：撤销放学状态，返回 `204`。
+- `GET /api/classes/{classId}/dismissal?date=YYYY-MM-DD`：查询放学状态，返回 `{ "dismissed": true }`。
+
+卡片颜色规则（优先级从高到低，由前端依据上述接口返回的数据计算，后端不单独下发颜色字段）：绿色+完成印章（当天全部任务已完成）> 红色（班级已放学且该生仍有未完成任务）> 默认色（其余情况）。
