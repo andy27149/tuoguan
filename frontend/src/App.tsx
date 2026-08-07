@@ -1,21 +1,32 @@
-import { useEffect, useState } from 'react'
-import { fetchHealth, type HealthStatus } from './api/health'
+import { AuthProvider, useAuth } from './auth/AuthContext'
+import { LoginPage } from './pages/LoginPage'
+import { ChangePasswordPage } from './pages/ChangePasswordPage'
+import { KanbanPage } from './pages/KanbanPage'
+
+function AppShell() {
+  const { state } = useAuth()
+
+  switch (state.status) {
+    case 'loading':
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-gray-50">
+          <p className="text-gray-400">加载中...</p>
+        </div>
+      )
+    case 'anonymous':
+      return <LoginPage />
+    case 'mustChangePassword':
+      return <ChangePasswordPage />
+    case 'authenticated':
+      return <KanbanPage />
+  }
+}
 
 function App() {
-  const [status, setStatus] = useState<HealthStatus | 'checking'>('checking')
-
-  useEffect(() => {
-    fetchHealth().then(setStatus)
-  }, [])
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <p className="text-lg font-medium" data-testid="health-status">
-        {status === 'checking' && '正在连接后端...'}
-        {status === 'connected' && '✅ 后端已连接'}
-        {status === 'disconnected' && '❌ 后端未连接'}
-      </p>
-    </div>
+    <AuthProvider>
+      <AppShell />
+    </AuthProvider>
   )
 }
 
