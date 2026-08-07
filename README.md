@@ -15,7 +15,7 @@
    pnpm install
    pnpm dev
    ```
-4. 浏览器打开 `http://localhost:5173`，页面应显示"✅ 后端已连接"
+4. 浏览器打开 `http://localhost:5173`，未登录时会看到登录页；用种子命令创建的账号登录后，首次登录会强制跳转到修改密码页，之后进入看板
 
 ## 常用命令
 
@@ -105,3 +105,12 @@ java -jar app.jar --seed-class --seed-class.teacherPhone="13800000000" --seed-cl
 - `GET /api/classes/{classId}/dismissal?date=YYYY-MM-DD`：查询放学状态，返回 `{ "dismissed": true }`。
 
 卡片颜色规则（优先级从高到低，由前端依据上述接口返回的数据计算，后端不单独下发颜色字段）：绿色+完成印章（当天全部任务已完成）> 红色（班级已放学且该生仍有未完成任务）> 默认色（其余情况）。
+
+## 阶段1-3 前端：登录与看板
+
+前端（`frontend/`）已实现阶段1-3全部功能对应的界面，不使用路由库或全局状态库——认证状态是简单的 `loading/anonymous/mustChangePassword/authenticated` 联合类型，班级 Tab 切换是页面内 `useState`。
+
+- 登录页 → 强制改密页（`mustChangePassword=true` 时）→ 看板页，JWT 存于 `localStorage`（key: `tuoguan_token`），由 `apiFetch` 统一附加 `Authorization` 头。
+- 看板页：顶部班级 Tab 切换；"批量分配给全班"从任务库多选后一次性下发给全班在读学生；每个学生卡片可从任务库选择或定制任务、勾选完成、删除单条任务；"放学/撤销放学"按钮切换班级放学状态。
+- 前端对"按学校班级批量同步"新增任务的处理：由于后端接口只返回目标学生本人创建的记录，同步出去的记录需要通过班级任务列表接口获取，因此新增任务后前端会整体重新拉取当天任务列表，而不是尝试合并接口返回的局部结果；勾选完成/删除单条任务是单行操作，使用乐观更新+失败回滚，不触发整体重新拉取。
+- 卡片颜色计算逻辑独立为纯函数 `frontend/src/kanban/cardStatus.ts`（`computeCardStatus`），并配有独立单元测试，避免颜色优先级规则被埋没在组件渲染逻辑里而难以覆盖测试。
