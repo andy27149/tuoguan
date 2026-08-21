@@ -58,11 +58,11 @@ class DailyTaskControllerTest extends IntegrationTestBase {
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900005001",
                 passwordEncoder.encode("password"), Role.TEACHER, false, null));
         Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管班", null));
-        studentDao.insert(new Student(null, institutionId, classRoomId, "小明", "三年级2班", true, null));
-        studentDao.insert(new Student(null, institutionId, classRoomId, "小红", "三年级3班", true, null));
+        studentDao.insert(new Student(null, institutionId, classRoomId, "小明", "三年级2班", true, null, null));
+        studentDao.insert(new Student(null, institutionId, classRoomId, "小红", "三年级3班", true, null, null));
         Long droppedId = studentDao.insert(new Student(null, institutionId, classRoomId, "小刚", "四年级1班",
-                true, null));
-        studentDao.update(new Student(droppedId, institutionId, classRoomId, "小刚", "四年级1班", false, null));
+                true, null, null));
+        studentDao.update(new Student(droppedId, institutionId, classRoomId, "小刚", "四年级1班", false, null, null));
         Long templateId = taskTemplateDao.insert(new TaskTemplate(null, institutionId, "数学", "口算练习", null));
         String token = login("13900005001", "password");
 
@@ -90,10 +90,10 @@ class DailyTaskControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("password"), Role.TEACHER, false, null));
         Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管班", null));
         Long studentAId = studentDao.insert(new Student(null, institutionId, classRoomId, "小明", "三年级2班",
-                true, null));
+                true, null, null));
         Long studentBId = studentDao.insert(new Student(null, institutionId, classRoomId, "小红", "三年级2班",
-                true, null));
-        studentDao.insert(new Student(null, institutionId, classRoomId, "小刚", "四年级1班", true, null));
+                true, null, null));
+        studentDao.insert(new Student(null, institutionId, classRoomId, "小刚", "四年级1班", true, null, null));
         String token = login("13900005002", "password");
 
         mockMvc.perform(post("/api/students/" + studentAId + "/daily-tasks")
@@ -133,7 +133,7 @@ class DailyTaskControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("password"), Role.TEACHER, false, null));
         Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管班", null));
         Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小明", "三年级2班",
-                true, null));
+                true, null, null));
         String token = login("13900005003", "password");
 
         MvcResult createResult = mockMvc.perform(post("/api/students/" + studentId + "/daily-tasks")
@@ -179,7 +179,7 @@ class DailyTaskControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("password-b"), Role.TEACHER, false, null));
         Long classRoomAId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherAId, "A班", null));
         Long studentAId = studentDao.insert(new Student(null, institutionId, classRoomAId, "小明", "三年级2班",
-                true, null));
+                true, null, null));
         Long templateId = taskTemplateDao.insert(new TaskTemplate(null, institutionId, "数学", "口算练习", null));
 
         String tokenA = login("13900005005", "password-a");

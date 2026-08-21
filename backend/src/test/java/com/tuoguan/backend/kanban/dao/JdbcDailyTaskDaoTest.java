@@ -41,7 +41,7 @@ class JdbcDailyTaskDaoTest extends IntegrationTestBase {
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, phone, "hash",
                 Role.TEACHER, false, null));
         Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管班", null));
-        return studentDao.insert(new Student(null, institutionId, classRoomId, "小明", "三年级2班", true, null));
+        return studentDao.insert(new Student(null, institutionId, classRoomId, "小明", "三年级2班", true, null, null));
     }
 
     @Test

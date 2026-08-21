@@ -39,3 +39,18 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   }
   return (await res.json()) as T
 }
+
+export async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
+  const headers = new Headers()
+  const token = getToken()
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`)
+  }
+
+  const res = await fetch(`/api${path}`, { method: 'POST', headers, body: formData })
+
+  if (!res.ok) {
+    throw new ApiError(res.status, `请求失败（${res.status}）`)
+  }
+  return (await res.json()) as T
+}

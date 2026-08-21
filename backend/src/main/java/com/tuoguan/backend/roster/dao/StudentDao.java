@@ -15,5 +15,7 @@ public interface StudentDao {
 
     void update(Student student);
 
+    void updateAvatarObjectKey(Long id, String avatarObjectKey);
+
     void deleteById(Long id);
 }

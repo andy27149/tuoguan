@@ -97,6 +97,11 @@ export function KanbanPage() {
     }
   }
 
+  async function handleUploadAvatar(studentId: number, file: File) {
+    const updated = await studentsApi.uploadAvatar(studentId, file)
+    setStudents((prev) => prev.map((s) => (s.id === studentId ? updated : s)))
+  }
+
   async function handleDeleteTask(taskId: number) {
     const previous = tasks
     setTasks((prev) => prev.filter((t) => t.id !== taskId))
@@ -184,6 +189,7 @@ export function KanbanPage() {
                   onDeleteTask={handleDeleteTask}
                   onAddFromTemplate={handleAddFromTemplate}
                   onAddCustom={handleAddCustom}
+                  onUploadAvatar={handleUploadAvatar}
                 />
               ))}
               {students.length === 0 && <p className="text-sm text-gray-400">该班级暂无在读学生</p>}

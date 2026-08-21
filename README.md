@@ -114,3 +114,27 @@ java -jar app.jar --seed-class --seed-class.teacherPhone="13800000000" --seed-cl
 - 看板页：顶部班级 Tab 切换；"批量分配给全班"从任务库多选后一次性下发给全班在读学生；每个学生卡片可从任务库选择或定制任务、勾选完成、删除单条任务；"放学/撤销放学"按钮切换班级放学状态。
 - 前端对"按学校班级批量同步"新增任务的处理：由于后端接口只返回目标学生本人创建的记录，同步出去的记录需要通过班级任务列表接口获取，因此新增任务后前端会整体重新拉取当天任务列表，而不是尝试合并接口返回的局部结果；勾选完成/删除单条任务是单行操作，使用乐观更新+失败回滚，不触发整体重新拉取。
 - 卡片颜色计算逻辑独立为纯函数 `frontend/src/kanban/cardStatus.ts`（`computeCardStatus`），并配有独立单元测试，避免颜色优先级规则被埋没在组件渲染逻辑里而难以覆盖测试。
+
+## 阶段4：学生头像
+
+头像存储于 MinIO（私有桶），仅登录老师可上传/查看，不开放学生/家长自行上传入口（对应 PRD 第6.5节的隐私要求）。上传经后端中转（前端 → 后端 → MinIO），桶本身保持全私有，读取一律通过后端签发的 1 小时有效期预签名 URL。
+
+### MinIO 环境变量
+
+```bash
+MINIO_ENDPOINT=http://localhost:9000
+MINIO_ACCESS_KEY=<对应 MINIO_ROOT_USER>
+MINIO_SECRET_KEY=<对应 MINIO_ROOT_PASSWORD>
+MINIO_BUCKET=avatars
+```
+
+`docker compose up` 已自动完成上述变量的传递（`MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD` 来自 `.env`）；桶不存在时后端启动会自动创建。
+
+### 阶段4新增接口
+
+- `POST /api/students/{id}/avatar`：需携带 `Authorization: Bearer <token>`，`multipart/form-data` 请求，字段名 `file`；仅接受 `image/jpeg`/`image/png`/`image/webp`，其他类型返回 `400`；单文件大小上限 5MB（超限由 Spring 自动返回 `400`）。学生不属于当前老师时返回 `404`。上传成功后旧头像对象会从 MinIO 删除，返回更新后的学生信息（含新的预签名 `avatarUrl`）。
+- 学生相关接口（`GET /api/classes/{classId}/students` 等）返回体新增 `avatarUrl` 字段（`string | null`），未上传过头像时为 `null`。
+
+### 前端交互
+
+学生卡片左侧头像为可点击按钮（未上传时显示姓名首字），点击后调起系统拍照/相册选择（`<input type="file" accept="image/jpeg,image/png,image/webp">`），选择文件后立即上传并原地替换头像，无需额外确认步骤。

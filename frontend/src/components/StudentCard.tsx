@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { Student } from '../api/students'
 import type { DailyTask } from '../api/dailyTasks'
 import type { TaskTemplate } from '../api/taskTemplates'
@@ -14,6 +14,7 @@ interface StudentCardProps {
   onDeleteTask: (taskId: number) => void
   onAddFromTemplate: (studentId: number, templateId: number) => Promise<void>
   onAddCustom: (studentId: number, subject: string, name: string) => Promise<void>
+  onUploadAvatar: (studentId: number, file: File) => Promise<void>
 }
 
 const STATUS_STYLES = {
@@ -31,9 +32,24 @@ export function StudentCard({
   onDeleteTask,
   onAddFromTemplate,
   onAddCustom,
+  onUploadAvatar,
 }: StudentCardProps) {
   const [adding, setAdding] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const status = computeCardStatus(tasks, dismissed)
+
+  async function handleAvatarFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setUploading(true)
+    try {
+      await onUploadAvatar(student.id, file)
+    } finally {
+      setUploading(false)
+    }
+  }
 
   return (
     <div
@@ -47,9 +63,26 @@ export function StudentCard({
       )}
 
       <div className="flex items-center gap-2">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-300 text-sm font-medium text-gray-700">
-          {student.name.slice(0, 1)}
-        </div>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          aria-label={`上传${student.name}的头像`}
+          disabled={uploading}
+          className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-300 text-sm font-medium text-gray-700 disabled:opacity-50"
+        >
+          {student.avatarUrl ? (
+            <img src={student.avatarUrl} alt={student.name} className="h-full w-full object-cover" />
+          ) : (
+            student.name.slice(0, 1)
+          )}
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={handleAvatarFileChange}
+        />
         <div>
           <p className="font-medium">{student.name}</p>
           <p className="text-xs text-gray-500">{student.schoolClassName}</p>

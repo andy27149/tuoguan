@@ -40,7 +40,7 @@ class JdbcStudentDaoTest extends IntegrationTestBase {
     void insertAndFindByIdRoundTrips() {
         Long classRoomId = createClassRoom("学生测试机构A", "13900002001");
         Long institutionId = classRoomDao.findById(classRoomId).orElseThrow().institutionId();
-        Student student = new Student(null, institutionId, classRoomId, "小明", "三年级2班", true, null);
+        Student student = new Student(null, institutionId, classRoomId, "小明", "三年级2班", true, null, null);
 
         Long id = studentDao.insert(student);
 
@@ -57,8 +57,8 @@ class JdbcStudentDaoTest extends IntegrationTestBase {
         Long classRoomBId = createClassRoom("学生测试机构C", "13900002003");
         Long institutionAId = classRoomDao.findById(classRoomAId).orElseThrow().institutionId();
         Long institutionBId = classRoomDao.findById(classRoomBId).orElseThrow().institutionId();
-        studentDao.insert(new Student(null, institutionAId, classRoomAId, "小红", "四年级1班", true, null));
-        studentDao.insert(new Student(null, institutionBId, classRoomBId, "小刚", "五年级1班", true, null));
+        studentDao.insert(new Student(null, institutionAId, classRoomAId, "小红", "四年级1班", true, null, null));
+        studentDao.insert(new Student(null, institutionBId, classRoomBId, "小刚", "五年级1班", true, null, null));
 
         List<Student> found = studentDao.findAllByClassRoomId(classRoomAId);
 
@@ -70,11 +70,11 @@ class JdbcStudentDaoTest extends IntegrationTestBase {
     void updateChangesNameSchoolClassAndEnrollment() {
         Long classRoomId = createClassRoom("学生测试机构D", "13900002004");
         Long institutionId = classRoomDao.findById(classRoomId).orElseThrow().institutionId();
-        Long id = studentDao.insert(new Student(null, institutionId, classRoomId, "小李", "六年级1班", true, null));
+        Long id = studentDao.insert(new Student(null, institutionId, classRoomId, "小李", "六年级1班", true, null, null));
         Student existing = studentDao.findById(id).orElseThrow();
 
         studentDao.update(new Student(existing.id(), existing.institutionId(), existing.classRoomId(),
-                "小李四", "六年级2班", false, existing.createdAt()));
+                "小李四", "六年级2班", false, existing.avatarObjectKey(), existing.createdAt()));
 
         Student updated = studentDao.findById(id).orElseThrow();
         assertThat(updated.name()).isEqualTo("小李四");
@@ -86,7 +86,7 @@ class JdbcStudentDaoTest extends IntegrationTestBase {
     void deleteByIdRemovesStudent() {
         Long classRoomId = createClassRoom("学生测试机构E", "13900002005");
         Long institutionId = classRoomDao.findById(classRoomId).orElseThrow().institutionId();
-        Long id = studentDao.insert(new Student(null, institutionId, classRoomId, "小王", "一年级1班", true, null));
+        Long id = studentDao.insert(new Student(null, institutionId, classRoomId, "小王", "一年级1班", true, null, null));
 
         studentDao.deleteById(id);
 

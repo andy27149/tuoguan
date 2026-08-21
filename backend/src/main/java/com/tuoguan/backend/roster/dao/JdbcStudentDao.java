@@ -22,6 +22,7 @@ public class JdbcStudentDao implements StudentDao {
             rs.getString("name"),
             rs.getString("school_class_name"),
             rs.getBoolean("enrolled"),
+            rs.getString("avatar_object_key"),
             rs.getTimestamp("created_at").toInstant());
 
     private final JdbcTemplate jdbcTemplate;
@@ -51,7 +52,7 @@ public class JdbcStudentDao implements StudentDao {
     @Override
     public Optional<Student> findById(Long id) {
         List<Student> results = jdbcTemplate.query(
-                "SELECT id, institution_id, class_room_id, name, school_class_name, enrolled, created_at "
+                "SELECT id, institution_id, class_room_id, name, school_class_name, enrolled, avatar_object_key, created_at "
                         + "FROM student WHERE id = ?",
                 ROW_MAPPER, id);
         return results.stream().findFirst();
@@ -60,7 +61,7 @@ public class JdbcStudentDao implements StudentDao {
     @Override
     public List<Student> findAllByClassRoomId(Long classRoomId) {
         return jdbcTemplate.query(
-                "SELECT id, institution_id, class_room_id, name, school_class_name, enrolled, created_at "
+                "SELECT id, institution_id, class_room_id, name, school_class_name, enrolled, avatar_object_key, created_at "
                         + "FROM student WHERE class_room_id = ? ORDER BY id",
                 ROW_MAPPER, classRoomId);
     }
@@ -70,6 +71,11 @@ public class JdbcStudentDao implements StudentDao {
         jdbcTemplate.update(
                 "UPDATE student SET name = ?, school_class_name = ?, enrolled = ? WHERE id = ?",
                 student.name(), student.schoolClassName(), student.enrolled(), student.id());
+    }
+
+    @Override
+    public void updateAvatarObjectKey(Long id, String avatarObjectKey) {
+        jdbcTemplate.update("UPDATE student SET avatar_object_key = ? WHERE id = ?", avatarObjectKey, id);
     }
 
     @Override
