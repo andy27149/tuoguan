@@ -10,8 +10,8 @@ export function fetchTaskTemplates(): Promise<TaskTemplate[]> {
   return apiFetch<TaskTemplate[]>('/task-templates')
 }
 
-export function createTaskTemplate(subject: string, name: string): Promise<void> {
-  return apiFetch<void>('/task-templates', {
+export function createTaskTemplate(subject: string, name: string): Promise<TaskTemplate> {
+  return apiFetch<TaskTemplate>('/task-templates', {
     method: 'POST',
     body: JSON.stringify({ subject, name }),
   })

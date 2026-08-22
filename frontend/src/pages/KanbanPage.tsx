@@ -9,6 +9,7 @@ import { todayDateString } from '../kanban/date'
 import { StudentCard } from '../components/StudentCard'
 import { AssignTaskBar } from '../components/AssignTaskBar'
 import { DismissButton } from '../components/DismissButton'
+import { TaskTemplateManager } from '../components/TaskTemplateManager'
 import { useAuth } from '../auth/AuthContext'
 
 const date = todayDateString()
@@ -70,6 +71,16 @@ export function KanbanPage() {
     if (activeClassId === null) return
     const taskList = await dailyTasksApi.listForClass(activeClassId, date)
     setTasks(taskList)
+  }
+
+  async function handleCreateTemplate(subject: string, name: string) {
+    const created = await templatesApi.createTaskTemplate(subject, name)
+    setTemplates((prev) => [...prev, created])
+  }
+
+  async function handleDeleteTemplate(id: number) {
+    await templatesApi.deleteTaskTemplate(id)
+    setTemplates((prev) => prev.filter((t) => t.id !== id))
   }
 
   async function handleBatchAssign(templateIds: number[]) {
@@ -174,6 +185,12 @@ export function KanbanPage() {
               <p className="text-sm text-gray-500">{date}</p>
               <DismissButton dismissed={dismissed} onDismiss={handleDismiss} onUndoDismiss={handleUndoDismiss} />
             </div>
+
+            <TaskTemplateManager
+              templates={templates}
+              onCreate={handleCreateTemplate}
+              onDelete={handleDeleteTemplate}
+            />
 
             <AssignTaskBar templates={templates} onAssign={handleBatchAssign} />
 
