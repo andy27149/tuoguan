@@ -82,6 +82,15 @@ public class JdbcDailyTaskDao implements DailyTaskDao {
     }
 
     @Override
+    public List<DailyTask> findAllByStudentIdAndDateRange(Long studentId, LocalDate start, LocalDate end) {
+        return jdbcTemplate.query(
+                "SELECT id, institution_id, class_room_id, student_id, task_date, task_template_id, subject, "
+                        + "name, is_custom, completed, created_at FROM daily_task "
+                        + "WHERE student_id = ? AND task_date BETWEEN ? AND ? ORDER BY task_date",
+                ROW_MAPPER, studentId, java.sql.Date.valueOf(start), java.sql.Date.valueOf(end));
+    }
+
+    @Override
     public void updateCompleted(Long id, boolean completed) {
         jdbcTemplate.update("UPDATE daily_task SET completed = ? WHERE id = ?", completed, id);
     }

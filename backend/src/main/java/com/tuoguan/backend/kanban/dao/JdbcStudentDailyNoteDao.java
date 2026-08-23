@@ -37,6 +37,15 @@ public class JdbcStudentDailyNoteDao implements StudentDailyNoteDao {
     }
 
     @Override
+    public List<StudentDailyNote> findAllByStudentIdAndDateRange(Long studentId, LocalDate start, LocalDate end) {
+        return jdbcTemplate.query(
+                "SELECT id, institution_id, class_room_id, student_id, note_date, rating, comment, created_at, "
+                        + "updated_at FROM student_daily_note WHERE student_id = ? AND note_date BETWEEN ? AND ? "
+                        + "ORDER BY note_date",
+                ROW_MAPPER, studentId, java.sql.Date.valueOf(start), java.sql.Date.valueOf(end));
+    }
+
+    @Override
     public void upsertRating(Long institutionId, Long classRoomId, Long studentId, LocalDate date, int rating) {
         jdbcTemplate.update(
                 "INSERT INTO student_daily_note (institution_id, class_room_id, student_id, note_date, rating, "
