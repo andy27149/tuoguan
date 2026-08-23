@@ -24,7 +24,11 @@ interface StudentNote {
 
 const EMPTY_NOTE: StudentNote = { rating: 0, comment: '' }
 
-export function KanbanPage() {
+interface KanbanPageProps {
+  onOpenRoster: () => void
+}
+
+export function KanbanPage({ onOpenRoster }: KanbanPageProps) {
   const { logout } = useAuth()
   const [classes, setClasses] = useState<classesApi.ClassRoom[]>([])
   const [activeClassId, setActiveClassId] = useState<number | null>(null)
@@ -194,7 +198,10 @@ export function KanbanPage() {
   if (!loading && classes.length === 0) {
     return (
       <div className="no-class-screen">
-        <p>暂无托管班级，请联系机构管理员创建</p>
+        <p>暂无托管班级</p>
+        <button type="button" onClick={onOpenRoster} className="logout-btn">
+          前往学生管理创建托管班
+        </button>
       </div>
     )
   }
@@ -241,9 +248,14 @@ export function KanbanPage() {
       <header className="app-header">
         <div className="app-header__top">
           <h1 className="app-header__title">托管班看板</h1>
-          <button type="button" onClick={logout} className="logout-btn">
-            退出登录
-          </button>
+          <div className="flex gap-2">
+            <button type="button" onClick={onOpenRoster} className="logout-btn">
+              学生管理
+            </button>
+            <button type="button" onClick={logout} className="logout-btn">
+              退出登录
+            </button>
+          </div>
         </div>
         <div className="class-tabs" role="tablist">
           {classes.map((c) => (

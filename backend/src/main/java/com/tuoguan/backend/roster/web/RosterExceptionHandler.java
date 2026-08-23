@@ -19,6 +19,11 @@ public class RosterExceptionHandler {
     public void handleInvalidAvatar() {
     }
 
+    @ExceptionHandler(DuplicateClassNameException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public void handleDuplicateClassName() {
+    }
+
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public void handleMaxUploadSizeExceeded() {
