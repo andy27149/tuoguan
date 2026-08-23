@@ -58,4 +58,12 @@ public class JdbcClassRoomDao implements ClassRoomDao {
                         + "WHERE teacher_id = ? ORDER BY id",
                 ROW_MAPPER, teacherId);
     }
+
+    @Override
+    public List<ClassRoom> findAllByInstitutionId(Long institutionId) {
+        return jdbcTemplate.query(
+                "SELECT id, institution_id, teacher_id, name, created_at FROM class_room "
+                        + "WHERE institution_id = ? ORDER BY id",
+                ROW_MAPPER, institutionId);
+    }
 }

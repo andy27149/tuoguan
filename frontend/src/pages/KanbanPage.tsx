@@ -26,10 +26,12 @@ const EMPTY_NOTE: StudentNote = { rating: 0, comment: '' }
 
 interface KanbanPageProps {
   onOpenRoster: () => void
+  onOpenAdmin?: () => void
 }
 
-export function KanbanPage({ onOpenRoster }: KanbanPageProps) {
-  const { logout } = useAuth()
+export function KanbanPage({ onOpenRoster, onOpenAdmin }: KanbanPageProps) {
+  const { logout, state } = useAuth()
+  const isAdmin = state.status === 'authenticated' && state.teacher.role === 'ADMIN'
   const [classes, setClasses] = useState<classesApi.ClassRoom[]>([])
   const [activeClassId, setActiveClassId] = useState<number | null>(null)
   const [students, setStudents] = useState<studentsApi.Student[]>([])
@@ -252,6 +254,11 @@ export function KanbanPage({ onOpenRoster }: KanbanPageProps) {
             <button type="button" onClick={onOpenRoster} className="logout-btn">
               学生管理
             </button>
+            {isAdmin && onOpenAdmin && (
+              <button type="button" onClick={onOpenAdmin} className="logout-btn">
+                机构管理
+              </button>
+            )}
             <button type="button" onClick={logout} className="logout-btn">
               退出登录
             </button>

@@ -68,6 +68,14 @@ public class JdbcTeacherDao implements TeacherDao {
     }
 
     @Override
+    public List<Teacher> findAllByInstitutionId(Long institutionId) {
+        return jdbcTemplate.query(
+                "SELECT id, institution_id, phone, password_hash, role, must_change_password, created_at "
+                        + "FROM teacher WHERE institution_id = ? ORDER BY id",
+                ROW_MAPPER, institutionId);
+    }
+
+    @Override
     public void updatePassword(Long teacherId, String newPasswordHash) {
         jdbcTemplate.update(
                 "UPDATE teacher SET password_hash = ?, must_change_password = FALSE WHERE id = ?",
