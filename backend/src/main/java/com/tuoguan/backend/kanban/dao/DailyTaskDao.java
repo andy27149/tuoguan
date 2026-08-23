@@ -14,6 +14,8 @@ public interface DailyTaskDao {
 
     List<DailyTask> findAllByClassRoomIdAndDate(Long classRoomId, LocalDate date);
 
+    List<DailyTask> findAllByStudentIdAndDateRange(Long studentId, LocalDate start, LocalDate end);
+
     void updateCompleted(Long id, boolean completed);
 
     void deleteById(Long id);

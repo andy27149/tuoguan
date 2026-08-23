@@ -7,6 +7,7 @@ import { subjectColor, subjectIconMarkup } from '../kanban/subjectIcons'
 import { AddTaskForm } from './AddTaskForm'
 import { StarRating } from './StarRating'
 import { SharePosterModal } from './SharePosterModal'
+import { MonthlyStatsModal } from './MonthlyStatsModal'
 
 interface StudentCardProps {
   student: Student
@@ -96,6 +97,7 @@ export function StudentCard({
   const [adding, setAdding] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [sharing, setSharing] = useState(false)
+  const [showingStats, setShowingStats] = useState(false)
   const [justCompleted, setJustCompleted] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const status = computeCardStatus(tasks, dismissed)
@@ -221,6 +223,10 @@ export function StudentCard({
         分享给家长
       </button>
 
+      <button type="button" className="share-btn" onClick={() => setShowingStats(true)}>
+        月度统计
+      </button>
+
       {sharing && (
         <SharePosterModal
           student={student}
@@ -232,6 +238,14 @@ export function StudentCard({
           onCommentChange={(value) => onSetComment(student.id, value)}
           onClose={() => setSharing(false)}
           onShowToast={onShowToast}
+        />
+      )}
+
+      {showingStats && (
+        <MonthlyStatsModal
+          studentId={student.id}
+          studentName={student.name}
+          onClose={() => setShowingStats(false)}
         />
       )}
     </div>
