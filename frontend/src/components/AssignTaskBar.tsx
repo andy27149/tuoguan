@@ -1,14 +1,31 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { TaskTemplate } from '../api/taskTemplates'
+import type { SchoolClassGroup } from '../kanban/schoolClass'
 
 interface AssignTaskBarProps {
+  studentsBySchoolClass: SchoolClassGroup[]
   templates: TaskTemplate[]
-  onAssign: (templateIds: number[]) => Promise<void>
+  onAssign: (schoolClassName: string, templateIds: number[]) => Promise<void>
 }
 
-export function AssignTaskBar({ templates, onAssign }: AssignTaskBarProps) {
+export function AssignTaskBar({ studentsBySchoolClass, templates, onAssign }: AssignTaskBarProps) {
+  const [target, setTarget] = useState<string | null>(studentsBySchoolClass[0]?.schoolClassName ?? null)
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!studentsBySchoolClass.some((g) => g.schoolClassName === target)) {
+      setTarget(studentsBySchoolClass[0]?.schoolClassName ?? null)
+      setSelected(new Set())
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studentsBySchoolClass])
+
+  function selectTarget(name: string) {
+    if (name === target) return
+    setTarget(name)
+    setSelected(new Set())
+  }
 
   function toggle(id: number) {
     setSelected((prev) => {
@@ -23,48 +40,67 @@ export function AssignTaskBar({ templates, onAssign }: AssignTaskBarProps) {
   }
 
   async function handleAssign() {
-    if (selected.size === 0) return
+    if (selected.size === 0 || !target) return
     setSubmitting(true)
     try {
-      await onAssign([...selected])
+      await onAssign(target, [...selected])
       setSelected(new Set())
     } finally {
       setSubmitting(false)
     }
   }
 
+  const targetGroup = studentsBySchoolClass.find((g) => g.schoolClassName === target)
+  const targetCount = targetGroup?.students.length ?? 0
+  const multiGroup = studentsBySchoolClass.length > 1
+
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-3">
-      <p className="mb-2 text-sm font-medium text-gray-700">从任务库批量分配给全班</p>
-      {templates.length === 0 ? (
-        <p className="text-xs text-gray-400">任务库为空，请先在任务库中添加模板</p>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          {templates.map((t) => (
-            <label
-              key={t.id}
-              className={`cursor-pointer rounded border px-2 py-1 text-sm ${
-                selected.has(t.id) ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200'
-              }`}
+    <div className="panel">
+      <p style={{ margin: '0 0 8px', fontSize: '14px', fontWeight: 600 }}>从任务库批量分配任务</p>
+
+      {multiGroup ? (
+        <div className="assign-target-tabs" role="tablist" aria-label="分配对象">
+          {studentsBySchoolClass.map((g) => (
+            <button
+              key={g.schoolClassName}
+              type="button"
+              role="tab"
+              aria-selected={g.schoolClassName === target}
+              className="assign-target-tab"
+              onClick={() => selectTarget(g.schoolClassName)}
             >
-              <input
-                type="checkbox"
-                className="mr-1"
-                checked={selected.has(t.id)}
-                onChange={() => toggle(t.id)}
-              />
-              [{t.subject}] {t.name}
+              {g.schoolClassName}（{g.students.length}人）
+            </button>
+          ))}
+        </div>
+      ) : (
+        target && (
+          <p className="assign-target-hint">
+            分配对象：{target}（{targetCount}人）
+          </p>
+        )
+      )}
+
+      {templates.length === 0 ? (
+        <p className="templates-empty">任务库为空，请先在任务库中添加模板</p>
+      ) : (
+        <div className="assign-templates">
+          {templates.map((t) => (
+            <label key={t.id} className="assign-check">
+              <input type="checkbox" checked={selected.has(t.id)} onChange={() => toggle(t.id)} />[
+              {t.subject}] {t.name}
             </label>
           ))}
         </div>
       )}
+
       <button
         type="button"
         onClick={handleAssign}
-        disabled={submitting || selected.size === 0}
-        className="mt-2 rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+        disabled={submitting || selected.size === 0 || !target}
+        className="btn-primary"
       >
-        批量分配给全班（{selected.size}）
+        批量分配给{target ?? ''}（{selected.size}）
       </button>
     </div>
   )

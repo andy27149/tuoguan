@@ -13,3 +13,6 @@ frontend/dist/
 # os
 .DS_Store
 *.log
+
+# tooling
+.playwright-mcp/

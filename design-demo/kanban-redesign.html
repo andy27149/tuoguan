@@ -1,0 +1,1879 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>托管班看板 · 重设计 demo</title>
+<style>
+  :root {
+    --canvas: #F4F6FB;
+    --bg-blob-blue: #DCEAFF;
+    --bg-blob-purple: #ECE3FF;
+    --bg-blob-pink: #FFE3ED;
+    --ink: #1D1D1F;
+    --ink-mid: #48484A;
+    --ink-soft: #6E6E73;
+    --ink-faint: #AEAEB4;
+    --glass: rgba(255, 255, 255, 0.62);
+    --glass-strong: rgba(255, 255, 255, 0.78);
+    --glass-border: rgba(255, 255, 255, 0.85);
+    --glass-shadow: rgba(31, 41, 68, 0.10);
+    --accent-1: #4F86F7;
+    --accent-2: #9B6BFF;
+    --accent-gradient: linear-gradient(135deg, #4F86F7, #9B6BFF);
+    --medal-1: #FFD65A;
+    --medal-2: #FF9142;
+    --medal-gradient: linear-gradient(135deg, var(--medal-1), var(--medal-2));
+    --warn: #FF9500;
+    --danger: #D70015;
+    --danger-bg: rgba(255, 59, 48, 0.12);
+    --subj-math: #4F86F7;
+    --subj-chinese: #B45CFF;
+    --subj-english: #24C1C7;
+    --subj-default: #8E8E93;
+    --card-radius: 22px;
+    --radius-pill: 999px;
+    --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Rounded", "PingFang SC", "Helvetica Neue", sans-serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", "Segoe UI", sans-serif;
+    --font-mono: "SF Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    min-height: 100vh;
+    background-image:
+      radial-gradient(640px 520px at 6% -8%, var(--bg-blob-blue), transparent 60%),
+      radial-gradient(580px 480px at 102% 2%, var(--bg-blob-purple), transparent 58%),
+      radial-gradient(620px 540px at 30% 108%, var(--bg-blob-pink), transparent 58%),
+      radial-gradient(520px 480px at 100% 92%, var(--bg-blob-blue), transparent 55%);
+    background-attachment: fixed;
+    padding-bottom: 48px;
+  }
+
+  button {
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  input, select {
+    font-family: inherit;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent-1);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* ---------- header ---------- */
+
+  .app-header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--glass-strong);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: 0 1px 0 rgba(17, 17, 17, 0.04);
+  }
+
+  .app-header__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px clamp(16px, 4vw, 32px) 10px;
+  }
+
+  .app-header__title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(20px, 2.6vw, 26px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    background: var(--accent-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .logout-btn {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(255, 255, 255, 0.5);
+    color: var(--ink-soft);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: var(--radius-pill);
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .logout-btn:hover { color: var(--ink); background: #fff; }
+
+  .class-tabs {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    margin: 0 clamp(16px, 4vw, 32px) 12px;
+    padding: 4px;
+    background: rgba(120, 120, 128, 0.12);
+    border-radius: var(--radius-pill);
+    width: fit-content;
+    max-width: calc(100% - 2 * clamp(16px, 4vw, 32px));
+    scrollbar-width: thin;
+  }
+
+  @media (min-width: 720px) {
+    .class-tabs { flex-wrap: wrap; overflow-x: visible; }
+  }
+
+  @media (orientation: landscape) and (pointer: coarse) {
+    .class-tabs { display: none; }
+  }
+
+  .class-tab {
+    flex: 0 0 auto;
+    border: none;
+    background: transparent;
+    color: var(--ink-soft);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 7px 16px;
+    border-radius: var(--radius-pill);
+    transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .class-tab[aria-selected="true"] {
+    color: var(--ink);
+    background: #fff;
+    box-shadow: 0 2px 6px rgba(31, 41, 68, 0.14);
+  }
+
+  /* ---------- main layout ---------- */
+
+  main {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 16px clamp(16px, 4vw, 32px) 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .date-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .date-row__date {
+    font-family: var(--font-mono);
+    color: var(--ink-soft);
+    font-size: 14px;
+    letter-spacing: 0.5px;
+  }
+
+  .dismiss-btn {
+    border: none;
+    background: var(--glass);
+    backdrop-filter: blur(10px);
+    color: var(--warn);
+    font-size: 13px;
+    font-weight: 700;
+    padding: 8px 16px;
+    border-radius: var(--radius-pill);
+    box-shadow: inset 0 0 0 1px rgba(255, 149, 0, 0.25);
+  }
+  .dismiss-btn[data-dismissed="true"] {
+    color: var(--ink-soft);
+    background: rgba(120, 120, 128, 0.12);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  }
+
+  /* ---------- landscape: side-by-side class columns ---------- */
+
+  .class-columns {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .class-column {
+    flex: 1 1 320px;
+    min-width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .class-column + .class-column {
+    border-left: 1px solid rgba(0, 0, 0, 0.07);
+    padding-left: 20px;
+  }
+
+  .class-column__name {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 800;
+    color: var(--ink);
+  }
+
+  .class-column .student-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* ---------- panel shared (template manager + assign bar) ---------- */
+
+  .panel {
+    background: var(--glass);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    border-radius: var(--card-radius);
+    padding: 14px 16px;
+    box-shadow: 0 8px 24px var(--glass-shadow);
+  }
+
+  .panel__toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: none;
+    background: none;
+    padding: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .panel__toggle-hint {
+    font-size: 12px;
+    color: var(--ink-soft);
+    font-weight: 400;
+  }
+
+  .panel__body { margin-top: 10px; }
+
+  .template-list {
+    list-style: none;
+    margin: 0 0 10px;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .template-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    color: var(--ink);
+    font-size: 13px;
+    padding: 5px 6px 5px 10px;
+    border-radius: var(--radius-pill);
+  }
+
+  .template-chip__del {
+    border: none;
+    background: none;
+    color: var(--ink-soft);
+    line-height: 1;
+    font-size: 15px;
+    padding: 2px 4px;
+    border-radius: 50%;
+  }
+  .template-chip__del:hover { color: var(--ink); background: #fff; }
+
+  .empty-note {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--ink-soft);
+    font-size: 13px;
+    margin: 0 0 10px;
+  }
+
+  .mini-form {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .mini-form input {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 10px;
+    padding: 7px 10px;
+    font-size: 13px;
+    background: #fff;
+  }
+  .mini-form input:nth-child(1) { width: 90px; }
+  .mini-form input:nth-child(2) { flex: 1; min-width: 120px; }
+
+  .btn-primary {
+    border: none;
+    background: var(--accent-gradient);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 9px 18px;
+    border-radius: var(--radius-pill);
+    box-shadow: 0 6px 16px rgba(79, 134, 247, 0.35);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .btn-primary:active { transform: scale(0.97); }
+  .btn-primary:disabled {
+    background: rgba(120, 120, 128, 0.22);
+    color: rgba(60, 60, 67, 0.4);
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+
+  .assign-templates {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .assign-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: var(--radius-pill);
+    padding: 6px 12px;
+    font-size: 13px;
+    background: rgba(255, 255, 255, 0.6);
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  }
+  .assign-check:has(input:checked) {
+    border-color: transparent;
+    background: var(--accent-gradient);
+    color: #fff;
+  }
+
+  .assign-target-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 12px;
+    padding: 4px;
+    background: rgba(120, 120, 128, 0.12);
+    border-radius: var(--radius-pill);
+    width: fit-content;
+    max-width: 100%;
+  }
+
+  .assign-target-tab {
+    border: none;
+    background: transparent;
+    color: var(--ink-soft);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: var(--radius-pill);
+    transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    white-space: nowrap;
+  }
+
+  .assign-target-tab[aria-selected="true"] {
+    color: var(--ink);
+    background: #fff;
+    box-shadow: 0 2px 6px rgba(31, 41, 68, 0.14);
+  }
+
+  .assign-target-hint {
+    margin: 0 0 12px;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+
+  /* ---------- student grid ---------- */
+
+  .school-class-columns {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 20px;
+  }
+
+  .school-class-column {
+    flex: 1 1 300px;
+    min-width: 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .school-class-column__name {
+    margin: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--ink);
+  }
+
+  .school-class-column__count {
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+
+  .school-class-column .student-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .student-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+
+  .student-empty, .task-empty, .templates-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    color: var(--ink-soft);
+    font-size: 13px;
+    text-align: center;
+    padding: 18px 8px;
+  }
+
+  .student-card {
+    position: relative;
+    background: var(--glass);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    border-radius: var(--card-radius);
+    padding: 16px;
+    box-shadow: 0 10px 28px var(--glass-shadow);
+    transition: box-shadow 0.25s ease;
+  }
+
+  .student-card[data-status="done"] {
+    box-shadow: 0 10px 30px rgba(255, 159, 10, 0.22), inset 0 0 0 1.5px rgba(255, 200, 74, 0.6);
+  }
+  .student-card[data-status="dismissedIncomplete"] {
+    box-shadow: 0 10px 24px rgba(255, 107, 107, 0.16), inset 0 0 0 1.5px rgba(255, 107, 107, 0.35);
+  }
+
+  .card-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .avatar-wrap { position: relative; flex-shrink: 0; width: 56px; height: 56px; }
+
+  .avatar-btn {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: 3px solid #fff;
+    background: var(--accent-gradient);
+    color: #fff;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 0;
+    box-shadow: 0 4px 12px rgba(79, 134, 247, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.6);
+  }
+
+  .avatar-btn img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .card-head__name {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .card-head__class {
+    margin: 2px 0 0;
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+
+  .progress-ring-wrap {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 40px;
+    height: 40px;
+  }
+  .progress-ring {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+    overflow: visible;
+  }
+  .progress-ring__track {
+    fill: none;
+    stroke: rgba(0, 0, 0, 0.08);
+    stroke-width: 4;
+  }
+  .progress-ring__fill {
+    fill: none;
+    stroke-width: 4;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.5s cubic-bezier(.34,1.56,.64,1);
+  }
+  .progress-ring__count {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    font-weight: 700;
+    color: var(--ink-soft);
+  }
+  .progress-ring-wrap.is-complete .progress-ring__count { display: none; }
+
+  .medal {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 22px;
+    height: 22px;
+    filter: drop-shadow(0 2px 4px rgba(255, 142, 42, 0.5));
+  }
+  .progress-ring-wrap.is-earning .medal {
+    animation: medal-pop 0.5s cubic-bezier(.34,1.56,.64,1) both;
+  }
+  @keyframes medal-pop {
+    0% { transform: scale(0) rotate(-30deg); opacity: 0; }
+    60% { transform: scale(1.25) rotate(8deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+
+  .flag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: var(--danger-bg);
+    color: var(--danger);
+    font-family: var(--font-body);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: var(--radius-pill);
+    white-space: nowrap;
+  }
+
+  .today-rating {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 6px 10px;
+    background: rgba(255, 176, 32, 0.08);
+    border-radius: 12px;
+  }
+  .today-rating__label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+  .star-rating {
+    display: flex;
+    gap: 2px;
+  }
+  .star-rating__btn {
+    border: none;
+    background: none;
+    padding: 2px;
+    line-height: 0;
+    color: rgba(0, 0, 0, 0.16);
+    cursor: pointer;
+    transition: color 0.15s ease, transform 0.1s ease;
+  }
+  .star-rating__btn svg { width: 18px; height: 18px; }
+  .star-rating__btn:active { transform: scale(0.85); }
+  .star-rating__btn.is-filled,
+  .star-rating__star.is-filled { color: #ffb020; }
+  .star-rating--readonly .star-rating__star { color: rgba(0, 0, 0, 0.16); line-height: 0; }
+  .star-rating--readonly .star-rating__star.is-filled { color: #ffb020; }
+  .star-rating--readonly .star-rating__star svg { width: 16px; height: 16px; }
+  .star-rating.is-rating-pop .is-filled {
+    animation: star-pop 0.4s cubic-bezier(.34,1.56,.64,1) both;
+  }
+  @keyframes star-pop {
+    0% { transform: scale(0.4) rotate(-15deg); }
+    60% { transform: scale(1.3) rotate(6deg); }
+    100% { transform: scale(1) rotate(0deg); }
+  }
+
+  .share-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    margin-top: 8px;
+    border: 1px solid rgba(7, 193, 96, 0.3);
+    background: rgba(7, 193, 96, 0.08);
+    color: #07c160;
+    font-family: var(--font-body);
+    font-size: 12.5px;
+    font-weight: 700;
+    padding: 7px 0;
+    border-radius: var(--radius-pill);
+    transition: background 0.15s ease;
+  }
+  .share-btn svg { width: 14px; height: 14px; }
+  .share-btn:hover { background: rgba(7, 193, 96, 0.16); }
+
+  .task-list {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .task-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13.5px;
+  }
+
+  .task-check {
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    border: 1.5px solid rgba(0, 0, 0, 0.18);
+    border-radius: 50%;
+    display: grid;
+    place-content: center;
+    background: #fff;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .task-check::before {
+    content: "";
+    width: 10px;
+    height: 10px;
+    transform: scale(0);
+    transition: transform 0.15s cubic-bezier(.34,1.56,.64,1);
+    background: #fff;
+    clip-path: polygon(14% 44%, 0 65%, 40% 100%, 100% 16%, 78% 0%, 38% 62%);
+  }
+  .task-check:checked {
+    border-color: transparent;
+    background: var(--accent-gradient);
+  }
+  .task-check:checked::before { transform: scale(1); }
+
+  .task-subject {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--ink-soft);
+    font-size: 12px;
+  }
+  .task-subject svg { width: 13px; height: 13px; }
+
+  .task-text {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .task-item.is-done .task-text { color: var(--ink-soft); text-decoration: line-through; }
+
+  .task-del {
+    border: none;
+    background: none;
+    color: var(--ink-soft);
+    font-size: 16px;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .task-del:hover { color: var(--ink); background: rgba(0, 0, 0, 0.06); }
+
+  .add-task-btn {
+    margin-top: 10px;
+    border: none;
+    background: none;
+    color: var(--ink-mid);
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 0;
+  }
+  .add-task-btn:hover { color: var(--ink); }
+
+  .add-task-form {
+    margin-top: 8px;
+    border: 1px dashed rgba(0, 0, 0, 0.14);
+    border-radius: 12px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.4);
+  }
+
+  .add-task-form__tabs {
+    display: flex;
+    gap: 6px;
+    font-size: 12.5px;
+  }
+  .add-task-form__tabs button {
+    border: none;
+    background: rgba(0, 0, 0, 0.06);
+    color: var(--ink-soft);
+    padding: 5px 10px;
+    border-radius: var(--radius-pill);
+  }
+  .add-task-form__tabs button[aria-selected="true"] {
+    background: var(--accent-gradient);
+    color: #fff;
+  }
+
+  .add-task-form select {
+    width: 100%;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-size: 13px;
+    background: #fff;
+  }
+
+  .add-task-form__custom { display: flex; gap: 6px; }
+  .add-task-form__custom input {
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+  .add-task-form__custom input:nth-child(1) { width: 72px; }
+  .add-task-form__custom input:nth-child(2) { flex: 1; min-width: 0; }
+
+  .add-task-form__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .btn-ghost {
+    border: none;
+    background: none;
+    color: var(--ink-soft);
+    font-size: 13px;
+    padding: 6px 10px;
+  }
+  .btn-small {
+    border: none;
+    background: var(--accent-gradient);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 6px 14px;
+    border-radius: var(--radius-pill);
+  }
+  .btn-small:disabled { background: rgba(0, 0, 0, 0.15); color: #fff; }
+  .btn-secondary {
+    flex: 1;
+    border: 1.5px solid rgba(0, 0, 0, 0.1);
+    background: #fff;
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 700;
+    padding: 9px 14px;
+    border-radius: var(--radius-pill);
+  }
+
+  .share-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(20, 20, 24, 0);
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
+    transition: background 0.25s ease, backdrop-filter 0.25s ease;
+  }
+  .share-overlay.is-visible {
+    background: rgba(20, 20, 24, 0.4);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .share-modal {
+    width: 100%;
+    max-width: 340px;
+    max-height: 90vh;
+    overflow-y: auto;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-radius: 24px;
+    padding: 18px;
+    box-shadow: 0 20px 60px rgba(31, 41, 68, 0.28);
+    position: relative;
+    transform: scale(0.9) translateY(12px);
+    opacity: 0;
+    transition: transform 0.25s cubic-bezier(.34,1.2,.64,1), opacity 0.25s ease;
+  }
+  .share-overlay.is-visible .share-modal {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+  .share-modal__close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(120, 120, 128, 0.14);
+    color: var(--ink-soft);
+    font-size: 16px;
+    line-height: 1;
+  }
+
+  .share-poster {
+    background: linear-gradient(165deg, #fdf9f0, #fff);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    border-radius: 18px;
+    padding: 16px;
+  }
+  .share-poster__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--ink);
+    margin-bottom: 12px;
+  }
+  .share-poster__date {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+  .share-poster__who {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .share-poster__avatar-wrap {
+    position: relative;
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+  }
+  .share-poster__avatar {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: var(--accent-gradient);
+    color: #fff;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .share-poster__avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .share-poster__medal {
+    position: absolute;
+    bottom: -4px;
+    right: -4px;
+    width: 18px;
+    height: 18px;
+    filter: drop-shadow(0 2px 3px rgba(255, 142, 42, 0.5));
+  }
+  .share-poster__name {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--ink);
+  }
+  .share-poster__class {
+    margin: 2px 0 0;
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  .share-poster .star-rating--readonly {
+    margin-bottom: 8px;
+  }
+  .share-poster__summary {
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .share-poster__tasks {
+    list-style: none;
+    margin: 0 0 10px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .share-poster__task {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+  .share-poster__task .task-subject svg { width: 14px; height: 14px; }
+  .share-poster__task.is-done { color: var(--ink); }
+  .share-poster__task-mark {
+    margin-left: auto;
+    font-weight: 700;
+  }
+  .share-poster__cheer {
+    margin: 0;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink);
+    background: rgba(155, 107, 255, 0.08);
+    border-radius: 10px;
+    padding: 8px 10px;
+  }
+
+  .teacher-comment {
+    margin-top: 12px;
+  }
+  .teacher-comment__label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    margin-bottom: 4px;
+  }
+  .teacher-comment__input {
+    width: 100%;
+    resize: vertical;
+    min-height: 44px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 12px;
+    padding: 8px 10px;
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--ink);
+    background: rgba(255, 255, 255, 0.7);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .teacher-comment__input:focus {
+    outline: none;
+    border-color: var(--accent-2);
+    box-shadow: 0 0 0 3px rgba(155, 107, 255, 0.15);
+  }
+  .teacher-comment__input::placeholder { color: rgba(0, 0, 0, 0.3); }
+
+  .share-hint {
+    margin: 12px 0 0;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    text-align: center;
+  }
+  .share-modal__actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  [hidden] { display: none !important; }
+
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%) translateY(12px);
+    background: rgba(29, 29, 31, 0.86);
+    backdrop-filter: blur(14px) saturate(160%);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    color: #fff;
+    font-size: 13px;
+    padding: 10px 18px;
+    border-radius: 999px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    z-index: 60;
+  }
+  .toast.is-visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .no-class-screen {
+    display: flex;
+    min-height: 70vh;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: var(--ink-soft);
+    padding: 0 20px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .student-card,
+    .task-check::before,
+    .progress-ring__fill,
+    .toast {
+      transition: none !important;
+    }
+    .progress-ring-wrap.is-earning .medal {
+      animation: none !important;
+    }
+  }
+
+  @media (min-width: 900px) {
+    .student-grid { gap: 20px; }
+    main { gap: 18px; padding-top: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="app-header__top">
+    <h1 class="app-header__title">托管班看板</h1>
+    <button type="button" class="logout-btn" id="logoutBtn">退出登录</button>
+  </div>
+  <div class="class-tabs" id="classTabs" role="tablist"></div>
+</header>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="ringAccent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4F86F7"/>
+      <stop offset="100%" stop-color="#9B6BFF"/>
+    </linearGradient>
+    <linearGradient id="ringGold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFD65A"/>
+      <stop offset="100%" stop-color="#FF9142"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<main id="mainArea"></main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var TODAY = "2026-08-22";
+
+  var state = {
+    templates: [
+      { id: 1, subject: "数学", name: "口算练习" },
+      { id: 2, subject: "语文", name: "阅读打卡" }
+    ],
+    nextTemplateId: 3,
+    nextTaskId: 100,
+    activeClassId: 1,
+    classes: [
+      {
+        id: 1,
+        name: "三年级托管班",
+        dismissed: false,
+        students: [
+          {
+            id: 1, name: "张三", schoolClassName: "三年级1班", avatarUrl: null, rating: 4,
+            tasks: [
+              { id: 1, subject: "数学", name: "口算练习", completed: true, custom: false },
+              { id: 2, subject: "语文", name: "阅读打卡", completed: true, custom: false }
+            ]
+          },
+          {
+            id: 2, name: "李四", schoolClassName: "三年级2班", avatarUrl: null, rating: 0,
+            tasks: [
+              { id: 3, subject: "数学", name: "口算练习", completed: false, custom: false }
+            ]
+          },
+          {
+            id: 3, name: "王五", schoolClassName: "三年级1班", avatarUrl: null, rating: 5,
+            tasks: []
+          },
+          {
+            id: 4, name: "赵六", schoolClassName: "三年级2班", avatarUrl: null, rating: 2,
+            tasks: [
+              { id: 4, subject: "英语", name: "单词听写", completed: false, custom: true }
+            ]
+          }
+        ]
+      },
+      {
+        id: 2,
+        name: "四年级托管班",
+        dismissed: false,
+        students: [
+          {
+            id: 5, name: "陈七", schoolClassName: "四年级1班", avatarUrl: null, rating: 3,
+            tasks: [
+              { id: 5, subject: "数学", name: "口算练习", completed: true, custom: false }
+            ]
+          },
+          {
+            id: 6, name: "周八", schoolClassName: "四年级1班", avatarUrl: null, rating: 0,
+            tasks: []
+          }
+        ]
+      }
+    ]
+  };
+
+  var templatePanelOpen = false;
+  var addFormOpenFor = null;
+  var addFormMode = "template";
+  var assignTargetByClass = {};
+
+  function schoolClassGroups(cls) {
+    var groups = [];
+    cls.students.forEach(function (s) {
+      var group = groups.find(function (g) { return g.name === s.schoolClassName; });
+      if (!group) {
+        group = { name: s.schoolClassName, students: [] };
+        groups.push(group);
+      }
+      group.students.push(s);
+    });
+    return groups;
+  }
+
+  function computeCardStatus(tasks, dismissed) {
+    if (tasks.length > 0 && tasks.every(function (t) { return t.completed; })) return "done";
+    if (dismissed && tasks.some(function (t) { return !t.completed; })) return "dismissedIncomplete";
+    return "default";
+  }
+
+  function activeClass() {
+    return state.classes.find(function (c) { return c.id === state.activeClassId; });
+  }
+
+  function classById(id) {
+    return state.classes.find(function (c) { return c.id === id; });
+  }
+
+  function findStudentByTaskId(taskId) {
+    for (var i = 0; i < state.classes.length; i++) {
+      var student = state.classes[i].students.find(function (s) { return s.tasks.some(function (t) { return t.id === taskId; }); });
+      if (student) return student;
+    }
+    return null;
+  }
+
+  function findStudentById(studentId) {
+    for (var i = 0; i < state.classes.length; i++) {
+      var student = state.classes[i].students.find(function (s) { return s.id === studentId; });
+      if (student) return student;
+    }
+    return null;
+  }
+
+  var columnsModeQuery = window.matchMedia("(orientation: landscape) and (pointer: coarse)");
+  function isColumnsMode() {
+    return columnsModeQuery.matches;
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  var SUBJECT_ICONS = {
+    "数学": [
+      '<rect x="2" y="2" width="12" height="12" rx="3.5" /><path d="M8 5.2v5.6M5.2 8h5.6" />',
+      '<rect x="2" y="2" width="12" height="12" rx="3.5" /><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" />',
+      '<rect x="2" y="2" width="12" height="12" rx="3.5" /><path d="M5 8h6" /><circle cx="8" cy="5.3" r="0.7" fill="currentColor" stroke="none" /><circle cx="8" cy="10.7" r="0.7" fill="currentColor" stroke="none" />'
+    ],
+    "语文": [
+      '<path d="M2.2 4.2c1.7-1.1 3.8-1.1 5.3 0v8.4c-1.5-1.1-3.6-1.1-5.3 0z" /><path d="M13.3 4.2c-1.7-1.1-3.8-1.1-5.3 0v8.4c1.5-1.1 3.6-1.1 5.3 0z" />',
+      '<rect x="2.5" y="2" width="11" height="12" rx="1.5" /><path d="M5 6h6M5 8.5h6M5 11h3.5" />',
+      '<path d="M3.5 3.2c2-.1 4.4-.9 5.8-2M2.8 7.8c3-.1 6.5-1.2 8.9-3M2.8 12.6c2.4-.1 5.8-1.1 8.2-3" />'
+    ],
+    "英语": [
+      '<path d="M3 13 L7 3 L11 13 M4.6 9 h4.8" />',
+      '<circle cx="8" cy="8" r="6" /><path d="M2 8h12M8 2c1.8 1.8 1.8 10.2 0 12M8 2c-1.8 1.8-1.8 10.2 0 12" />',
+      '<path d="M2 3.5h12v7H8l-3 2.6v-2.6H2z" /><path d="M4.4 6h7.2M4.4 8.2h4.4" />'
+    ],
+    "default": [
+      '<path d="M3 2.5 h7 l3 3 v8 h-10 z" /><path d="M10 2.5 v3 h3" />',
+      '<circle cx="8" cy="8" r="6" /><path d="M5.5 8.2 l1.8 1.8 3.2-4" />'
+    ]
+  };
+
+  function subjectIconMarkup(subject, seed) {
+    var variants = SUBJECT_ICONS[subject] || SUBJECT_ICONS.default;
+    var idx = ((seed || 0) % variants.length + variants.length) % variants.length;
+    return '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">' + variants[idx] + '</svg>';
+  }
+
+  function subjectColor(subject) {
+    if (subject === "数学") return "var(--subj-math)";
+    if (subject === "语文") return "var(--subj-chinese)";
+    if (subject === "英语") return "var(--subj-english)";
+    return "var(--subj-default)";
+  }
+
+  var STAR_ICON = '<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1.6l2.53 5.4 5.87.58-4.4 4.03 1.26 5.79L10 14.4l-5.26 3-1.26-5.79-4.4-4.03 5.87-.58z"/></svg>';
+
+  function starRatingMarkup(rating, studentId, readOnly) {
+    var r = rating || 0;
+    var stars = [1, 2, 3, 4, 5].map(function (v) {
+      var filled = v <= r;
+      if (readOnly) {
+        return '<span class="star-rating__star' + (filled ? ' is-filled' : '') + '">' + STAR_ICON + '</span>';
+      }
+      return '<button type="button" class="star-rating__btn' + (filled ? ' is-filled' : '') +
+        '" aria-pressed="' + filled + '" aria-label="评' + v + '星" data-rate-for="' + studentId + '" data-rate-value="' + v + '">' + STAR_ICON + '</button>';
+    }).join("");
+    return '<div class="star-rating' + (readOnly ? ' star-rating--readonly' : '') + '" data-rating-for="' + studentId + '">' + stars + '</div>';
+  }
+
+  var SHARE_ICON = '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.2C4.05 1.2.9 3.77.9 6.95c0 1.85 1.05 3.5 2.68 4.58-.1.53-.37 1.44-.75 2.24a.25.25 0 00.33.34c.93-.42 2.03-1.03 2.67-1.43.37.06.76.09 1.17.09.19 0 .38-.01.56-.02a5.53 5.53 0 01-.16-1.32c0-3.16 3.03-5.72 6.76-5.72.12 0 .24 0 .36.01C14.6 3.65 11.68 1.2 8 1.2z"/><path d="M10.4 8.7c-3.03 0-5.4 2-5.4 4.4s2.37 4.4 5.4 4.4c.35 0 .68-.02 1-.07.5.3 1.34.75 2.06 1.06a.2.2 0 00.26-.27c-.29-.6-.5-1.28-.58-1.71C14.24 15.7 15 14.44 15 13.1c0-2.4-2.37-4.4-4.6-4.4z"/></svg>';
+
+  var toastTimer = null;
+  function showToast(msg) {
+    var el = document.getElementById("toast");
+    el.textContent = msg;
+    el.classList.add("is-visible");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove("is-visible"); }, 2200);
+  }
+
+  function renderTabs() {
+    var wrap = document.getElementById("classTabs");
+    wrap.innerHTML = state.classes.map(function (c) {
+      var selected = c.id === state.activeClassId;
+      return '<button type="button" class="class-tab" role="tab" aria-selected="' + selected + '" data-class-id="' + c.id + '">' + esc(c.name) + '</button>';
+    }).join("");
+  }
+
+  function renderClassSection(cls, withHeading) {
+    var html = '';
+    if (withHeading) {
+      html += '<h2 class="class-column__name">' + esc(cls.name) + '</h2>';
+    }
+
+    html += '<div class="date-row">';
+    html += '  <span class="date-row__date">' + TODAY + '</span>';
+    html += '  <button type="button" class="dismiss-btn" data-dismiss-for="' + cls.id + '" data-dismissed="' + cls.dismissed + '">' + (cls.dismissed ? '撤销放学' : '放学') + '</button>';
+    html += '</div>';
+
+    if (!withHeading) {
+      html += renderTemplateManager();
+    }
+    html += renderAssignBar(cls);
+
+    html += renderStudentGrid(cls);
+
+    return html;
+  }
+
+  function renderStudentGrid(cls) {
+    if (cls.students.length === 0) {
+      return '<div class="student-grid"><p class="student-empty">' + cuteDoodle("cat") + '该班级暂无在读学生</p></div>';
+    }
+    var groups = schoolClassGroups(cls);
+    if (groups.length <= 1) {
+      return '<div class="student-grid">' + cls.students.map(function (s) { return renderStudentCard(s, cls.dismissed); }).join("") + '</div>';
+    }
+    return '<div class="school-class-columns">' + groups.map(function (g) {
+      return '<div class="school-class-column">' +
+        '<h3 class="school-class-column__name">' + esc(g.name) + '<span class="school-class-column__count">' + g.students.length + '人</span></h3>' +
+        '<div class="student-grid">' + g.students.map(function (s) { return renderStudentCard(s, cls.dismissed); }).join("") + '</div>' +
+        '</div>';
+    }).join("") + '</div>';
+  }
+
+  function renderMain() {
+    var main = document.getElementById("mainArea");
+
+    if (state.classes.length === 0) {
+      main.innerHTML = '<div class="no-class-screen"><p>暂无托管班级，请联系机构管理员创建</p></div>';
+      return;
+    }
+
+    var html = '';
+
+    if (isColumnsMode()) {
+      html += renderTemplateManager();
+      html += '<div class="class-columns">';
+      html += state.classes.map(function (c) {
+        return '<div class="class-column">' + renderClassSection(c, true) + '</div>';
+      }).join("");
+      html += '</div>';
+    } else {
+      html += renderClassSection(activeClass(), false);
+    }
+
+    main.innerHTML = html;
+    bindMainEvents();
+  }
+
+  function cuteDoodle(kind) {
+    if (kind === "cat") {
+      return '<svg width="46" height="46" viewBox="0 0 48 48" fill="none" stroke="var(--ink-soft)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<path d="M14 20 L10 10 L20 16" /><path d="M34 20 L38 10 L28 16" />' +
+        '<circle cx="24" cy="27" r="12" />' +
+        '<circle cx="19.5" cy="26" r="1.2" fill="var(--ink-soft)" stroke="none" /><circle cx="28.5" cy="26" r="1.2" fill="var(--ink-soft)" stroke="none" />' +
+        '<path d="M22 31 q2 2 4 0" />' +
+        '</svg>';
+    }
+    return '<svg width="46" height="46" viewBox="0 0 48 48" fill="none" stroke="var(--ink-soft)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<rect x="9" y="16" width="30" height="20" rx="4" /><path d="M9 24 h30" /><path d="M18 16 v-4 M30 16 v-4" />' +
+      '</svg>';
+  }
+
+  function renderTemplateManager() {
+    var count = state.templates.length;
+    var html = '<div class="panel">';
+    html += '<button type="button" class="panel__toggle" id="templateToggle" aria-expanded="' + templatePanelOpen + '">';
+    html += '<span>任务库管理（' + count + '）</span><span class="panel__toggle-hint">' + (templatePanelOpen ? '收起' : '展开') + '</span>';
+    html += '</button>';
+    if (templatePanelOpen) {
+      html += '<div class="panel__body">';
+      if (count === 0) {
+        html += '<p class="templates-empty">任务库为空</p>';
+      } else {
+        html += '<ul class="template-list">' + state.templates.map(function (t) {
+          return '<li class="template-chip"><span style="color:' + subjectColor(t.subject) + '">' + subjectIconMarkup(t.subject, t.id) + '</span> [' + esc(t.subject) + '] ' + esc(t.name) +
+            '<button type="button" class="template-chip__del" data-del-template="' + t.id + '" aria-label="删除模板' + esc(t.name) + '">×</button></li>';
+        }).join("") + '</ul>';
+      }
+      html += '<form class="mini-form" id="templateForm">';
+      html += '<input type="text" placeholder="科目" id="templateSubject" aria-label="科目" />';
+      html += '<input type="text" placeholder="任务名称" id="templateName" aria-label="任务名称" />';
+      html += '<button type="submit" class="btn-primary" id="templateSubmit" disabled>添加</button>';
+      html += '</form></div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function renderAssignBar(cls) {
+    var groups = schoolClassGroups(cls);
+    var multiGroup = groups.length > 1;
+    if (!assignTargetByClass[cls.id] || !groups.some(function (g) { return g.name === assignTargetByClass[cls.id]; })) {
+      assignTargetByClass[cls.id] = groups[0] ? groups[0].name : null;
+    }
+    var target = assignTargetByClass[cls.id];
+    var targetGroup = groups.find(function (g) { return g.name === target; });
+    var targetCount = targetGroup ? targetGroup.students.length : 0;
+
+    var html = '<div class="panel" data-assign-panel="' + cls.id + '">';
+    html += '<p style="margin:0 0 8px;font-size:14px;font-weight:600;">从任务库批量分配任务</p>';
+
+    if (multiGroup) {
+      html += '<div class="assign-target-tabs" role="tablist" aria-label="分配对象">' + groups.map(function (g) {
+        var selected = g.name === target;
+        return '<button type="button" class="assign-target-tab" role="tab" aria-selected="' + selected + '" data-assign-target="' + esc(g.name) + '" data-assign-target-for="' + cls.id + '">' +
+          esc(g.name) + '（' + g.students.length + '人）</button>';
+      }).join("") + '</div>';
+    } else if (target) {
+      html += '<p class="assign-target-hint">分配对象：' + esc(target) + '（' + targetCount + '人）</p>';
+    }
+
+    if (state.templates.length === 0) {
+      html += '<p class="templates-empty" style="padding:0 0 4px;">任务库为空，请先在任务库中添加模板</p>';
+    } else {
+      html += '<div class="assign-templates" data-assign-checks>' + state.templates.map(function (t) {
+        return '<label class="assign-check"><input type="checkbox" value="' + t.id + '" /> [' + esc(t.subject) + '] ' + esc(t.name) + '</label>';
+      }).join("") + '</div>';
+    }
+    html += '<button type="button" class="btn-primary" data-assign-btn disabled>批量分配给' + esc(target || '') + '（0）</button>';
+    html += '</div>';
+    return html;
+  }
+
+  function renderProgressRing(student) {
+    var total = student.tasks.length;
+    if (total === 0) return '';
+    var completed = student.tasks.filter(function (t) { return t.completed; }).length;
+    var isComplete = completed === total;
+    var r = 16;
+    var c = 2 * Math.PI * r;
+    var offset = c * (1 - completed / total);
+    var stroke = isComplete ? 'url(#ringGold)' : 'url(#ringAccent)';
+    var html = '<div class="progress-ring-wrap' + (isComplete ? ' is-complete' : '') + '" data-progress-ring>';
+    html += '<svg class="progress-ring" viewBox="0 0 40 40" aria-hidden="true">';
+    html += '<circle class="progress-ring__track" cx="20" cy="20" r="' + r + '" />';
+    html += '<circle class="progress-ring__fill" cx="20" cy="20" r="' + r + '" stroke="' + stroke + '" stroke-dasharray="' + c.toFixed(2) + '" stroke-dashoffset="' + offset.toFixed(2) + '" />';
+    html += '</svg>';
+    html += '<span class="progress-ring__count">' + completed + '/' + total + '</span>';
+    if (isComplete) {
+      html += '<svg class="medal" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="url(#ringGold)" />' +
+        '<path d="M12 6.5 l1.8 3.7 4 .6 -2.9 2.8 .7 4 -3.6-1.9 -3.6 1.9 .7-4 -2.9-2.8 4-.6 z" fill="#fff" /></svg>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function renderStudentCard(student, dismissed) {
+    var status = computeCardStatus(student.tasks, dismissed);
+    var html = '<div class="student-card" data-status="' + status + '" data-student-id="' + student.id + '">';
+
+    html += renderProgressRing(student);
+
+    html += '<div class="card-head">';
+    html += '<div class="avatar-wrap">';
+    html += '<button type="button" class="avatar-btn" data-avatar-for="' + student.id + '" aria-label="上传' + esc(student.name) + '的头像">';
+    html += student.avatarUrl ? '<img src="' + student.avatarUrl + '" alt="' + esc(student.name) + '" />' : esc(student.name.slice(0, 1));
+    html += '</button>';
+    html += '<input type="file" accept="image/jpeg,image/png,image/webp" hidden data-avatar-input-for="' + student.id + '" />';
+    html += '</div>';
+    html += '<div><p class="card-head__name">' + esc(student.name) +
+      (status === "dismissedIncomplete" ? ' <span class="flag-chip">🚩 未完成</span>' : '') +
+      '</p><p class="card-head__class">' + esc(student.schoolClassName) + '</p></div>';
+    html += '</div>';
+
+    html += '<div class="today-rating">';
+    html += '<span class="today-rating__label">今日评价</span>';
+    html += starRatingMarkup(student.rating, student.id, false);
+    html += '</div>';
+
+    html += '<ul class="task-list">';
+    if (student.tasks.length === 0) {
+      html += '<li class="task-empty" style="padding:8px 0;">' + cuteDoodle("box") + '今天还没有任务</li>';
+    } else {
+      html += student.tasks.map(function (t) {
+        return '<li class="task-item' + (t.completed ? ' is-done' : '') + '">' +
+          '<input type="checkbox" class="task-check" ' + (t.completed ? 'checked' : '') + ' aria-label="' + esc(t.name) + '" data-toggle-task="' + t.id + '" />' +
+          '<span class="task-subject" style="color:' + subjectColor(t.subject) + '">' + subjectIconMarkup(t.subject, t.id) + '</span>' +
+          '<span class="task-text">[' + esc(t.subject) + '] ' + esc(t.name) + '</span>' +
+          '<button type="button" class="task-del" aria-label="删除' + esc(t.name) + '" data-del-task="' + t.id + '">×</button>' +
+          '</li>';
+      }).join("");
+    }
+    html += '</ul>';
+
+    if (addFormOpenFor === student.id) {
+      html += renderAddTaskForm(student.id);
+    } else {
+      html += '<button type="button" class="add-task-btn" data-open-add="' + student.id + '">+ 添加任务</button>';
+    }
+
+    html += '<button type="button" class="share-btn" data-share-for="' + student.id + '">' + SHARE_ICON + '分享给家长</button>';
+
+    html += '</div>';
+    return html;
+  }
+
+  function defaultCheerForStudent(student) {
+    var status = computeCardStatus(student.tasks, false);
+    var total = student.tasks.length;
+    var done = student.tasks.filter(function (t) { return t.completed; }).length;
+    var allDone = total > 0 && done === total;
+    if (allDone) return "今天全部完成啦，为TA的自觉点赞！🎉";
+    if (status === "dismissedIncomplete") return "放学时还有任务没完成，回家一起补上吧～";
+    return "继续加油，今天的任务快完成啦！💪";
+  }
+
+  function buildSharePosterHTML(student) {
+    var status = computeCardStatus(student.tasks, false);
+    var total = student.tasks.length;
+    var done = student.tasks.filter(function (t) { return t.completed; }).length;
+    var allDone = total > 0 && done === total;
+    var cheerText = (student.comment && student.comment.trim()) ? student.comment.trim() : defaultCheerForStudent(student);
+    var html = '<div class="share-poster">';
+    html += '<div class="share-poster__header"><span>今日成长报告</span><span class="share-poster__date">' + TODAY + '</span></div>';
+    html += '<div class="share-poster__who">';
+    html += '<div class="share-poster__avatar-wrap">';
+    html += '<div class="share-poster__avatar">';
+    html += student.avatarUrl ? '<img src="' + student.avatarUrl + '" alt="' + esc(student.name) + '" />' : esc(student.name.slice(0, 1));
+    html += '</div>';
+    if (allDone) html += '<svg class="share-poster__medal" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="url(#ringGold)" /><path d="M8 12.5l2.5 2.5 5-5.5" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    html += '</div>';
+    html += '<div><p class="share-poster__name">' + esc(student.name) + '</p><p class="share-poster__class">' + esc(student.schoolClassName) + '</p></div>';
+    html += '</div>';
+    html += starRatingMarkup(student.rating, student.id, true);
+    html += '<p class="share-poster__summary">今日完成任务 ' + done + '/' + total + '</p>';
+    html += '<ul class="share-poster__tasks">';
+    if (total === 0) {
+      html += '<li class="share-poster__task">' + cuteDoodle("box") + '今天还没有布置任务</li>';
+    } else {
+      html += student.tasks.map(function (t) {
+        return '<li class="share-poster__task' + (t.completed ? ' is-done' : '') + '">' +
+          '<span class="task-subject" style="color:' + subjectColor(t.subject) + '">' + subjectIconMarkup(t.subject, t.id) + '</span>' +
+          '<span>[' + esc(t.subject) + '] ' + esc(t.name) + '</span>' +
+          '<span class="share-poster__task-mark">' + (t.completed ? "✓" : "—") + '</span>' +
+          '</li>';
+      }).join("");
+    }
+    html += '</ul>';
+    html += '<p class="share-poster__cheer">' + esc(cheerText).replace(/\n/g, "<br>") + '</p>';
+    html += '</div>';
+    return html;
+  }
+
+  function openSharePoster(studentId) {
+    var student = findStudentById(studentId);
+    if (!student) return;
+
+    var defaultCheer = defaultCheerForStudent(student);
+
+    var overlay = document.createElement("div");
+    overlay.className = "share-overlay";
+    overlay.innerHTML =
+      '<div class="share-modal" role="dialog" aria-modal="true" aria-label="分享给家长">' +
+      '<button type="button" class="share-modal__close" aria-label="关闭">×</button>' +
+      buildSharePosterHTML(student) +
+      '<div class="teacher-comment">' +
+      '<label class="teacher-comment__label">今日评语（可编辑，会显示在海报上）' +
+      '<textarea class="teacher-comment__input" rows="2" maxlength="120" placeholder="' + esc(defaultCheer) + '">' + esc(student.comment || "") + '</textarea>' +
+      '</label>' +
+      '</div>' +
+      '<p class="share-hint">长按海报可保存图片，或复制文案后发送到微信</p>' +
+      '<div class="share-modal__actions">' +
+      '<button type="button" class="btn-secondary" data-copy-caption>复制文案</button>' +
+      '<button type="button" class="btn-small" data-close-share>完成</button>' +
+      '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    var cheerEl = overlay.querySelector(".share-poster__cheer");
+    overlay.querySelector(".teacher-comment__input").addEventListener("input", function (e) {
+      student.comment = e.target.value;
+      var text = e.target.value.trim() ? e.target.value.trim() : defaultCheer;
+      cheerEl.innerHTML = esc(text).replace(/\n/g, "<br>");
+    });
+
+    function close() {
+      overlay.classList.remove("is-visible");
+      document.removeEventListener("keydown", onKeydown);
+      setTimeout(function () { overlay.remove(); }, 200);
+    }
+    function onKeydown(e) {
+      if (e.key === "Escape") close();
+    }
+    overlay.addEventListener("click", function (e) {
+      if (e.target === overlay) close();
+    });
+    overlay.querySelector(".share-modal__close").addEventListener("click", close);
+    overlay.querySelector("[data-close-share]").addEventListener("click", close);
+    overlay.querySelector("[data-copy-caption]").addEventListener("click", function () {
+      var total = student.tasks.length;
+      var done = student.tasks.filter(function (t) { return t.completed; }).length;
+      var cheerText = (student.comment && student.comment.trim()) ? student.comment.trim() : defaultCheer;
+      var taskLines = total === 0 ? "今天还没有布置任务" : student.tasks.map(function (t) {
+        return (t.completed ? "✓" : "✗") + " [" + t.subject + "] " + t.name;
+      }).join("\n");
+      var caption = TODAY + " " + student.name + "今日成长报告\n完成任务 " + done + "/" + total +
+        "，今日评价 " + (student.rating || 0) + "星。\n" + taskLines + "\n" + cheerText;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(caption).then(function () {
+          showToast("文案已复制，去微信粘贴发送吧");
+        }, function () {
+          showToast("复制失败，请手动选择文字复制");
+        });
+      } else {
+        showToast("复制失败，请手动选择文字复制");
+      }
+    });
+
+    requestAnimationFrame(function () {
+      overlay.classList.add("is-visible");
+    });
+    document.addEventListener("keydown", onKeydown);
+  }
+
+  function renderAddTaskForm(studentId) {
+    var html = '<div class="add-task-form" data-add-form-for="' + studentId + '">';
+    html += '<div class="add-task-form__tabs" role="tablist">';
+    html += '<button type="button" role="tab" aria-selected="' + (addFormMode === "template") + '" data-mode="template">从任务库选</button>';
+    html += '<button type="button" role="tab" aria-selected="' + (addFormMode === "custom") + '" data-mode="custom">定制任务</button>';
+    html += '</div>';
+    if (addFormMode === "template") {
+      if (state.templates.length === 0) {
+        html += '<select disabled><option>任务库为空</option></select>';
+      } else {
+        html += '<select data-template-select>' + state.templates.map(function (t) {
+          return '<option value="' + t.id + '">[' + esc(t.subject) + '] ' + esc(t.name) + '</option>';
+        }).join("") + '</select>';
+      }
+    } else {
+      html += '<div class="add-task-form__custom">';
+      html += '<input type="text" placeholder="科目" data-custom-subject />';
+      html += '<input type="text" placeholder="任务名称" data-custom-name />';
+      html += '</div>';
+    }
+    html += '<div class="add-task-form__actions">';
+    html += '<button type="button" class="btn-ghost" data-cancel-add>取消</button>';
+    html += '<button type="button" class="btn-small" data-submit-add' + (addFormMode === "template" && state.templates.length === 0 ? ' disabled' : '') + '>添加</button>';
+    html += '</div></div>';
+    return html;
+  }
+
+  function bindMainEvents() {
+    document.querySelectorAll("[data-dismiss-for]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var cls = classById(Number(btn.getAttribute("data-dismiss-for")));
+        cls.dismissed = !cls.dismissed;
+        renderMain();
+      });
+    });
+
+    var templateToggle = document.getElementById("templateToggle");
+    if (templateToggle) {
+      templateToggle.addEventListener("click", function () {
+        templatePanelOpen = !templatePanelOpen;
+        renderMain();
+      });
+    }
+
+    var templateForm = document.getElementById("templateForm");
+    if (templateForm) {
+      var subjectInput = document.getElementById("templateSubject");
+      var nameInput = document.getElementById("templateName");
+      var submitBtn = document.getElementById("templateSubmit");
+      function syncSubmit() {
+        submitBtn.disabled = !(subjectInput.value.trim() && nameInput.value.trim());
+      }
+      subjectInput.addEventListener("input", syncSubmit);
+      nameInput.addEventListener("input", syncSubmit);
+      templateForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var subject = subjectInput.value.trim();
+        var name = nameInput.value.trim();
+        if (!subject || !name) return;
+        state.templates.push({ id: state.nextTemplateId++, subject: subject, name: name });
+        showToast("已添加到任务库");
+        renderMain();
+      });
+    }
+
+    document.querySelectorAll("[data-del-template]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var id = Number(btn.getAttribute("data-del-template"));
+        state.templates = state.templates.filter(function (t) { return t.id !== id; });
+        showToast("已从任务库删除");
+        renderMain();
+      });
+    });
+
+    document.querySelectorAll("[data-assign-target]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var clsId = Number(btn.getAttribute("data-assign-target-for"));
+        assignTargetByClass[clsId] = btn.getAttribute("data-assign-target");
+        renderMain();
+      });
+    });
+
+    document.querySelectorAll("[data-assign-panel]").forEach(function (panel) {
+      var cls = classById(Number(panel.getAttribute("data-assign-panel")));
+      var assignChecks = panel.querySelector("[data-assign-checks]");
+      var assignBtn = panel.querySelector("[data-assign-btn]");
+      if (!assignChecks || !assignBtn) return;
+      var target = assignTargetByClass[cls.id];
+      var targetStudents = schoolClassGroups(cls).find(function (g) { return g.name === target; });
+      targetStudents = targetStudents ? targetStudents.students : [];
+      var checkboxes = assignChecks.querySelectorAll("input[type=checkbox]");
+      function syncAssignBtn() {
+        var n = Array.prototype.filter.call(checkboxes, function (c) { return c.checked; }).length;
+        assignBtn.textContent = "批量分配给" + target + "（" + n + "）";
+        assignBtn.disabled = n === 0;
+      }
+      checkboxes.forEach(function (c) { c.addEventListener("change", syncAssignBtn); });
+      assignBtn.addEventListener("click", function () {
+        var selectedIds = Array.prototype.filter.call(checkboxes, function (c) { return c.checked; })
+          .map(function (c) { return Number(c.value); });
+        var templatesToAssign = state.templates.filter(function (t) { return selectedIds.indexOf(t.id) !== -1; });
+        targetStudents.forEach(function (s) {
+          templatesToAssign.forEach(function (t) {
+            s.tasks.push({ id: state.nextTaskId++, subject: t.subject, name: t.name, completed: false, custom: false });
+          });
+        });
+        showToast("已分配给" + target + targetStudents.length + "名学生");
+        renderMain();
+      });
+    });
+
+    document.querySelectorAll("[data-toggle-task]").forEach(function (input) {
+      input.addEventListener("change", function () {
+        var id = Number(input.getAttribute("data-toggle-task"));
+        var student = findStudentByTaskId(id);
+        var task = student.tasks.find(function (t) { return t.id === id; });
+        task.completed = input.checked;
+        var willBeDone = student.tasks.length > 0 && student.tasks.every(function (t) { return t.completed; });
+        renderMain();
+        if (willBeDone) {
+          var ring = document.querySelector('.student-card[data-student-id="' + student.id + '"] [data-progress-ring]');
+          if (ring) ring.classList.add("is-earning");
+        }
+      });
+    });
+
+    document.querySelectorAll("[data-rate-for]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var studentId = Number(btn.getAttribute("data-rate-for"));
+        var value = Number(btn.getAttribute("data-rate-value"));
+        var student = findStudentById(studentId);
+        student.rating = student.rating === value ? 0 : value;
+        renderMain();
+        var row = document.querySelector('.student-card[data-student-id="' + studentId + '"] .star-rating');
+        if (row) {
+          row.classList.add("is-rating-pop");
+          row.addEventListener("animationend", function handler() {
+            row.classList.remove("is-rating-pop");
+            row.removeEventListener("animationend", handler);
+          });
+        }
+      });
+    });
+
+    document.querySelectorAll("[data-share-for]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        openSharePoster(Number(btn.getAttribute("data-share-for")));
+      });
+    });
+
+    document.querySelectorAll("[data-del-task]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var id = Number(btn.getAttribute("data-del-task"));
+        state.classes.forEach(function (c) {
+          c.students.forEach(function (s) { s.tasks = s.tasks.filter(function (t) { return t.id !== id; }); });
+        });
+        renderMain();
+      });
+    });
+
+    document.querySelectorAll("[data-open-add]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        addFormOpenFor = Number(btn.getAttribute("data-open-add"));
+        addFormMode = "template";
+        renderMain();
+      });
+    });
+
+    document.querySelectorAll("[data-cancel-add]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        addFormOpenFor = null;
+        renderMain();
+      });
+    });
+
+    document.querySelectorAll(".add-task-form__tabs button").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        addFormMode = btn.getAttribute("data-mode");
+        renderMain();
+      });
+    });
+
+    document.querySelectorAll("[data-submit-add]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var form = btn.closest(".add-task-form");
+        var studentId = Number(form.getAttribute("data-add-form-for"));
+        var student = findStudentById(studentId);
+        if (addFormMode === "template") {
+          var select = form.querySelector("[data-template-select]");
+          if (!select || !select.value) return;
+          var tpl = state.templates.find(function (t) { return t.id === Number(select.value); });
+          if (!tpl) return;
+          student.tasks.push({ id: state.nextTaskId++, subject: tpl.subject, name: tpl.name, completed: false, custom: false });
+        } else {
+          var subject = form.querySelector("[data-custom-subject]").value.trim();
+          var name = form.querySelector("[data-custom-name]").value.trim();
+          if (!subject || !name) return;
+          student.tasks.push({ id: state.nextTaskId++, subject: subject, name: name, completed: false, custom: true });
+        }
+        addFormOpenFor = null;
+        renderMain();
+      });
+    });
+
+    document.querySelectorAll("[data-avatar-for]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var id = btn.getAttribute("data-avatar-for");
+        document.querySelector('[data-avatar-input-for="' + id + '"]').click();
+      });
+    });
+
+    document.querySelectorAll("[data-avatar-input-for]").forEach(function (input) {
+      input.addEventListener("change", function () {
+        var file = input.files && input.files[0];
+        if (!file) return;
+        var id = Number(input.getAttribute("data-avatar-input-for"));
+        var reader = new FileReader();
+        reader.onload = function () {
+          var student = findStudentById(id);
+          student.avatarUrl = reader.result;
+          renderMain();
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+  }
+
+  document.getElementById("classTabs").addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-class-id]");
+    if (!btn) return;
+    state.activeClassId = Number(btn.getAttribute("data-class-id"));
+    templatePanelOpen = false;
+    addFormOpenFor = null;
+    renderTabs();
+    renderMain();
+  });
+
+  document.getElementById("logoutBtn").addEventListener("click", function () {
+    showToast("已退出登录（demo 不会真的跳转）");
+  });
+
+  columnsModeQuery.addEventListener("change", function () {
+    templatePanelOpen = false;
+    addFormOpenFor = null;
+    renderMain();
+  });
+
+  renderTabs();
+  renderMain();
+})();
+</script>
+
+</body>
+</html>

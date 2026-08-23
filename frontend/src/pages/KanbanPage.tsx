@@ -1,18 +1,28 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import * as classesApi from '../api/classes'
 import * as studentsApi from '../api/students'
 import * as templatesApi from '../api/taskTemplates'
 import * as dailyTasksApi from '../api/dailyTasks'
 import * as dismissalApi from '../api/dismissal'
+import * as studentNotesApi from '../api/studentNotes'
 import type { DailyTask } from '../api/dailyTasks'
 import { todayDateString } from '../kanban/date'
+import { groupBySchoolClass } from '../kanban/schoolClass'
 import { StudentCard } from '../components/StudentCard'
 import { AssignTaskBar } from '../components/AssignTaskBar'
 import { DismissButton } from '../components/DismissButton'
 import { TaskTemplateManager } from '../components/TaskTemplateManager'
+import { Toast } from '../components/Toast'
 import { useAuth } from '../auth/AuthContext'
 
 const date = todayDateString()
+
+interface StudentNote {
+  rating: number
+  comment: string
+}
+
+const EMPTY_NOTE: StudentNote = { rating: 0, comment: '' }
 
 export function KanbanPage() {
   const { logout } = useAuth()
@@ -21,9 +31,18 @@ export function KanbanPage() {
   const [students, setStudents] = useState<studentsApi.Student[]>([])
   const [tasks, setTasks] = useState<DailyTask[]>([])
   const [templates, setTemplates] = useState<templatesApi.TaskTemplate[]>([])
+  const [notesByStudent, setNotesByStudent] = useState<Map<number, StudentNote>>(new Map())
   const [dismissed, setDismissed] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const toastTimerRef = useRef<number | null>(null)
+
+  const showToast = useCallback((message: string) => {
+    setToastMessage(message)
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current)
+    toastTimerRef.current = window.setTimeout(() => setToastMessage(null), 2200)
+  }, [])
 
   useEffect(() => {
     Promise.all([classesApi.fetchClasses(), templatesApi.fetchTaskTemplates()])
@@ -46,14 +65,16 @@ export function KanbanPage() {
     setLoading(true)
     setError(null)
     try {
-      const [studentList, taskList, dismissalStatus] = await Promise.all([
+      const [studentList, taskList, dismissalStatus, noteList] = await Promise.all([
         studentsApi.fetchStudents(classId),
         dailyTasksApi.listForClass(classId, date),
         dismissalApi.fetchDismissalStatus(classId, date),
+        studentNotesApi.fetchStudentNotes(classId, date),
       ])
       setStudents(studentList.filter((s) => s.enrolled))
       setTasks(taskList)
       setDismissed(dismissalStatus.dismissed)
+      setNotesByStudent(new Map(noteList.map((n) => [n.studentId, { rating: n.rating, comment: n.comment }])))
     } catch {
       setError('加载班级数据失败，请刷新重试')
     } finally {
@@ -83,10 +104,16 @@ export function KanbanPage() {
     setTemplates((prev) => prev.filter((t) => t.id !== id))
   }
 
-  async function handleBatchAssign(templateIds: number[]) {
-    if (activeClassId === null) return
-    await dailyTasksApi.batchAssign(activeClassId, templateIds, date)
+  async function handleBatchAssign(schoolClassName: string, templateIds: number[]) {
+    const representative = students.find((s) => s.schoolClassName === schoolClassName)
+    if (!representative) return
+    await Promise.all(
+      templateIds.map((templateId) =>
+        dailyTasksApi.addFromTemplateForStudent(representative.id, templateId, date),
+      ),
+    )
     await refreshTasks()
+    showToast(`已分配给${schoolClassName}`)
   }
 
   async function handleAddFromTemplate(studentId: number, templateId: number) {
@@ -123,6 +150,26 @@ export function KanbanPage() {
     }
   }
 
+  async function handleSetRating(studentId: number, rating: number) {
+    const previous = notesByStudent.get(studentId) ?? EMPTY_NOTE
+    setNotesByStudent((prev) => new Map(prev).set(studentId, { ...previous, rating }))
+    try {
+      await studentNotesApi.setRating(studentId, date, rating)
+    } catch {
+      setNotesByStudent((prev) => new Map(prev).set(studentId, previous))
+    }
+  }
+
+  async function handleSetComment(studentId: number, comment: string) {
+    const previous = notesByStudent.get(studentId) ?? EMPTY_NOTE
+    setNotesByStudent((prev) => new Map(prev).set(studentId, { ...previous, comment }))
+    try {
+      await studentNotesApi.setComment(studentId, date, comment)
+    } catch {
+      setNotesByStudent((prev) => new Map(prev).set(studentId, previous))
+    }
+  }
+
   async function handleDismiss() {
     if (activeClassId === null) return
     await dismissalApi.dismissClass(activeClassId, date)
@@ -142,32 +189,71 @@ export function KanbanPage() {
     tasksByStudent.set(task.studentId, list)
   }
 
+  const schoolClassGroups = groupBySchoolClass(students)
+
   if (!loading && classes.length === 0) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 text-center text-gray-500">
+      <div className="no-class-screen">
         <p>暂无托管班级，请联系机构管理员创建</p>
       </div>
     )
   }
 
+  function renderStudentCard(student: studentsApi.Student) {
+    const note = notesByStudent.get(student.id) ?? EMPTY_NOTE
+    return (
+      <StudentCard
+        key={student.id}
+        student={student}
+        tasks={tasksByStudent.get(student.id) ?? []}
+        dismissed={dismissed}
+        templates={templates}
+        rating={note.rating}
+        comment={note.comment}
+        date={date}
+        onToggleTask={handleToggleTask}
+        onDeleteTask={handleDeleteTask}
+        onAddFromTemplate={handleAddFromTemplate}
+        onAddCustom={handleAddCustom}
+        onUploadAvatar={handleUploadAvatar}
+        onSetRating={handleSetRating}
+        onSetComment={handleSetComment}
+        onShowToast={showToast}
+      />
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 pb-8">
-      <header className="sticky top-0 z-10 bg-white shadow-sm">
-        <div className="flex items-center justify-between px-4 py-2">
-          <h1 className="text-lg font-semibold">托管班看板</h1>
-          <button type="button" onClick={logout} className="text-sm text-gray-400">
+    <div className="min-h-screen pb-8">
+      <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+        <defs>
+          <linearGradient id="ringAccent" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#4F86F7" />
+            <stop offset="100%" stopColor="#9B6BFF" />
+          </linearGradient>
+          <linearGradient id="ringGold" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#FFD65A" />
+            <stop offset="100%" stopColor="#FF9142" />
+          </linearGradient>
+        </defs>
+      </svg>
+
+      <header className="app-header">
+        <div className="app-header__top">
+          <h1 className="app-header__title">托管班看板</h1>
+          <button type="button" onClick={logout} className="logout-btn">
             退出登录
           </button>
         </div>
-        <div className="flex gap-1 overflow-x-auto px-4 pb-2">
+        <div className="class-tabs" role="tablist">
           {classes.map((c) => (
             <button
               key={c.id}
               type="button"
+              role="tab"
+              aria-selected={activeClassId === c.id}
+              className="class-tab"
               onClick={() => setActiveClassId(c.id)}
-              className={`shrink-0 rounded-full px-3 py-1 text-sm ${
-                activeClassId === c.id ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'
-              }`}
             >
               {c.name}
             </button>
@@ -175,14 +261,14 @@ export function KanbanPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-md space-y-3 px-4 py-3">
+      <main>
         {error && <p className="text-sm text-red-600">{error}</p>}
         {loading && <p className="text-sm text-gray-400">加载中...</p>}
 
         {!loading && activeClassId !== null && (
           <>
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-500">{date}</p>
+            <div className="date-row">
+              <span className="date-row__date">{date}</span>
               <DismissButton dismissed={dismissed} onDismiss={handleDismiss} onUndoDismiss={handleUndoDismiss} />
             </div>
 
@@ -192,28 +278,33 @@ export function KanbanPage() {
               onDelete={handleDeleteTemplate}
             />
 
-            <AssignTaskBar templates={templates} onAssign={handleBatchAssign} />
+            <AssignTaskBar
+              studentsBySchoolClass={schoolClassGroups}
+              templates={templates}
+              onAssign={handleBatchAssign}
+            />
 
-            <div className="space-y-3">
-              {students.map((student) => (
-                <StudentCard
-                  key={student.id}
-                  student={student}
-                  tasks={tasksByStudent.get(student.id) ?? []}
-                  dismissed={dismissed}
-                  templates={templates}
-                  onToggleTask={handleToggleTask}
-                  onDeleteTask={handleDeleteTask}
-                  onAddFromTemplate={handleAddFromTemplate}
-                  onAddCustom={handleAddCustom}
-                  onUploadAvatar={handleUploadAvatar}
-                />
-              ))}
-              {students.length === 0 && <p className="text-sm text-gray-400">该班级暂无在读学生</p>}
-            </div>
+            {schoolClassGroups.length > 1 ? (
+              <div className="school-class-columns">
+                {schoolClassGroups.map((group) => (
+                  <div key={group.schoolClassName} className="school-class-column">
+                    <h3 className="school-class-column__name">
+                      {group.schoolClassName}
+                      <span className="school-class-column__count">{group.students.length}人</span>
+                    </h3>
+                    <div className="student-grid">{group.students.map(renderStudentCard)}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="student-grid">{students.map(renderStudentCard)}</div>
+            )}
+            {students.length === 0 && <p className="text-sm text-gray-400">该班级暂无在读学生</p>}
           </>
         )}
       </main>
+
+      <Toast message={toastMessage} />
     </div>
   )
 }
