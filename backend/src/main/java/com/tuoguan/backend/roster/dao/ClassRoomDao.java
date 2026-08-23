@@ -12,4 +12,6 @@ public interface ClassRoomDao {
     Optional<ClassRoom> findById(Long id);
 
     List<ClassRoom> findAllByTeacherId(Long teacherId);
+
+    List<ClassRoom> findAllByInstitutionId(Long institutionId);
 }

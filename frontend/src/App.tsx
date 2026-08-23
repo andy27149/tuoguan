@@ -4,14 +4,19 @@ import { LoginPage } from './pages/LoginPage'
 import { ChangePasswordPage } from './pages/ChangePasswordPage'
 import { KanbanPage } from './pages/KanbanPage'
 import { RosterPage } from './pages/RosterPage'
+import { AdminDashboardPage } from './pages/AdminDashboardPage'
 
 function AuthenticatedApp() {
-  const [view, setView] = useState<'kanban' | 'roster'>('kanban')
+  const [view, setView] = useState<'kanban' | 'roster' | 'admin'>('kanban')
 
-  return view === 'kanban' ? (
-    <KanbanPage onOpenRoster={() => setView('roster')} />
-  ) : (
-    <RosterPage onBack={() => setView('kanban')} />
+  if (view === 'roster') {
+    return <RosterPage onBack={() => setView('kanban')} />
+  }
+  if (view === 'admin') {
+    return <AdminDashboardPage onBack={() => setView('kanban')} />
+  }
+  return (
+    <KanbanPage onOpenRoster={() => setView('roster')} onOpenAdmin={() => setView('admin')} />
   )
 }
 

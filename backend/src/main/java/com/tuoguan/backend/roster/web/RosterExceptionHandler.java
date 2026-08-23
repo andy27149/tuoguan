@@ -1,5 +1,6 @@
 package com.tuoguan.backend.roster.web;
 
+import com.tuoguan.backend.admin.web.DuplicatePhoneException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -27,5 +28,10 @@ public class RosterExceptionHandler {
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public void handleMaxUploadSizeExceeded() {
+    }
+
+    @ExceptionHandler(DuplicatePhoneException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public void handleDuplicatePhone() {
     }
 }
