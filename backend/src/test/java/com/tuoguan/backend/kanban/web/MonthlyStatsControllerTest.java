@@ -96,7 +96,17 @@ class MonthlyStatsControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.dailyRates[0].rate").value(1.0))
                 .andExpect(jsonPath("$.dailyRates[1].date").value(day2.toString()))
                 .andExpect(jsonPath("$.dailyRates[1].rate").value(0.5))
-                .andExpect(jsonPath("$.averageRating").value(4.5));
+                .andExpect(jsonPath("$.averageRating").value(4.5))
+                .andExpect(jsonPath("$.dailyRatings.length()").value(2))
+                .andExpect(jsonPath("$.dailyRatings[0].date").value(day1.toString()))
+                .andExpect(jsonPath("$.dailyRatings[0].rating").value(4))
+                .andExpect(jsonPath("$.dailyRatings[1].rating").value(5))
+                .andExpect(jsonPath("$.days.length()").value(2))
+                .andExpect(jsonPath("$.days[0].date").value(day1.toString()))
+                .andExpect(jsonPath("$.days[0].tasks.length()").value(2))
+                .andExpect(jsonPath("$.days[0].rating").value(4))
+                .andExpect(jsonPath("$.days[1].tasks[0].completed").value(true))
+                .andExpect(jsonPath("$.days[1].tasks[1].completed").value(false));
     }
 
     @Test

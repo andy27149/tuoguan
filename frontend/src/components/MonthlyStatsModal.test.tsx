@@ -2,18 +2,51 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MonthlyStatsModal } from './MonthlyStatsModal'
 import * as monthlyStatsApi from '../api/monthlyStats'
-import { currentMonthString, shiftMonthString } from '../kanban/date'
+import type { MonthlyStats } from '../api/monthlyStats'
+import { currentMonthString, shiftMonthString, todayDateString } from '../kanban/date'
 
 vi.mock('../api/monthlyStats')
 
-const STATS = {
-  completedDays: 12,
-  incompleteDays: 3,
+const TODAY = todayDateString()
+
+const STATS: MonthlyStats = {
+  completedDays: 1,
+  incompleteDays: 1,
   dailyRates: [
     { date: '2026-08-01', rate: 1 },
-    { date: '2026-08-02', rate: 0.5 },
+    { date: TODAY, rate: 0.5 },
   ],
-  averageRating: 4.2,
+  averageRating: 4.5,
+  dailyRatings: [
+    { date: '2026-08-01', rating: 4 },
+    { date: TODAY, rating: 5 },
+  ],
+  days: [
+    {
+      date: '2026-08-01',
+      tasks: [{ id: 1, subject: '数学', name: '口算练习', completed: true }],
+      rating: 4,
+      comment: '',
+    },
+    {
+      date: TODAY,
+      tasks: [
+        { id: 2, subject: '数学', name: '口算练习', completed: true },
+        { id: 3, subject: '英语', name: '单词听写', completed: false },
+      ],
+      rating: 5,
+      comment: '今天状态不错',
+    },
+  ],
+}
+
+const EMPTY_STATS: MonthlyStats = {
+  completedDays: 0,
+  incompleteDays: 0,
+  dailyRates: [],
+  averageRating: 0,
+  dailyRatings: [],
+  days: [],
 }
 
 describe('MonthlyStatsModal', () => {
@@ -25,9 +58,29 @@ describe('MonthlyStatsModal', () => {
   it('shows the fetched completed/incomplete counts and average rating', async () => {
     render(<MonthlyStatsModal studentId={10} studentName="小明" onClose={vi.fn()} />)
 
-    expect(await screen.findByText(/完成天数 12 \/ 未完成天数 3/)).toBeInTheDocument()
-    expect(screen.getByText('4.2')).toBeInTheDocument()
+    expect(await screen.findByText(/完成天数 1 \/ 未完成天数 1/)).toBeInTheDocument()
+    expect(screen.getByText('4.5')).toBeInTheDocument()
     expect(monthlyStatsApi.fetchMonthlyStats).toHaveBeenCalledWith(10, currentMonthString())
+  })
+
+  it('defaults the selected day to today and shows its tasks/rating/comment', async () => {
+    render(<MonthlyStatsModal studentId={10} studentName="小明" onClose={vi.fn()} />)
+
+    await screen.findByText(/完成天数/)
+
+    expect(screen.getByText(TODAY)).toBeInTheDocument()
+    expect(screen.getByText(/单词听写/)).toBeInTheDocument()
+    expect(screen.getByText('今天状态不错')).toBeInTheDocument()
+  })
+
+  it('switches the day detail when another calendar day is clicked', async () => {
+    render(<MonthlyStatsModal studentId={10} studentName="小明" onClose={vi.fn()} />)
+    await screen.findByText(/完成天数/)
+
+    fireEvent.click(screen.getByRole('button', { name: '1' }))
+
+    expect(await screen.findByText('2026-08-01')).toBeInTheDocument()
+    expect(screen.getByText(/口算练习/)).toBeInTheDocument()
   })
 
   it('fetches the previous month when clicking 上月', async () => {
@@ -58,15 +111,12 @@ describe('MonthlyStatsModal', () => {
     )
   })
 
-  it('shows an empty-data message when dailyRates is empty', async () => {
-    vi.mocked(monthlyStatsApi.fetchMonthlyStats).mockResolvedValue({
-      completedDays: 0,
-      incompleteDays: 0,
-      dailyRates: [],
-      averageRating: 0,
-    })
+  it('shows empty-data messages for the charts and day detail when there is no data', async () => {
+    vi.mocked(monthlyStatsApi.fetchMonthlyStats).mockResolvedValue(EMPTY_STATS)
     render(<MonthlyStatsModal studentId={10} studentName="小明" onClose={vi.fn()} />)
 
-    expect(await screen.findByText('本月暂无数据')).toBeInTheDocument()
+    expect(await screen.findByText('本月暂无评星数据')).toBeInTheDocument()
+    expect(screen.getByText('本月暂无任务数据')).toBeInTheDocument()
+    expect(screen.getByText('当天没有任务记录')).toBeInTheDocument()
   })
 })

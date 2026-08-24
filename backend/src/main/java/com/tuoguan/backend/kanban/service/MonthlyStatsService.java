@@ -14,9 +14,12 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 @Service
@@ -45,8 +48,10 @@ public class MonthlyStatsService {
         LocalDate end = month.atEndOfMonth().isAfter(today) ? today : month.atEndOfMonth();
 
         if (end.isBefore(start)) {
-            return new MonthlyStatsResult(0, 0, List.of(), 0.0);
+            return new MonthlyStatsResult(0, 0, List.of(), 0.0, List.of(), List.of());
         }
+
+        DateTimeFormatter isoDate = DateTimeFormatter.ISO_LOCAL_DATE;
 
         List<DailyTask> tasks = dailyTaskDao.findAllByStudentIdAndDateRange(studentId, start, end);
         Map<LocalDate, List<DailyTask>> byDate = tasks.stream()
@@ -55,7 +60,6 @@ public class MonthlyStatsService {
         int completedDays = 0;
         int incompleteDays = 0;
         List<DailyRate> dailyRates = new ArrayList<>();
-        DateTimeFormatter isoDate = DateTimeFormatter.ISO_LOCAL_DATE;
         for (Map.Entry<LocalDate, List<DailyTask>> entry : byDate.entrySet()) {
             List<DailyTask> dayTasks = entry.getValue();
             boolean allCompleted = dayTasks.stream().allMatch(DailyTask::completed);
@@ -70,18 +74,48 @@ public class MonthlyStatsService {
         }
 
         List<StudentDailyNote> notes = studentDailyNoteDao.findAllByStudentIdAndDateRange(studentId, start, end);
+        Map<LocalDate, StudentDailyNote> noteByDate = notes.stream()
+                .collect(Collectors.toMap(StudentDailyNote::noteDate, n -> n, (a, b) -> a, TreeMap::new));
+
         List<StudentDailyNote> ratedNotes = notes.stream().filter(n -> n.rating() > 0).toList();
         double averageRating = ratedNotes.isEmpty()
                 ? 0.0
                 : ratedNotes.stream().mapToInt(StudentDailyNote::rating).average().orElse(0.0);
 
-        return new MonthlyStatsResult(completedDays, incompleteDays, dailyRates, averageRating);
+        List<DailyRating> dailyRatings = notes.stream()
+                .sorted(Comparator.comparing(StudentDailyNote::noteDate))
+                .map(n -> new DailyRating(n.noteDate().format(isoDate), n.rating()))
+                .toList();
+
+        Set<LocalDate> allDates = new TreeSet<>(byDate.keySet());
+        allDates.addAll(noteByDate.keySet());
+        List<DayDetail> days = new ArrayList<>();
+        for (LocalDate date : allDates) {
+            List<DayTask> dayTasks = byDate.getOrDefault(date, List.of()).stream()
+                    .map(t -> new DayTask(t.id(), t.subject(), t.name(), t.completed()))
+                    .toList();
+            StudentDailyNote note = noteByDate.get(date);
+            int rating = note != null ? note.rating() : 0;
+            String comment = note != null ? note.comment() : "";
+            days.add(new DayDetail(date.format(isoDate), dayTasks, rating, comment));
+        }
+
+        return new MonthlyStatsResult(completedDays, incompleteDays, dailyRates, averageRating, dailyRatings, days);
     }
 
     public record DailyRate(String date, double rate) {
     }
 
+    public record DailyRating(String date, int rating) {
+    }
+
+    public record DayTask(Long id, String subject, String name, boolean completed) {
+    }
+
+    public record DayDetail(String date, List<DayTask> tasks, int rating, String comment) {
+    }
+
     public record MonthlyStatsResult(int completedDays, int incompleteDays, List<DailyRate> dailyRates,
-                                      double averageRating) {
+                                      double averageRating, List<DailyRating> dailyRatings, List<DayDetail> days) {
     }
 }
