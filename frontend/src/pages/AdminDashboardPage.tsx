@@ -18,6 +18,15 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
   const [createError, setCreateError] = useState<string | null>(null)
   const [createdNotice, setCreatedNotice] = useState<{ phone: string; password: string } | null>(null)
 
+  const [classes, setClasses] = useState<adminApi.AdminClassRoom[]>([])
+  const [loadingClasses, setLoadingClasses] = useState(true)
+  const [classLoadError, setClassLoadError] = useState<string | null>(null)
+
+  const [newClassName, setNewClassName] = useState('')
+  const [selectedTeacherId, setSelectedTeacherId] = useState('')
+  const [creatingClass, setCreatingClass] = useState(false)
+  const [createClassError, setCreateClassError] = useState<string | null>(null)
+
   const [date, setDate] = useState(todayDateString())
   const [dashboard, setDashboard] = useState<adminApi.AdminDashboard | null>(null)
   const [loadingDashboard, setLoadingDashboard] = useState(true)
@@ -33,8 +42,19 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
       .finally(() => setLoadingTeachers(false))
   }
 
+  function loadClasses() {
+    setLoadingClasses(true)
+    setClassLoadError(null)
+    adminApi
+      .fetchAdminClasses()
+      .then(setClasses)
+      .catch(() => setClassLoadError('加载班级列表失败，请刷新重试'))
+      .finally(() => setLoadingClasses(false))
+  }
+
   useEffect(() => {
     loadTeachers()
+    loadClasses()
   }, [])
 
   useEffect(() => {
@@ -64,6 +84,30 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
       setCreateError(err instanceof ApiError && err.status === 409 ? '该手机号已注册' : '创建失败，请重试')
     } finally {
       setCreatingTeacher(false)
+    }
+  }
+
+  async function handleCreateClass(e: FormEvent) {
+    e.preventDefault()
+    const name = newClassName.trim()
+    if (!name || !selectedTeacherId) return
+    setCreatingClass(true)
+    setCreateClassError(null)
+    try {
+      const created = await adminApi.createAdminClass(name, Number(selectedTeacherId))
+      setClasses((prev) => [...prev, created])
+      setNewClassName('')
+      setSelectedTeacherId('')
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        setCreateClassError('该托管班名称已存在')
+      } else if (err instanceof ApiError && err.status === 404) {
+        setCreateClassError('所选教师不存在')
+      } else {
+        setCreateClassError('创建失败，请重试')
+      }
+    } finally {
+      setCreatingClass(false)
     }
   }
 
@@ -137,6 +181,54 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
                 </li>
               ))}
               {teachers.length === 0 && <li className="text-xs text-gray-400">暂无教师</li>}
+            </ul>
+          )}
+        </div>
+
+        <div className="rounded-lg border border-gray-200 bg-white p-3">
+          <h2 className="text-sm font-medium text-gray-700">新建托管班级</h2>
+          <form onSubmit={handleCreateClass} className="mt-2 flex flex-wrap gap-2">
+            <input
+              placeholder="班级名称"
+              value={newClassName}
+              onChange={(e) => setNewClassName(e.target.value)}
+              className="w-32 rounded border px-2 py-1 text-sm"
+            />
+            <select
+              value={selectedTeacherId}
+              onChange={(e) => setSelectedTeacherId(e.target.value)}
+              className="w-40 rounded border px-2 py-1 text-sm"
+            >
+              <option value="">选择教师</option>
+              {teachers.map((teacher) => (
+                <option key={teacher.id} value={teacher.id}>
+                  {teacher.phone}
+                </option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              disabled={creatingClass || !newClassName.trim() || !selectedTeacherId}
+              className="rounded bg-blue-600 px-3 py-1 text-sm text-white disabled:opacity-50"
+            >
+              创建班级
+            </button>
+          </form>
+          {createClassError && (
+            <p role="alert" className="mt-1 text-xs text-red-600">
+              {createClassError}
+            </p>
+          )}
+          {classLoadError && <p className="mt-1 text-sm text-red-600">{classLoadError}</p>}
+          {loadingClasses && <p className="mt-1 text-sm text-gray-400">加载中...</p>}
+          {!loadingClasses && (
+            <ul className="mt-2 space-y-2">
+              {classes.map((classRoom) => (
+                <li key={classRoom.id} className="rounded border border-gray-100 p-2 text-sm">
+                  {classRoom.name} · 教师 {classRoom.teacherPhone}
+                </li>
+              ))}
+              {classes.length === 0 && <li className="text-xs text-gray-400">暂无班级</li>}
             </ul>
           )}
         </div>

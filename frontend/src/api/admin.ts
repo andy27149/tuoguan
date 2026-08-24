@@ -19,6 +19,13 @@ export interface AdminDashboard {
   classes: ClassSummary[]
 }
 
+export interface AdminClassRoom {
+  id: number
+  name: string
+  teacherId: number
+  teacherPhone: string
+}
+
 export function fetchTeachers(): Promise<Teacher[]> {
   return apiFetch<Teacher[]>('/admin/teachers')
 }
@@ -33,4 +40,15 @@ export function createTeacher(phone: string, initialPassword: string): Promise<T
 export function fetchAdminDashboard(date?: string): Promise<AdminDashboard> {
   const query = date ? `?date=${date}` : ''
   return apiFetch<AdminDashboard>(`/admin/dashboard${query}`)
+}
+
+export function fetchAdminClasses(): Promise<AdminClassRoom[]> {
+  return apiFetch<AdminClassRoom[]>('/admin/classes')
+}
+
+export function createAdminClass(name: string, teacherId: number): Promise<AdminClassRoom> {
+  return apiFetch<AdminClassRoom>('/admin/classes', {
+    method: 'POST',
+    body: JSON.stringify({ name, teacherId }),
+  })
 }

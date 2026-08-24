@@ -77,9 +77,4 @@ public class JdbcStudentDao implements StudentDao {
     public void updateAvatarObjectKey(Long id, String avatarObjectKey) {
         jdbcTemplate.update("UPDATE student SET avatar_object_key = ? WHERE id = ?", avatarObjectKey, id);
     }
-
-    @Override
-    public void deleteById(Long id) {
-        jdbcTemplate.update("DELETE FROM student WHERE id = ?", id);
-    }
 }

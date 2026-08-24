@@ -81,15 +81,4 @@ class JdbcStudentDaoTest extends IntegrationTestBase {
         assertThat(updated.schoolClassName()).isEqualTo("六年级2班");
         assertThat(updated.enrolled()).isFalse();
     }
-
-    @Test
-    void deleteByIdRemovesStudent() {
-        Long classRoomId = createClassRoom("学生测试机构E", "13900002005");
-        Long institutionId = classRoomDao.findById(classRoomId).orElseThrow().institutionId();
-        Long id = studentDao.insert(new Student(null, institutionId, classRoomId, "小王", "一年级1班", true, null, null));
-
-        studentDao.deleteById(id);
-
-        assertThat(studentDao.findById(id)).isEmpty();
-    }
 }

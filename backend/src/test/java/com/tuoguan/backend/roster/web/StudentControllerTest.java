@@ -15,7 +15,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MvcResult;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -40,7 +39,7 @@ class StudentControllerTest extends IntegrationTestBase {
     private ObjectMapper objectMapper;
 
     @Test
-    void createListUpdateAndDeleteStudentInOwnClass() throws Exception {
+    void createListAndUpdateStudentInOwnClass() throws Exception {
         Long institutionId = institutionDao.insert("学生控制器测试机构A");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800008001",
                 passwordEncoder.encode("password"), Role.TEACHER, false, null));
@@ -71,15 +70,6 @@ class StudentControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.name").value("小明明"))
                 .andExpect(jsonPath("$.schoolClassName").value("三年级3班"))
                 .andExpect(jsonPath("$.enrolled").value(false));
-
-        mockMvc.perform(delete("/api/students/" + created.id())
-                        .header("Authorization", "Bearer " + token))
-                .andExpect(status().isNoContent());
-
-        mockMvc.perform(get("/api/classes/" + classRoomId + "/students")
-                        .header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(0));
     }
 
     @Test
@@ -105,7 +95,7 @@ class StudentControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    void teacherCannotUpdateOrDeleteAnotherTeachersStudent() throws Exception {
+    void teacherCannotUpdateAnotherTeachersStudent() throws Exception {
         Long institutionId = institutionDao.insert("学生控制器测试机构C");
         Long teacherAId = teacherDao.insert(new Teacher(null, institutionId, "13800008004",
                 passwordEncoder.encode("password-a"), Role.TEACHER, false, null));
@@ -129,10 +119,6 @@ class StudentControllerTest extends IntegrationTestBase {
                         .header("Authorization", "Bearer " + tokenB)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"改名\",\"schoolClassName\":\"五年级2班\",\"enrolled\":true}"))
-                .andExpect(status().isNotFound());
-
-        mockMvc.perform(delete("/api/students/" + created.id())
-                        .header("Authorization", "Bearer " + tokenB))
                 .andExpect(status().isNotFound());
     }
 

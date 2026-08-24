@@ -49,11 +49,6 @@ public class StudentService {
                 .orElseThrow(() -> new IllegalStateException("Student not found after update: " + existing.id()));
     }
 
-    public void delete(Long teacherId, Long studentId) {
-        Student existing = findOwnedByTeacher(teacherId, studentId);
-        studentDao.deleteById(existing.id());
-    }
-
     public Student updateAvatar(Long teacherId, Long studentId, String contentType, byte[] content) {
         if (!ALLOWED_AVATAR_CONTENT_TYPES.contains(contentType)) {
             throw new InvalidAvatarException("Unsupported avatar content type: " + contentType);

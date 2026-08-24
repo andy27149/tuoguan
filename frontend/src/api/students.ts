@@ -31,10 +31,6 @@ export function updateStudent(
   })
 }
 
-export function deleteStudent(studentId: number): Promise<void> {
-  return apiFetch<void>(`/students/${studentId}`, { method: 'DELETE' })
-}
-
 export function uploadAvatar(studentId: number, file: File): Promise<Student> {
   const formData = new FormData()
   formData.append('file', file)
