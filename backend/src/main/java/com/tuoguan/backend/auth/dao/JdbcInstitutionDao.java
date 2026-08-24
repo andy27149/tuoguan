@@ -44,4 +44,14 @@ public class JdbcInstitutionDao implements InstitutionDao {
                 id);
         return results.stream().findFirst();
     }
+
+    @Override
+    public List<Institution> findAll() {
+        return jdbcTemplate.query(
+                "SELECT id, name, created_at FROM institution ORDER BY created_at",
+                (rs, rowNum) -> new Institution(
+                        rs.getLong("id"),
+                        rs.getString("name"),
+                        rs.getTimestamp("created_at").toInstant()));
+    }
 }

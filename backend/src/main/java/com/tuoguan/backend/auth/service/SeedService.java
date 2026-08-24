@@ -41,4 +41,13 @@ public class SeedService {
         ClassRoom classRoom = new ClassRoom(null, teacher.institutionId(), teacher.id(), className, null);
         classRoomDao.insert(classRoom);
     }
+
+    public void seedPlatformAdmin(String phone, String password) {
+        if (teacherDao.findByPhone(phone).isPresent()) {
+            throw new IllegalStateException("Teacher with phone already exists: " + phone);
+        }
+        Teacher teacher = new Teacher(null, null, phone, passwordEncoder.encode(password),
+                Role.PLATFORM_ADMIN, true, null);
+        teacherDao.insert(teacher);
+    }
 }

@@ -18,7 +18,7 @@ public class JdbcTeacherDao implements TeacherDao {
 
     private static final RowMapper<Teacher> ROW_MAPPER = (rs, rowNum) -> new Teacher(
             rs.getLong("id"),
-            rs.getLong("institution_id"),
+            rs.getObject("institution_id", Long.class),
             rs.getString("phone"),
             rs.getString("password_hash"),
             Role.valueOf(rs.getString("role")),
@@ -39,7 +39,7 @@ public class JdbcTeacherDao implements TeacherDao {
                     "INSERT INTO teacher (institution_id, phone, password_hash, role, must_change_password) "
                             + "VALUES (?, ?, ?, ?, ?)",
                     Statement.RETURN_GENERATED_KEYS);
-            ps.setLong(1, teacher.institutionId());
+            ps.setObject(1, teacher.institutionId());
             ps.setString(2, teacher.phone());
             ps.setString(3, teacher.passwordHash());
             ps.setString(4, teacher.role().name());

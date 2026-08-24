@@ -32,6 +32,17 @@ class JwtServiceTest {
     }
 
     @Test
+    void issueThenParseRoundTripsClaimsWithNullInstitutionId() {
+        String token = jwtService.issueToken(1L, null, Role.PLATFORM_ADMIN);
+
+        JwtClaims claims = jwtService.parseToken(token);
+
+        assertThat(claims.teacherId()).isEqualTo(1L);
+        assertThat(claims.institutionId()).isNull();
+        assertThat(claims.role()).isEqualTo(Role.PLATFORM_ADMIN);
+    }
+
+    @Test
     void parseTokenRejectsExpiredToken() {
         SecretKey key = Keys.hmacShaKeyFor(SECRET.getBytes());
         Instant past = Instant.now().minusSeconds(3600);

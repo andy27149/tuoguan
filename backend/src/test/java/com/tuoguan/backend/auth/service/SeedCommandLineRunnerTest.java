@@ -58,4 +58,22 @@ class SeedCommandLineRunnerTest {
         assertThatThrownBy(() -> runner.run("--seed-class", "--seed-class.teacherPhone=13800005099"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void parsesSeedPlatformAdminArgumentsAndInvokesSeedService() throws Exception {
+        SeedCommandLineRunner runner = new SeedCommandLineRunner(seedService);
+
+        runner.run("--seed-platform-admin", "--seed-platform-admin.phone=13800005099",
+                "--seed-platform-admin.password=secret");
+
+        verify(seedService).seedPlatformAdmin("13800005099", "secret");
+    }
+
+    @Test
+    void throwsWhenSeedPlatformAdminArgumentIsMissing() {
+        SeedCommandLineRunner runner = new SeedCommandLineRunner(seedService);
+
+        assertThatThrownBy(() -> runner.run("--seed-platform-admin", "--seed-platform-admin.phone=13800005099"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }

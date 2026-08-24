@@ -5,6 +5,7 @@ import { ChangePasswordPage } from './pages/ChangePasswordPage'
 import { KanbanPage } from './pages/KanbanPage'
 import { RosterPage } from './pages/RosterPage'
 import { AdminDashboardPage } from './pages/AdminDashboardPage'
+import { PlatformAdminPage } from './pages/PlatformAdminPage'
 
 function AuthenticatedApp() {
   const [view, setView] = useState<'kanban' | 'roster' | 'admin'>('kanban')
@@ -35,6 +36,9 @@ function AppShell() {
     case 'mustChangePassword':
       return <ChangePasswordPage />
     case 'authenticated':
+      if (state.teacher.role === 'PLATFORM_ADMIN') {
+        return <PlatformAdminPage />
+      }
       return <AuthenticatedApp />
   }
 }

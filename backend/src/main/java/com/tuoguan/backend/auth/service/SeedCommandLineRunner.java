@@ -27,6 +27,11 @@ public class SeedCommandLineRunner implements CommandLineRunner {
             String className = requireArg(args, "--seed-class.name=");
             seedService.seedClass(teacherPhone, className);
         }
+        if (Arrays.stream(args).anyMatch(arg -> arg.equals("--seed-platform-admin"))) {
+            String phone = requireArg(args, "--seed-platform-admin.phone=");
+            String password = requireArg(args, "--seed-platform-admin.password=");
+            seedService.seedPlatformAdmin(phone, password);
+        }
     }
 
     private String requireArg(String[] args, String prefix) {

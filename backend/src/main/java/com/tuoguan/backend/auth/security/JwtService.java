@@ -22,10 +22,13 @@ public class JwtService {
 
     public String issueToken(Long teacherId, Long institutionId, Role role) {
         Instant now = Instant.now();
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(teacherId.toString())
-                .claim("institutionId", institutionId.toString())
-                .claim("role", role.name())
+                .claim("role", role.name());
+        if (institutionId != null) {
+            builder.claim("institutionId", institutionId.toString());
+        }
+        return builder
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(TOKEN_TTL)))
                 .signWith(key)
@@ -39,7 +42,8 @@ public class JwtService {
                 .parseSignedClaims(token)
                 .getPayload();
         Long teacherId = Long.valueOf(claims.getSubject());
-        Long institutionId = Long.valueOf(claims.get("institutionId", String.class));
+        String institutionIdClaim = claims.get("institutionId", String.class);
+        Long institutionId = institutionIdClaim == null ? null : Long.valueOf(institutionIdClaim);
         Role role = Role.valueOf(claims.get("role", String.class));
         return new JwtClaims(teacherId, institutionId, role);
     }

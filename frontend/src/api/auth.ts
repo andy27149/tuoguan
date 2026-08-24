@@ -1,6 +1,6 @@
 import { apiFetch } from './client'
 
-export type Role = 'ADMIN' | 'TEACHER'
+export type Role = 'ADMIN' | 'TEACHER' | 'PLATFORM_ADMIN'
 
 export interface LoginResult {
   token: string
@@ -10,7 +10,7 @@ export interface LoginResult {
 export interface TeacherMe {
   id: number
   phone: string
-  institutionId: number
+  institutionId: number | null
   role: Role
 }
 

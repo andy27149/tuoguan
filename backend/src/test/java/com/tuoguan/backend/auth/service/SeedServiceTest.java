@@ -62,4 +62,23 @@ class SeedServiceTest extends IntegrationTestBase {
         assertThatThrownBy(() -> seedService.seedClass("13800005099", "不存在的班"))
                 .isInstanceOf(IllegalStateException.class);
     }
+
+    @Test
+    void seedPlatformAdminCreatesAccountWithoutInstitution() {
+        seedService.seedPlatformAdmin("13800005004", "seed-password");
+
+        Optional<Teacher> found = teacherDao.findByPhone("13800005004");
+        assertThat(found).isPresent();
+        assertThat(found.get().institutionId()).isNull();
+        assertThat(found.get().role()).isEqualTo(Role.PLATFORM_ADMIN);
+        assertThat(found.get().mustChangePassword()).isTrue();
+    }
+
+    @Test
+    void seedPlatformAdminFailsWhenPhoneAlreadyExists() {
+        seedService.seedPlatformAdmin("13800005005", "seed-password");
+
+        assertThatThrownBy(() -> seedService.seedPlatformAdmin("13800005005", "another-password"))
+                .isInstanceOf(IllegalStateException.class);
+    }
 }
