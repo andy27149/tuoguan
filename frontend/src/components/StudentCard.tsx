@@ -8,6 +8,7 @@ import { AddTaskForm } from './AddTaskForm'
 import { StarRating } from './StarRating'
 import { SharePosterModal } from './SharePosterModal'
 import { MonthlyStatsModal } from './MonthlyStatsModal'
+import { ShareLinkModal } from './ShareLinkModal'
 
 interface StudentCardProps {
   student: Student
@@ -98,6 +99,7 @@ export function StudentCard({
   const [uploading, setUploading] = useState(false)
   const [sharing, setSharing] = useState(false)
   const [showingStats, setShowingStats] = useState(false)
+  const [showingShareLink, setShowingShareLink] = useState(false)
   const [justCompleted, setJustCompleted] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const status = computeCardStatus(tasks, dismissed)
@@ -227,6 +229,10 @@ export function StudentCard({
         月度统计
       </button>
 
+      <button type="button" className="share-btn" onClick={() => setShowingShareLink(true)}>
+        家长链接
+      </button>
+
       {sharing && (
         <SharePosterModal
           student={student}
@@ -246,6 +252,15 @@ export function StudentCard({
           studentId={student.id}
           studentName={student.name}
           onClose={() => setShowingStats(false)}
+        />
+      )}
+
+      {showingShareLink && (
+        <ShareLinkModal
+          studentId={student.id}
+          studentName={student.name}
+          onClose={() => setShowingShareLink(false)}
+          onShowToast={onShowToast}
         />
       )}
     </div>

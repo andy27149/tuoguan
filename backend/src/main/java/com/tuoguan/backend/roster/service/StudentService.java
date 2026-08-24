@@ -68,6 +68,11 @@ public class StudentService {
         return storageService.avatarUrl(student.avatarObjectKey());
     }
 
+    public String shareToken(Long teacherId, Long studentId) {
+        Student existing = findOwnedByTeacher(teacherId, studentId);
+        return studentDao.findShareToken(existing.id());
+    }
+
     private Student findOwnedByTeacher(Long teacherId, Long studentId) {
         Student student = studentDao.findById(studentId)
                 .orElseThrow(() -> new NotFoundException("Student not found: " + studentId));

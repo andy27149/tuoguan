@@ -43,6 +43,14 @@ public class MonthlyStatsService {
                 .orElseThrow(() -> new NotFoundException("Student not found: " + studentId));
         classRoomService.getOwnedByTeacher(teacherId, student.classRoomId());
 
+        return buildMonthlyStats(studentId, month);
+    }
+
+    public MonthlyStatsResult getMonthlyStatsForStudent(Long studentId, YearMonth month) {
+        return buildMonthlyStats(studentId, month);
+    }
+
+    private MonthlyStatsResult buildMonthlyStats(Long studentId, YearMonth month) {
         LocalDate start = month.atDay(1);
         LocalDate today = LocalDate.now();
         LocalDate end = month.atEndOfMonth().isAfter(today) ? today : month.atEndOfMonth();

@@ -66,6 +66,11 @@ public class StudentController {
         return toResponse(studentService.updateAvatar(principal.teacherId(), id, file.getContentType(), content));
     }
 
+    @GetMapping("/api/students/{id}/share-link")
+    public ShareLinkResponse shareLink(@AuthenticationPrincipal TeacherPrincipal principal, @PathVariable Long id) {
+        return new ShareLinkResponse(studentService.shareToken(principal.teacherId(), id));
+    }
+
     private StudentResponse toResponse(Student student) {
         return StudentResponse.from(student, studentService.avatarUrl(student));
     }

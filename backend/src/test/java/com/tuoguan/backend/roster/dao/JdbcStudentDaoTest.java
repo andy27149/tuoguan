@@ -67,6 +67,27 @@ class JdbcStudentDaoTest extends IntegrationTestBase {
     }
 
     @Test
+    void insertGeneratesUniqueShareTokenFindableByToken() {
+        Long classRoomId = createClassRoom("学生测试机构E", "13900002005");
+        Long institutionId = classRoomDao.findById(classRoomId).orElseThrow().institutionId();
+        Long id = studentDao.insert(new Student(null, institutionId, classRoomId, "小张", "二年级1班", true, null, null));
+
+        String shareToken = studentDao.findShareToken(id);
+        assertThat(shareToken).isNotBlank();
+
+        Optional<Student> found = studentDao.findByShareToken(shareToken);
+        assertThat(found).isPresent();
+        assertThat(found.get().id()).isEqualTo(id);
+        assertThat(found.get().name()).isEqualTo("小张");
+    }
+
+    @Test
+    void findByShareTokenReturnsEmptyForUnknownToken() {
+        Optional<Student> found = studentDao.findByShareToken("unknown-token");
+        assertThat(found).isEmpty();
+    }
+
+    @Test
     void updateChangesNameSchoolClassAndEnrollment() {
         Long classRoomId = createClassRoom("学生测试机构D", "13900002004");
         Long institutionId = classRoomDao.findById(classRoomId).orElseThrow().institutionId();

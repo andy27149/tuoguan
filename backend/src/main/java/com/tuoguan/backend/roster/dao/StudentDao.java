@@ -16,4 +16,8 @@ public interface StudentDao {
     void update(Student student);
 
     void updateAvatarObjectKey(Long id, String avatarObjectKey);
+
+    Optional<Student> findByShareToken(String shareToken);
+
+    String findShareToken(Long studentId);
 }

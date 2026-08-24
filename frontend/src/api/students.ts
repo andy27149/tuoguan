@@ -36,3 +36,7 @@ export function uploadAvatar(studentId: number, file: File): Promise<Student> {
   formData.append('file', file)
   return apiUpload<Student>(`/students/${studentId}/avatar`, formData)
 }
+
+export function fetchShareLink(studentId: number): Promise<{ token: string }> {
+  return apiFetch<{ token: string }>(`/students/${studentId}/share-link`)
+}

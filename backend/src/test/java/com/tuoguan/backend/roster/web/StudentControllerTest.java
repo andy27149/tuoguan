@@ -122,6 +122,37 @@ class StudentControllerTest extends IntegrationTestBase {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    void teacherCanFetchShareLinkForOwnStudentButNotAnothers() throws Exception {
+        Long institutionId = institutionDao.insert("学生控制器测试机构D");
+        Long teacherAId = teacherDao.insert(new Teacher(null, institutionId, "13800008006",
+                passwordEncoder.encode("password-a"), Role.TEACHER, false, null));
+        Long teacherBId = teacherDao.insert(new Teacher(null, institutionId, "13800008007",
+                passwordEncoder.encode("password-b"), Role.TEACHER, false, null));
+        Long classRoomAId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherAId, "A班", null));
+
+        String tokenA = login("13800008006", "password-a");
+        String tokenB = login("13800008007", "password-b");
+
+        MvcResult createResult = mockMvc.perform(post("/api/classes/" + classRoomAId + "/students")
+                        .header("Authorization", "Bearer " + tokenA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"小周\",\"schoolClassName\":\"一年级1班\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        StudentResponse created = objectMapper.readValue(
+                createResult.getResponse().getContentAsString(), StudentResponse.class);
+
+        mockMvc.perform(get("/api/students/" + created.id() + "/share-link")
+                        .header("Authorization", "Bearer " + tokenA))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").isNotEmpty());
+
+        mockMvc.perform(get("/api/students/" + created.id() + "/share-link")
+                        .header("Authorization", "Bearer " + tokenB))
+                .andExpect(status().isNotFound());
+    }
+
     private String login(String phone, String password) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
