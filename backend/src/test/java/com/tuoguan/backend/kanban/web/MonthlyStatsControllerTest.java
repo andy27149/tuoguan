@@ -8,6 +8,7 @@ import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.auth.web.LoginResponse;
 import com.tuoguan.backend.kanban.dao.DailyTaskDao;
 import com.tuoguan.backend.kanban.dao.StudentDailyNoteDao;
+import com.tuoguan.backend.kanban.dao.StudentPickupCheckinDao;
 import com.tuoguan.backend.kanban.domain.DailyTask;
 import com.tuoguan.backend.roster.dao.ClassRoomDao;
 import com.tuoguan.backend.roster.dao.StudentDao;
@@ -24,6 +25,7 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -48,6 +50,9 @@ class MonthlyStatsControllerTest extends IntegrationTestBase {
 
     @Autowired
     private StudentDailyNoteDao studentDailyNoteDao;
+
+    @Autowired
+    private StudentPickupCheckinDao studentPickupCheckinDao;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -83,6 +88,7 @@ class MonthlyStatsControllerTest extends IntegrationTestBase {
 
         studentDailyNoteDao.upsertRating(institutionId, classRoomId, studentId, day1, 4);
         studentDailyNoteDao.upsertRating(institutionId, classRoomId, studentId, day2, 5);
+        studentPickupCheckinDao.upsert(institutionId, classRoomId, studentId, day1, "奶奶", "17:30");
 
         String token = login("13900008001", "password");
 
@@ -105,6 +111,9 @@ class MonthlyStatsControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.days[0].date").value(day1.toString()))
                 .andExpect(jsonPath("$.days[0].tasks.length()").value(2))
                 .andExpect(jsonPath("$.days[0].rating").value(4))
+                .andExpect(jsonPath("$.days[0].pickedUpBy").value("奶奶"))
+                .andExpect(jsonPath("$.days[0].pickedUpAt").value("17:30"))
+                .andExpect(jsonPath("$.days[1].pickedUpBy").value(nullValue()))
                 .andExpect(jsonPath("$.days[1].tasks[0].completed").value(true))
                 .andExpect(jsonPath("$.days[1].tasks[1].completed").value(false));
     }

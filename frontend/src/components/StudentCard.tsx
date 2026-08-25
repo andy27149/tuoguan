@@ -9,6 +9,7 @@ import { StarRating } from './StarRating'
 import { SharePosterModal } from './SharePosterModal'
 import { MonthlyStatsModal } from './MonthlyStatsModal'
 import { ShareLinkModal } from './ShareLinkModal'
+import { PickupModal } from './PickupModal'
 
 interface StudentCardProps {
   student: Student
@@ -17,6 +18,8 @@ interface StudentCardProps {
   templates: TaskTemplate[]
   rating: number
   comment: string
+  pickedUpBy: string
+  pickedUpAt: string
   date: string
   onToggleTask: (taskId: number, completed: boolean) => void
   onDeleteTask: (taskId: number) => void
@@ -25,6 +28,7 @@ interface StudentCardProps {
   onUploadAvatar: (studentId: number, file: File) => Promise<void>
   onSetRating: (studentId: number, rating: number) => void
   onSetComment: (studentId: number, comment: string) => void
+  onSetPickup: (studentId: number, pickedUpBy: string, pickedUpAt: string) => void
   onShowToast: (message: string) => void
 }
 
@@ -85,6 +89,8 @@ export function StudentCard({
   templates,
   rating,
   comment,
+  pickedUpBy,
+  pickedUpAt,
   date,
   onToggleTask,
   onDeleteTask,
@@ -93,6 +99,7 @@ export function StudentCard({
   onUploadAvatar,
   onSetRating,
   onSetComment,
+  onSetPickup,
   onShowToast,
 }: StudentCardProps) {
   const [adding, setAdding] = useState(false)
@@ -100,6 +107,7 @@ export function StudentCard({
   const [sharing, setSharing] = useState(false)
   const [showingStats, setShowingStats] = useState(false)
   const [showingShareLink, setShowingShareLink] = useState(false)
+  const [showingPickup, setShowingPickup] = useState(false)
   const [justCompleted, setJustCompleted] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const status = computeCardStatus(tasks, dismissed)
@@ -233,6 +241,10 @@ export function StudentCard({
         家长链接
       </button>
 
+      <button type="button" className="share-btn" onClick={() => setShowingPickup(true)}>
+        记录接送{pickedUpBy ? `：${pickedUpBy}` : ''}
+      </button>
+
       {sharing && (
         <SharePosterModal
           student={student}
@@ -261,6 +273,16 @@ export function StudentCard({
           studentName={student.name}
           onClose={() => setShowingShareLink(false)}
           onShowToast={onShowToast}
+        />
+      )}
+
+      {showingPickup && (
+        <PickupModal
+          studentName={student.name}
+          pickedUpBy={pickedUpBy}
+          pickedUpAt={pickedUpAt}
+          onSave={(newPickedUpBy, newPickedUpAt) => onSetPickup(student.id, newPickedUpBy, newPickedUpAt)}
+          onClose={() => setShowingPickup(false)}
         />
       )}
     </div>

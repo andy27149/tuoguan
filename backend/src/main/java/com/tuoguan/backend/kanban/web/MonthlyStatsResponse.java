@@ -28,11 +28,12 @@ public record MonthlyStatsResponse(int completedDays, int incompleteDays, List<D
         }
     }
 
-    public record DayDetail(String date, List<DayTask> tasks, int rating, String comment) {
+    public record DayDetail(String date, List<DayTask> tasks, int rating, String comment,
+                             String pickedUpBy, String pickedUpAt) {
 
         public static DayDetail from(MonthlyStatsService.DayDetail detail) {
             return new DayDetail(detail.date(), detail.tasks().stream().map(DayTask::from).toList(),
-                    detail.rating(), detail.comment());
+                    detail.rating(), detail.comment(), detail.pickedUpBy(), detail.pickedUpAt());
         }
     }
 
