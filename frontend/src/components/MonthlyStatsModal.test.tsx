@@ -27,8 +27,7 @@ const STATS: MonthlyStats = {
       tasks: [{ id: 1, subject: '数学', name: '口算练习', completed: true }],
       rating: 4,
       comment: '',
-      pickedUpBy: null,
-      pickedUpAt: null,
+      arrivedAt: null,
     },
     {
       date: TODAY,
@@ -38,8 +37,7 @@ const STATS: MonthlyStats = {
       ],
       rating: 5,
       comment: '今天状态不错',
-      pickedUpBy: '奶奶',
-      pickedUpAt: '17:30',
+      arrivedAt: '17:30',
     },
   ],
 }
@@ -115,21 +113,21 @@ describe('MonthlyStatsModal', () => {
     )
   })
 
-  it('shows the pickup info for a day that recorded it', async () => {
+  it('shows the arrival info for a day that recorded it', async () => {
     render(<MonthlyStatsModal studentId={10} studentName="小明" onClose={vi.fn()} />)
     await screen.findByText(/完成天数/)
 
-    expect(screen.getByText('接送人：奶奶 · 17:30')).toBeInTheDocument()
+    expect(screen.getByText('到达托管班：17:30')).toBeInTheDocument()
   })
 
-  it('does not show a pickup line for a day with no pickup recorded', async () => {
+  it('does not show an arrival line for a day with no arrival recorded', async () => {
     render(<MonthlyStatsModal studentId={10} studentName="小明" onClose={vi.fn()} />)
     await screen.findByText(/完成天数/)
 
     fireEvent.click(screen.getByRole('button', { name: '1' }))
     await screen.findByText('2026-08-01')
 
-    expect(screen.queryByText(/接送人：/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/到达托管班：/)).not.toBeInTheDocument()
   })
 
   it('shows empty-data messages for the charts and day detail when there is no data', async () => {

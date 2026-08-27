@@ -22,8 +22,7 @@ export interface DayDetail {
   tasks: DayTask[]
   rating: number
   comment: string
-  pickedUpBy: string | null
-  pickedUpAt: string | null
+  arrivedAt: string | null
 }
 
 export interface MonthlyStats {

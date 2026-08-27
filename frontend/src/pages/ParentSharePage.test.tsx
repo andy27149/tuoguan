@@ -25,8 +25,7 @@ const SHARE: PublicShare = {
         tasks: [{ id: 1, subject: '数学', name: '口算练习', completed: true }],
         rating: 5,
         comment: '今天状态不错',
-        pickedUpBy: '妈妈',
-        pickedUpAt: '17:45',
+        arrivedAt: '17:45',
       },
     ],
   },
@@ -72,7 +71,7 @@ describe('ParentSharePage', () => {
     render(<ParentSharePage token="abc123" />)
     await screen.findByText('小美')
 
-    expect(screen.getByText('接送人：妈妈 · 17:45')).toBeInTheDocument()
+    expect(screen.getByText('到达托管班：17:45')).toBeInTheDocument()
   })
 
   it('renders no edit controls', async () => {

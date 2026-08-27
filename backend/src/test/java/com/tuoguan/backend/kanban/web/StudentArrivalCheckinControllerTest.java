@@ -21,13 +21,14 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-class StudentPickupCheckinControllerTest extends IntegrationTestBase {
+class StudentArrivalCheckinControllerTest extends IntegrationTestBase {
 
     @Autowired
     private InstitutionDao institutionDao;
@@ -48,8 +49,8 @@ class StudentPickupCheckinControllerTest extends IntegrationTestBase {
     private ObjectMapper objectMapper;
 
     @Test
-    void settingPickupTwiceOverwritesThePreviousRecord() throws Exception {
-        Long institutionId = institutionDao.insert("接送签到控制器测试机构A");
+    void settingArrivalTwiceOverwritesThePreviousRecord() throws Exception {
+        Long institutionId = institutionDao.insert("到达签到控制器测试机构A");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900009101",
                 passwordEncoder.encode("password"), Role.TEACHER, false, null));
         Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管班", null));
@@ -57,56 +58,80 @@ class StudentPickupCheckinControllerTest extends IntegrationTestBase {
                 true, null, null));
         String token = login("13900009101", "password");
 
-        mockMvc.perform(patch("/api/students/" + studentId + "/pickup")
+        mockMvc.perform(patch("/api/students/" + studentId + "/arrival")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"date\":\"2026-08-06\",\"pickedUpBy\":\"奶奶\",\"pickedUpAt\":\"17:30\"}"))
+                        .content("{\"date\":\"2026-08-06\",\"arrivedAt\":\"15:40\"}"))
                 .andExpect(status().isNoContent());
 
-        MvcResult listResult = mockMvc.perform(get("/api/classes/" + classRoomId + "/pickups?date=2026-08-06")
+        MvcResult listResult = mockMvc.perform(get("/api/classes/" + classRoomId + "/arrivals?date=2026-08-06")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andReturn();
-        List<StudentPickupCheckinResponse> pickups = objectMapper.readValue(
+        List<StudentArrivalCheckinResponse> arrivals = objectMapper.readValue(
                 listResult.getResponse().getContentAsString(StandardCharsets.UTF_8),
-                objectMapper.getTypeFactory().constructCollectionType(List.class, StudentPickupCheckinResponse.class));
-        assertThat(pickups.get(0).studentId()).isEqualTo(studentId);
-        assertThat(pickups.get(0).pickedUpBy()).isEqualTo("奶奶");
-        assertThat(pickups.get(0).pickedUpAt()).isEqualTo("17:30");
+                objectMapper.getTypeFactory().constructCollectionType(List.class, StudentArrivalCheckinResponse.class));
+        assertThat(arrivals.get(0).studentId()).isEqualTo(studentId);
+        assertThat(arrivals.get(0).arrivedAt()).isEqualTo("15:40");
 
-        mockMvc.perform(patch("/api/students/" + studentId + "/pickup")
+        mockMvc.perform(patch("/api/students/" + studentId + "/arrival")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"date\":\"2026-08-06\",\"pickedUpBy\":\"爸爸\",\"pickedUpAt\":\"18:00\"}"))
+                        .content("{\"date\":\"2026-08-06\",\"arrivedAt\":\"16:05\"}"))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(get("/api/classes/" + classRoomId + "/pickups?date=2026-08-06")
+        mockMvc.perform(get("/api/classes/" + classRoomId + "/arrivals?date=2026-08-06")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].pickedUpBy").value("爸爸"))
-                .andExpect(jsonPath("$[0].pickedUpAt").value("18:00"));
+                .andExpect(jsonPath("$[0].arrivedAt").value("16:05"));
     }
 
     @Test
-    void aStudentWithNoPickupIsSimplyAbsentFromTheList() throws Exception {
-        Long institutionId = institutionDao.insert("接送签到控制器测试机构B");
+    void aStudentWithNoArrivalIsSimplyAbsentFromTheList() throws Exception {
+        Long institutionId = institutionDao.insert("到达签到控制器测试机构B");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900009102",
                 passwordEncoder.encode("password"), Role.TEACHER, false, null));
         Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管班", null));
         studentDao.insert(new Student(null, institutionId, classRoomId, "小明", "三年级2班", true, null, null));
         String token = login("13900009102", "password");
 
-        mockMvc.perform(get("/api/classes/" + classRoomId + "/pickups?date=2026-08-06")
+        mockMvc.perform(get("/api/classes/" + classRoomId + "/arrivals?date=2026-08-06")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));
     }
 
     @Test
-    void teacherCannotOperateOnAnotherTeachersStudentPickup() throws Exception {
-        Long institutionId = institutionDao.insert("接送签到控制器测试机构C");
+    void clearingArrivalRemovesItFromTheList() throws Exception {
+        Long institutionId = institutionDao.insert("到达签到控制器测试机构D");
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900009105",
+                passwordEncoder.encode("password"), Role.TEACHER, false, null));
+        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管班", null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小明", "三年级2班",
+                true, null, null));
+        String token = login("13900009105", "password");
+
+        mockMvc.perform(patch("/api/students/" + studentId + "/arrival")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2026-08-06\",\"arrivedAt\":\"15:40\"}"))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(delete("/api/students/" + studentId + "/arrival?date=2026-08-06")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/classes/" + classRoomId + "/arrivals?date=2026-08-06")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void teacherCannotOperateOnAnotherTeachersStudentArrival() throws Exception {
+        Long institutionId = institutionDao.insert("到达签到控制器测试机构C");
         Long teacherAId = teacherDao.insert(new Teacher(null, institutionId, "13900009103",
                 passwordEncoder.encode("password-a"), Role.TEACHER, false, null));
         Long teacherBId = teacherDao.insert(new Teacher(null, institutionId, "13900009104",
@@ -117,13 +142,17 @@ class StudentPickupCheckinControllerTest extends IntegrationTestBase {
 
         String tokenB = login("13900009104", "password-b");
 
-        mockMvc.perform(patch("/api/students/" + studentAId + "/pickup")
+        mockMvc.perform(patch("/api/students/" + studentAId + "/arrival")
                         .header("Authorization", "Bearer " + tokenB)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"date\":\"2026-08-06\",\"pickedUpBy\":\"陌生人\",\"pickedUpAt\":\"17:00\"}"))
+                        .content("{\"date\":\"2026-08-06\",\"arrivedAt\":\"17:00\"}"))
                 .andExpect(status().isNotFound());
 
-        mockMvc.perform(get("/api/classes/" + classRoomAId + "/pickups?date=2026-08-06")
+        mockMvc.perform(get("/api/classes/" + classRoomAId + "/arrivals?date=2026-08-06")
+                        .header("Authorization", "Bearer " + tokenB))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(delete("/api/students/" + studentAId + "/arrival?date=2026-08-06")
                         .header("Authorization", "Bearer " + tokenB))
                 .andExpect(status().isNotFound());
     }

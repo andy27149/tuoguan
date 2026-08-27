@@ -4,12 +4,13 @@ import type { DailyTask } from '../api/dailyTasks'
 import type { TaskTemplate } from '../api/taskTemplates'
 import { computeCardStatus } from '../kanban/cardStatus'
 import { subjectColor, subjectIconMarkup } from '../kanban/subjectIcons'
+import { currentTimeString } from '../kanban/date'
 import { AddTaskForm } from './AddTaskForm'
 import { StarRating } from './StarRating'
 import { SharePosterModal } from './SharePosterModal'
 import { MonthlyStatsModal } from './MonthlyStatsModal'
 import { ShareLinkModal } from './ShareLinkModal'
-import { PickupModal } from './PickupModal'
+import { ArrivalModal } from './ArrivalModal'
 
 interface StudentCardProps {
   student: Student
@@ -18,8 +19,7 @@ interface StudentCardProps {
   templates: TaskTemplate[]
   rating: number
   comment: string
-  pickedUpBy: string
-  pickedUpAt: string
+  arrivedAt: string
   date: string
   onToggleTask: (taskId: number, completed: boolean) => void
   onDeleteTask: (taskId: number) => void
@@ -28,7 +28,8 @@ interface StudentCardProps {
   onUploadAvatar: (studentId: number, file: File) => Promise<void>
   onSetRating: (studentId: number, rating: number) => void
   onSetComment: (studentId: number, comment: string) => void
-  onSetPickup: (studentId: number, pickedUpBy: string, pickedUpAt: string) => void
+  onSetArrival: (studentId: number, arrivedAt: string) => void
+  onClearArrival: (studentId: number) => void
   onShowToast: (message: string) => void
 }
 
@@ -89,8 +90,7 @@ export function StudentCard({
   templates,
   rating,
   comment,
-  pickedUpBy,
-  pickedUpAt,
+  arrivedAt,
   date,
   onToggleTask,
   onDeleteTask,
@@ -99,7 +99,8 @@ export function StudentCard({
   onUploadAvatar,
   onSetRating,
   onSetComment,
-  onSetPickup,
+  onSetArrival,
+  onClearArrival,
   onShowToast,
 }: StudentCardProps) {
   const [adding, setAdding] = useState(false)
@@ -107,7 +108,7 @@ export function StudentCard({
   const [sharing, setSharing] = useState(false)
   const [showingStats, setShowingStats] = useState(false)
   const [showingShareLink, setShowingShareLink] = useState(false)
-  const [showingPickup, setShowingPickup] = useState(false)
+  const [showingArrival, setShowingArrival] = useState(false)
   const [justCompleted, setJustCompleted] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const status = computeCardStatus(tasks, dismissed)
@@ -120,6 +121,14 @@ export function StudentCard({
       tasks.every((t) => (t.id === taskId ? true : t.completed))
     if (willBeDone) setJustCompleted(true)
     onToggleTask(taskId, completed)
+  }
+
+  function handleArrivalClick() {
+    if (arrivedAt) {
+      setShowingArrival(true)
+    } else {
+      onSetArrival(student.id, currentTimeString())
+    }
   }
 
   async function handleAvatarFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -241,8 +250,8 @@ export function StudentCard({
         家长链接
       </button>
 
-      <button type="button" className="share-btn" onClick={() => setShowingPickup(true)}>
-        记录接送{pickedUpBy ? `：${pickedUpBy}` : ''}
+      <button type="button" className="share-btn" onClick={handleArrivalClick}>
+        {arrivedAt ? `到了 · ${arrivedAt}` : '到了'}
       </button>
 
       {sharing && (
@@ -276,13 +285,13 @@ export function StudentCard({
         />
       )}
 
-      {showingPickup && (
-        <PickupModal
+      {showingArrival && (
+        <ArrivalModal
           studentName={student.name}
-          pickedUpBy={pickedUpBy}
-          pickedUpAt={pickedUpAt}
-          onSave={(newPickedUpBy, newPickedUpAt) => onSetPickup(student.id, newPickedUpBy, newPickedUpAt)}
-          onClose={() => setShowingPickup(false)}
+          arrivedAt={arrivedAt}
+          onSave={(newArrivedAt) => onSetArrival(student.id, newArrivedAt)}
+          onClear={() => onClearArrival(student.id)}
+          onClose={() => setShowingArrival(false)}
         />
       )}
     </div>

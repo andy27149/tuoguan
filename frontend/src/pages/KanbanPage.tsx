@@ -5,7 +5,7 @@ import * as templatesApi from '../api/taskTemplates'
 import * as dailyTasksApi from '../api/dailyTasks'
 import * as dismissalApi from '../api/dismissal'
 import * as studentNotesApi from '../api/studentNotes'
-import * as pickupApi from '../api/pickup'
+import * as arrivalApi from '../api/arrival'
 import type { DailyTask } from '../api/dailyTasks'
 import { todayDateString } from '../kanban/date'
 import { groupBySchoolClass } from '../kanban/schoolClass'
@@ -25,12 +25,7 @@ interface StudentNote {
 
 const EMPTY_NOTE: StudentNote = { rating: 0, comment: '' }
 
-interface StudentPickup {
-  pickedUpBy: string
-  pickedUpAt: string
-}
-
-const EMPTY_PICKUP: StudentPickup = { pickedUpBy: '', pickedUpAt: '' }
+const EMPTY_ARRIVAL = ''
 
 interface KanbanPageProps {
   onOpenRoster: () => void
@@ -46,7 +41,7 @@ export function KanbanPage({ onOpenRoster, onOpenAdmin }: KanbanPageProps) {
   const [tasks, setTasks] = useState<DailyTask[]>([])
   const [templates, setTemplates] = useState<templatesApi.TaskTemplate[]>([])
   const [notesByStudent, setNotesByStudent] = useState<Map<number, StudentNote>>(new Map())
-  const [pickupByStudent, setPickupByStudent] = useState<Map<number, StudentPickup>>(new Map())
+  const [arrivalByStudent, setArrivalByStudent] = useState<Map<number, string>>(new Map())
   const [dismissed, setDismissed] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -80,20 +75,18 @@ export function KanbanPage({ onOpenRoster, onOpenAdmin }: KanbanPageProps) {
     setLoading(true)
     setError(null)
     try {
-      const [studentList, taskList, dismissalStatus, noteList, pickupList] = await Promise.all([
+      const [studentList, taskList, dismissalStatus, noteList, arrivalList] = await Promise.all([
         studentsApi.fetchStudents(classId),
         dailyTasksApi.listForClass(classId, date),
         dismissalApi.fetchDismissalStatus(classId, date),
         studentNotesApi.fetchStudentNotes(classId, date),
-        pickupApi.fetchPickups(classId, date),
+        arrivalApi.fetchArrivals(classId, date),
       ])
       setStudents(studentList.filter((s) => s.enrolled))
       setTasks(taskList)
       setDismissed(dismissalStatus.dismissed)
       setNotesByStudent(new Map(noteList.map((n) => [n.studentId, { rating: n.rating, comment: n.comment }])))
-      setPickupByStudent(
-        new Map(pickupList.map((p) => [p.studentId, { pickedUpBy: p.pickedUpBy, pickedUpAt: p.pickedUpAt }])),
-      )
+      setArrivalByStudent(new Map(arrivalList.map((a) => [a.studentId, a.arrivedAt])))
     } catch {
       setError('加载班级数据失败，请刷新重试')
     } finally {
@@ -189,13 +182,23 @@ export function KanbanPage({ onOpenRoster, onOpenAdmin }: KanbanPageProps) {
     }
   }
 
-  async function handleSetPickup(studentId: number, pickedUpBy: string, pickedUpAt: string) {
-    const previous = pickupByStudent.get(studentId) ?? EMPTY_PICKUP
-    setPickupByStudent((prev) => new Map(prev).set(studentId, { pickedUpBy, pickedUpAt }))
+  async function handleSetArrival(studentId: number, arrivedAt: string) {
+    const previous = arrivalByStudent.get(studentId) ?? EMPTY_ARRIVAL
+    setArrivalByStudent((prev) => new Map(prev).set(studentId, arrivedAt))
     try {
-      await pickupApi.setPickup(studentId, date, pickedUpBy, pickedUpAt)
+      await arrivalApi.setArrival(studentId, date, arrivedAt)
     } catch {
-      setPickupByStudent((prev) => new Map(prev).set(studentId, previous))
+      setArrivalByStudent((prev) => new Map(prev).set(studentId, previous))
+    }
+  }
+
+  async function handleClearArrival(studentId: number) {
+    const previous = arrivalByStudent.get(studentId) ?? EMPTY_ARRIVAL
+    setArrivalByStudent((prev) => new Map(prev).set(studentId, EMPTY_ARRIVAL))
+    try {
+      await arrivalApi.clearArrival(studentId, date)
+    } catch {
+      setArrivalByStudent((prev) => new Map(prev).set(studentId, previous))
     }
   }
 
@@ -233,7 +236,7 @@ export function KanbanPage({ onOpenRoster, onOpenAdmin }: KanbanPageProps) {
 
   function renderStudentCard(student: studentsApi.Student) {
     const note = notesByStudent.get(student.id) ?? EMPTY_NOTE
-    const pickup = pickupByStudent.get(student.id) ?? EMPTY_PICKUP
+    const arrivedAt = arrivalByStudent.get(student.id) ?? EMPTY_ARRIVAL
     return (
       <StudentCard
         key={student.id}
@@ -243,8 +246,7 @@ export function KanbanPage({ onOpenRoster, onOpenAdmin }: KanbanPageProps) {
         templates={templates}
         rating={note.rating}
         comment={note.comment}
-        pickedUpBy={pickup.pickedUpBy}
-        pickedUpAt={pickup.pickedUpAt}
+        arrivedAt={arrivedAt}
         date={date}
         onToggleTask={handleToggleTask}
         onDeleteTask={handleDeleteTask}
@@ -253,7 +255,8 @@ export function KanbanPage({ onOpenRoster, onOpenAdmin }: KanbanPageProps) {
         onUploadAvatar={handleUploadAvatar}
         onSetRating={handleSetRating}
         onSetComment={handleSetComment}
-        onSetPickup={handleSetPickup}
+        onSetArrival={handleSetArrival}
+        onClearArrival={handleClearArrival}
         onShowToast={showToast}
       />
     )

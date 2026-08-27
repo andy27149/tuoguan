@@ -1,11 +1,11 @@
 package com.tuoguan.backend.kanban.service;
 
 import com.tuoguan.backend.kanban.dao.DailyTaskDao;
+import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
 import com.tuoguan.backend.kanban.dao.StudentDailyNoteDao;
-import com.tuoguan.backend.kanban.dao.StudentPickupCheckinDao;
 import com.tuoguan.backend.kanban.domain.DailyTask;
+import com.tuoguan.backend.kanban.domain.StudentArrivalCheckin;
 import com.tuoguan.backend.kanban.domain.StudentDailyNote;
-import com.tuoguan.backend.kanban.domain.StudentPickupCheckin;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.roster.service.ClassRoomService;
@@ -29,16 +29,16 @@ public class MonthlyStatsService {
 
     private final DailyTaskDao dailyTaskDao;
     private final StudentDailyNoteDao studentDailyNoteDao;
-    private final StudentPickupCheckinDao studentPickupCheckinDao;
+    private final StudentArrivalCheckinDao studentArrivalCheckinDao;
     private final StudentDao studentDao;
     private final ClassRoomService classRoomService;
 
     public MonthlyStatsService(DailyTaskDao dailyTaskDao, StudentDailyNoteDao studentDailyNoteDao,
-                                StudentPickupCheckinDao studentPickupCheckinDao, StudentDao studentDao,
+                                StudentArrivalCheckinDao studentArrivalCheckinDao, StudentDao studentDao,
                                 ClassRoomService classRoomService) {
         this.dailyTaskDao = dailyTaskDao;
         this.studentDailyNoteDao = studentDailyNoteDao;
-        this.studentPickupCheckinDao = studentPickupCheckinDao;
+        this.studentArrivalCheckinDao = studentArrivalCheckinDao;
         this.studentDao = studentDao;
         this.classRoomService = classRoomService;
     }
@@ -90,9 +90,9 @@ public class MonthlyStatsService {
         Map<LocalDate, StudentDailyNote> noteByDate = notes.stream()
                 .collect(Collectors.toMap(StudentDailyNote::noteDate, n -> n, (a, b) -> a, TreeMap::new));
 
-        List<StudentPickupCheckin> pickups = studentPickupCheckinDao.findAllByStudentIdAndDateRange(studentId, start, end);
-        Map<LocalDate, StudentPickupCheckin> pickupByDate = pickups.stream()
-                .collect(Collectors.toMap(StudentPickupCheckin::checkinDate, p -> p, (a, b) -> a, TreeMap::new));
+        List<StudentArrivalCheckin> arrivals = studentArrivalCheckinDao.findAllByStudentIdAndDateRange(studentId, start, end);
+        Map<LocalDate, StudentArrivalCheckin> arrivalByDate = arrivals.stream()
+                .collect(Collectors.toMap(StudentArrivalCheckin::checkinDate, a -> a, (a, b) -> a, TreeMap::new));
 
         List<StudentDailyNote> ratedNotes = notes.stream().filter(n -> n.rating() > 0).toList();
         double averageRating = ratedNotes.isEmpty()
@@ -106,7 +106,7 @@ public class MonthlyStatsService {
 
         Set<LocalDate> allDates = new TreeSet<>(byDate.keySet());
         allDates.addAll(noteByDate.keySet());
-        allDates.addAll(pickupByDate.keySet());
+        allDates.addAll(arrivalByDate.keySet());
         List<DayDetail> days = new ArrayList<>();
         for (LocalDate date : allDates) {
             List<DayTask> dayTasks = byDate.getOrDefault(date, List.of()).stream()
@@ -115,10 +115,9 @@ public class MonthlyStatsService {
             StudentDailyNote note = noteByDate.get(date);
             int rating = note != null ? note.rating() : 0;
             String comment = note != null ? note.comment() : "";
-            StudentPickupCheckin pickup = pickupByDate.get(date);
-            String pickedUpBy = pickup != null && !pickup.pickedUpBy().isBlank() ? pickup.pickedUpBy() : null;
-            String pickedUpAt = pickup != null && !pickup.pickedUpAt().isBlank() ? pickup.pickedUpAt() : null;
-            days.add(new DayDetail(date.format(isoDate), dayTasks, rating, comment, pickedUpBy, pickedUpAt));
+            StudentArrivalCheckin arrival = arrivalByDate.get(date);
+            String arrivedAt = arrival != null && !arrival.arrivedAt().isBlank() ? arrival.arrivedAt() : null;
+            days.add(new DayDetail(date.format(isoDate), dayTasks, rating, comment, arrivedAt));
         }
 
         return new MonthlyStatsResult(completedDays, incompleteDays, dailyRates, averageRating, dailyRatings, days);
@@ -133,8 +132,7 @@ public class MonthlyStatsService {
     public record DayTask(Long id, String subject, String name, boolean completed) {
     }
 
-    public record DayDetail(String date, List<DayTask> tasks, int rating, String comment,
-                             String pickedUpBy, String pickedUpAt) {
+    public record DayDetail(String date, List<DayTask> tasks, int rating, String comment, String arrivedAt) {
     }
 
     public record MonthlyStatsResult(int completedDays, int incompleteDays, List<DailyRate> dailyRates,

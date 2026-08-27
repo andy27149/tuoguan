@@ -128,12 +128,7 @@ function DayDetailPanel({ date, detail }: { date: string; detail: DayDetail | un
         )}
       </ul>
       {comment && <p className="stats-day-detail__comment">{comment}</p>}
-      {detail?.pickedUpBy && (
-        <p className="stats-day-detail__pickup">
-          接送人：{detail.pickedUpBy}
-          {detail.pickedUpAt ? ` · ${detail.pickedUpAt}` : ''}
-        </p>
-      )}
+      {detail?.arrivedAt && <p className="stats-day-detail__arrival">到达托管班：{detail.arrivedAt}</p>}
     </div>
   )
 }

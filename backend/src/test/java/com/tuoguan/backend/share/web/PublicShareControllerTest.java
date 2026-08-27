@@ -6,7 +6,7 @@ import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.kanban.dao.DailyTaskDao;
 import com.tuoguan.backend.kanban.dao.StudentDailyNoteDao;
-import com.tuoguan.backend.kanban.dao.StudentPickupCheckinDao;
+import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
 import com.tuoguan.backend.kanban.domain.DailyTask;
 import com.tuoguan.backend.roster.dao.ClassRoomDao;
 import com.tuoguan.backend.roster.dao.StudentDao;
@@ -44,7 +44,7 @@ class PublicShareControllerTest extends IntegrationTestBase {
     private StudentDailyNoteDao studentDailyNoteDao;
 
     @Autowired
-    private StudentPickupCheckinDao studentPickupCheckinDao;
+    private StudentArrivalCheckinDao studentArrivalCheckinDao;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -62,7 +62,7 @@ class PublicShareControllerTest extends IntegrationTestBase {
         dailyTaskDao.insert(new DailyTask(null, institutionId, classRoomId, studentId, today, null,
                 "数学", "口算练习", false, true, null));
         studentDailyNoteDao.upsertRating(institutionId, classRoomId, studentId, today, 5);
-        studentPickupCheckinDao.upsert(institutionId, classRoomId, studentId, today, "妈妈", "17:45");
+        studentArrivalCheckinDao.upsert(institutionId, classRoomId, studentId, today, "17:45");
 
         String shareToken = studentDao.findShareToken(studentId);
 
@@ -72,8 +72,7 @@ class PublicShareControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.schoolClassName").value("三年级1班"))
                 .andExpect(jsonPath("$.stats.completedDays").value(1))
                 .andExpect(jsonPath("$.stats.averageRating").value(5.0))
-                .andExpect(jsonPath("$.stats.days[0].pickedUpBy").value("妈妈"))
-                .andExpect(jsonPath("$.stats.days[0].pickedUpAt").value("17:45"));
+                .andExpect(jsonPath("$.stats.days[0].arrivedAt").value("17:45"));
     }
 
     @Test
