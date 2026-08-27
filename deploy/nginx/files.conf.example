@@ -1,0 +1,45 @@
+# MinIO 对象存储 Nginx 配置示例（独立子域名）
+#
+# 为什么需要单独的子域名，而不是在主域名下用 /files/ 这种路径前缀？
+# ------------------------------------------------------------
+# 后端生成的头像图片链接是"预签名 URL"（presigned URL），签名是基于
+# MinIO SDK 里配置的 endpoint 直接计算出来的，请求路径的第一段必须是
+# 桶名（本项目桶名是 avatars）。如果用路径前缀（比如 example.com/files/...），
+# nginx 转发给 MinIO 时要么保留 /files 前缀（MinIO 会把 "files" 当成桶名，找不到
+# 从而 403/404），要么去掉前缀（会导致预签名 URL 里的签名对不上实际收到的请求路径，
+# 同样报错）。用独立子域名可以完全避免这个问题：nginx 原样转发到 MinIO 根路径，
+# MINIO_ENDPOINT 直接设为这个子域名即可，前后端都能正常访问、签名也能对上。
+#
+# 使用方法：
+#   1. 给这个子域名（例如 files.example.com）加一条 DNS A 记录，指向服务器 IP
+#   2. 复制本文件到 /etc/nginx/sites-available/tuoguan-files.conf，
+#      把 files.example.com 替换成你的真实子域名
+#   3. ln -s /etc/nginx/sites-available/tuoguan-files.conf /etc/nginx/sites-enabled/
+#   4. nginx -t && systemctl reload nginx
+#   5. 用 certbot 单独给这个子域名签证书（见 DEPLOY.md）
+#   6. .env 里 MINIO_ENDPOINT 设置为 https://files.example.com（见 DEPLOY.md 第2节）
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name files.example.com;
+
+    # 头像图片一般不大，但预留大一点避免以后有更大的上传场景
+    client_max_body_size 20m;
+
+    location / {
+        proxy_pass http://127.0.0.1:9000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # MinIO 用分块传输返回较大对象时需要关闭缓冲，避免 nginx 等整个响应
+        proxy_buffering off;
+    }
+}
+
+# 注意：MinIO 控制台端口 9001 不需要、也不应该对公网暴露。
+# 如果需要管理界面，用 SSH 端口转发在本地访问：
+#   ssh -L 9001:127.0.0.1:9001 user@your-server
+# 然后浏览器打开 http://127.0.0.1:9001

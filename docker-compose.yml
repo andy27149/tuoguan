@@ -52,6 +52,14 @@ services:
     ports:
       - "8080:8080"
 
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8081:80"
+
 volumes:
   mysql_data:
   minio_data:

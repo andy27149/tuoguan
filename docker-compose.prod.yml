@@ -1,0 +1,24 @@
+services:
+  mysql:
+    ports:
+      - "127.0.0.1:3306:3306"
+
+  minio:
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+
+  backend:
+    restart: always
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      # 覆盖 docker-compose.yml 里的容器内部地址，改用公网可访问的 MinIO 地址，
+      # 否则后端生成的头像等预签名 URL 会指向 http://minio:9000，家长/老师的浏览器完全访问不到。
+      # 见 deploy/nginx/files.conf.example 和 DEPLOY.md 第2节。
+      MINIO_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT}
+
+  frontend:
+    restart: always
+    ports:
+      - "127.0.0.1:8081:80"

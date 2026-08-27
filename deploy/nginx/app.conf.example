@@ -1,0 +1,38 @@
+# 托管班主站 Nginx 配置示例
+# 使用方法：
+#   1. 复制到服务器 /etc/nginx/sites-available/tuoguan.conf
+#   2. 把下面所有 example.com 替换成你的真实域名
+#   3. ln -s /etc/nginx/sites-available/tuoguan.conf /etc/nginx/sites-enabled/
+#   4. nginx -t && systemctl reload nginx
+#   5. 用 certbot 签发证书（见 DEPLOY.md），证书签好后 certbot 会自动帮你插入
+#      listen 443 ssl 相关配置，这里先给出未加 HTTPS 的最小可用版本
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name example.com;
+
+    # 后端上传接口（如头像）允许的最大请求体，需 >= 后端 application.yml 里
+    # spring.servlet.multipart.max-file-size 的限制，这里给 10m 留余量
+    client_max_body_size 10m;
+
+    # /api/* 全部转发给后端容器
+    location /api/ {
+        proxy_pass http://127.0.0.1:8080/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # 其余所有请求交给前端静态资源容器
+    location / {
+        proxy_pass http://127.0.0.1:8081/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
