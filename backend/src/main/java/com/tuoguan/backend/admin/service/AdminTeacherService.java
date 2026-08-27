@@ -20,11 +20,11 @@ public class AdminTeacherService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    public Teacher createTeacher(Long institutionId, String phone, String initialPassword) {
+    public Teacher createTeacher(Long institutionId, String phone, String name, String initialPassword) {
         if (teacherDao.findByPhone(phone).isPresent()) {
             throw new DuplicatePhoneException("Phone already registered: " + phone);
         }
-        Long id = teacherDao.insert(new Teacher(null, institutionId, phone,
+        Long id = teacherDao.insert(new Teacher(null, institutionId, phone, name,
                 passwordEncoder.encode(initialPassword), Role.TEACHER, true, null));
         return teacherDao.findById(id)
                 .orElseThrow(() -> new IllegalStateException("Teacher not found after insert: " + id));

@@ -42,9 +42,10 @@ class AdminTeacherControllerTest extends IntegrationTestBase {
         mockMvc.perform(post("/api/admin/teachers")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"phone\":\"13700001002\",\"initialPassword\":\"initial123\"}"))
+                        .content("{\"phone\":\"13700001002\",\"name\":\"李老师\",\"initialPassword\":\"initial123\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.phone").value("13700001002"))
+                .andExpect(jsonPath("$.name").value("李老师"))
                 .andExpect(jsonPath("$.role").value("TEACHER"))
                 .andExpect(jsonPath("$.mustChangePassword").value(true))
                 .andExpect(jsonPath("$.passwordHash").doesNotExist())
@@ -63,7 +64,7 @@ class AdminTeacherControllerTest extends IntegrationTestBase {
         mockMvc.perform(post("/api/admin/teachers")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"phone\":\"13700001004\",\"initialPassword\":\"initial123\"}"))
+                        .content("{\"phone\":\"13700001004\",\"name\":\"王老师\",\"initialPassword\":\"initial123\"}"))
                 .andExpect(status().isConflict());
     }
 
@@ -77,7 +78,7 @@ class AdminTeacherControllerTest extends IntegrationTestBase {
         mockMvc.perform(post("/api/admin/teachers")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"phone\":\"13700001006\",\"initialPassword\":\"initial123\"}"))
+                        .content("{\"phone\":\"13700001006\",\"name\":\"赵老师\",\"initialPassword\":\"initial123\"}"))
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(get("/api/admin/teachers")

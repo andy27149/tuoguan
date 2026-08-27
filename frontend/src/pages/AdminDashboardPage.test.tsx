@@ -7,8 +7,8 @@ import { ApiError } from '../api/client'
 vi.mock('../api/admin')
 
 const TEACHERS = [
-  { id: 1, phone: '13800000001', role: 'ADMIN' as const, mustChangePassword: false },
-  { id: 2, phone: '13800000002', role: 'TEACHER' as const, mustChangePassword: true },
+  { id: 1, phone: '13800000001', name: '张校长', role: 'ADMIN' as const, mustChangePassword: false },
+  { id: 2, phone: '13800000002', name: '李老师', role: 'TEACHER' as const, mustChangePassword: true },
 ]
 
 const DASHBOARD = {
@@ -47,17 +47,18 @@ describe('AdminDashboardPage', () => {
   })
 
   it('creates a teacher and shows the one-time password banner', async () => {
-    const created = { id: 3, phone: '13800000003', role: 'TEACHER' as const, mustChangePassword: true }
+    const created = { id: 3, phone: '13800000003', name: '王老师', role: 'TEACHER' as const, mustChangePassword: true }
     vi.mocked(adminApi.createTeacher).mockResolvedValue(created)
     render(<AdminDashboardPage onBack={vi.fn()} />)
     await screen.findByText(/13800000001/, { selector: 'li' })
 
     fireEvent.change(screen.getByPlaceholderText('手机号'), { target: { value: '13800000003' } })
+    fireEvent.change(screen.getByPlaceholderText('教师姓名'), { target: { value: '王老师' } })
     fireEvent.change(screen.getByPlaceholderText('初始密码'), { target: { value: 'initial123' } })
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
 
     await waitFor(() =>
-      expect(adminApi.createTeacher).toHaveBeenCalledWith('13800000003', 'initial123'),
+      expect(adminApi.createTeacher).toHaveBeenCalledWith('13800000003', '王老师', 'initial123'),
     )
     expect(await screen.findByText(/初始密码 initial123/)).toBeInTheDocument()
   })
@@ -68,10 +69,26 @@ describe('AdminDashboardPage', () => {
     await screen.findByText(/13800000001/, { selector: 'li' })
 
     fireEvent.change(screen.getByPlaceholderText('手机号'), { target: { value: '13800000002' } })
+    fireEvent.change(screen.getByPlaceholderText('教师姓名'), { target: { value: '李老师' } })
     fireEvent.change(screen.getByPlaceholderText('初始密码'), { target: { value: 'initial123' } })
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
 
     expect(await screen.findByText('该手机号已注册')).toBeInTheDocument()
+  })
+
+  it('refreshes the dashboard after creating a teacher', async () => {
+    const created = { id: 3, phone: '13800000003', name: '王老师', role: 'TEACHER' as const, mustChangePassword: true }
+    vi.mocked(adminApi.createTeacher).mockResolvedValue(created)
+    render(<AdminDashboardPage onBack={vi.fn()} />)
+    await screen.findByText(/13800000001/, { selector: 'li' })
+    expect(adminApi.fetchAdminDashboard).toHaveBeenCalledTimes(1)
+
+    fireEvent.change(screen.getByPlaceholderText('手机号'), { target: { value: '13800000003' } })
+    fireEvent.change(screen.getByPlaceholderText('教师姓名'), { target: { value: '王老师' } })
+    fireEvent.change(screen.getByPlaceholderText('初始密码'), { target: { value: 'initial123' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
+
+    await waitFor(() => expect(adminApi.fetchAdminDashboard).toHaveBeenCalledTimes(2))
   })
 
   it('lists existing admin-created classes', async () => {
@@ -86,6 +103,7 @@ describe('AdminDashboardPage', () => {
     vi.mocked(adminApi.createAdminClass).mockResolvedValue(created)
     render(<AdminDashboardPage onBack={vi.fn()} />)
     await screen.findByText(/托管一班/)
+    expect(adminApi.fetchAdminDashboard).toHaveBeenCalledTimes(1)
 
     fireEvent.change(screen.getByPlaceholderText('班级名称'), { target: { value: '托管二班' } })
     fireEvent.change(screen.getByDisplayValue('选择教师'), { target: { value: '1' } })
@@ -93,6 +111,15 @@ describe('AdminDashboardPage', () => {
 
     await waitFor(() => expect(adminApi.createAdminClass).toHaveBeenCalledWith('托管二班', 1))
     expect(await screen.findByText(/教师 13800000001/)).toBeInTheDocument()
+    await waitFor(() => expect(adminApi.fetchAdminDashboard).toHaveBeenCalledTimes(2))
+  })
+
+  it('shows teacher name and phone in the class-teacher dropdown options', async () => {
+    render(<AdminDashboardPage onBack={vi.fn()} />)
+    await screen.findByText(/托管一班/)
+
+    expect(screen.getByText('张校长（13800000001）')).toBeInTheDocument()
+    expect(screen.getByText('李老师（13800000002）')).toBeInTheDocument()
   })
 
   it('shows a duplicate-name message on 409 when creating a class', async () => {

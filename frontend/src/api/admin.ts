@@ -3,6 +3,7 @@ import { apiFetch } from './client'
 export interface Teacher {
   id: number
   phone: string
+  name: string
   role: 'ADMIN' | 'TEACHER'
   mustChangePassword: boolean
 }
@@ -30,10 +31,10 @@ export function fetchTeachers(): Promise<Teacher[]> {
   return apiFetch<Teacher[]>('/admin/teachers')
 }
 
-export function createTeacher(phone: string, initialPassword: string): Promise<Teacher> {
+export function createTeacher(phone: string, name: string, initialPassword: string): Promise<Teacher> {
   return apiFetch<Teacher>('/admin/teachers', {
     method: 'POST',
-    body: JSON.stringify({ phone, initialPassword }),
+    body: JSON.stringify({ phone, name, initialPassword }),
   })
 }
 

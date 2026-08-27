@@ -20,6 +20,7 @@ public class JdbcTeacherDao implements TeacherDao {
             rs.getLong("id"),
             rs.getObject("institution_id", Long.class),
             rs.getString("phone"),
+            rs.getString("name"),
             rs.getString("password_hash"),
             Role.valueOf(rs.getString("role")),
             rs.getBoolean("must_change_password"),
@@ -36,14 +37,15 @@ public class JdbcTeacherDao implements TeacherDao {
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(connection -> {
             PreparedStatement ps = connection.prepareStatement(
-                    "INSERT INTO teacher (institution_id, phone, password_hash, role, must_change_password) "
-                            + "VALUES (?, ?, ?, ?, ?)",
+                    "INSERT INTO teacher (institution_id, phone, name, password_hash, role, must_change_password) "
+                            + "VALUES (?, ?, ?, ?, ?, ?)",
                     Statement.RETURN_GENERATED_KEYS);
             ps.setObject(1, teacher.institutionId());
             ps.setString(2, teacher.phone());
-            ps.setString(3, teacher.passwordHash());
-            ps.setString(4, teacher.role().name());
-            ps.setBoolean(5, teacher.mustChangePassword());
+            ps.setString(3, teacher.name());
+            ps.setString(4, teacher.passwordHash());
+            ps.setString(5, teacher.role().name());
+            ps.setBoolean(6, teacher.mustChangePassword());
             return ps;
         }, keyHolder);
         return keyHolder.getKey().longValue();
@@ -52,7 +54,7 @@ public class JdbcTeacherDao implements TeacherDao {
     @Override
     public Optional<Teacher> findByPhone(String phone) {
         List<Teacher> results = jdbcTemplate.query(
-                "SELECT id, institution_id, phone, password_hash, role, must_change_password, created_at "
+                "SELECT id, institution_id, phone, name, password_hash, role, must_change_password, created_at "
                         + "FROM teacher WHERE phone = ?",
                 ROW_MAPPER, phone);
         return results.stream().findFirst();
@@ -61,7 +63,7 @@ public class JdbcTeacherDao implements TeacherDao {
     @Override
     public Optional<Teacher> findById(Long id) {
         List<Teacher> results = jdbcTemplate.query(
-                "SELECT id, institution_id, phone, password_hash, role, must_change_password, created_at "
+                "SELECT id, institution_id, phone, name, password_hash, role, must_change_password, created_at "
                         + "FROM teacher WHERE id = ?",
                 ROW_MAPPER, id);
         return results.stream().findFirst();
@@ -70,7 +72,7 @@ public class JdbcTeacherDao implements TeacherDao {
     @Override
     public List<Teacher> findAllByInstitutionId(Long institutionId) {
         return jdbcTemplate.query(
-                "SELECT id, institution_id, phone, password_hash, role, must_change_password, created_at "
+                "SELECT id, institution_id, phone, name, password_hash, role, must_change_password, created_at "
                         + "FROM teacher WHERE institution_id = ? ORDER BY id",
                 ROW_MAPPER, institutionId);
     }

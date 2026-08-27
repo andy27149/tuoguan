@@ -13,6 +13,7 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
   const [teacherLoadError, setTeacherLoadError] = useState<string | null>(null)
 
   const [newPhone, setNewPhone] = useState('')
+  const [newName, setNewName] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [creatingTeacher, setCreatingTeacher] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
@@ -52,12 +53,7 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
       .finally(() => setLoadingClasses(false))
   }
 
-  useEffect(() => {
-    loadTeachers()
-    loadClasses()
-  }, [])
-
-  useEffect(() => {
+  function loadDashboard() {
     setLoadingDashboard(true)
     setDashboardLoadError(null)
     adminApi
@@ -65,21 +61,34 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
       .then(setDashboard)
       .catch(() => setDashboardLoadError('加载看板数据失败，请刷新重试'))
       .finally(() => setLoadingDashboard(false))
+  }
+
+  useEffect(() => {
+    loadTeachers()
+    loadClasses()
+  }, [])
+
+  useEffect(() => {
+    loadDashboard()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date])
 
   async function handleCreateTeacher(e: FormEvent) {
     e.preventDefault()
     const phone = newPhone.trim()
+    const name = newName.trim()
     const password = newPassword.trim()
-    if (!phone || !password) return
+    if (!phone || !name || !password) return
     setCreatingTeacher(true)
     setCreateError(null)
     try {
-      await adminApi.createTeacher(phone, password)
+      await adminApi.createTeacher(phone, name, password)
       setCreatedNotice({ phone, password })
       setNewPhone('')
+      setNewName('')
       setNewPassword('')
       loadTeachers()
+      loadDashboard()
     } catch (err) {
       setCreateError(err instanceof ApiError && err.status === 409 ? '该手机号已注册' : '创建失败，请重试')
     } finally {
@@ -98,6 +107,7 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
       setClasses((prev) => [...prev, created])
       setNewClassName('')
       setSelectedTeacherId('')
+      loadDashboard()
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         setCreateClassError('该托管班名称已存在')
@@ -133,6 +143,12 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
               className="w-32 rounded border px-2 py-1 text-sm"
             />
             <input
+              placeholder="教师姓名"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              className="w-32 rounded border px-2 py-1 text-sm"
+            />
+            <input
               placeholder="初始密码"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
@@ -140,7 +156,7 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
             />
             <button
               type="submit"
-              disabled={creatingTeacher || !newPhone.trim() || !newPassword.trim()}
+              disabled={creatingTeacher || !newPhone.trim() || !newName.trim() || !newPassword.trim()}
               className="rounded bg-blue-600 px-3 py-1 text-sm text-white disabled:opacity-50"
             >
               创建
@@ -176,6 +192,7 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
             <ul className="mt-2 space-y-2">
               {teachers.map((teacher) => (
                 <li key={teacher.id} className="rounded border border-gray-100 p-2 text-sm">
+                  {teacher.name ? `${teacher.name} · ` : ''}
                   {teacher.phone} · {teacher.role === 'ADMIN' ? '管理员' : '教师'} ·{' '}
                   {teacher.mustChangePassword ? '待修改初始密码' : '已启用'}
                 </li>
@@ -202,7 +219,7 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
               <option value="">选择教师</option>
               {teachers.map((teacher) => (
                 <option key={teacher.id} value={teacher.id}>
-                  {teacher.phone}
+                  {teacher.name}（{teacher.phone}）
                 </option>
               ))}
             </select>
