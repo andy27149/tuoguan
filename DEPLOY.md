@@ -268,8 +268,13 @@ docker compose start minio
   里的二进制没生成，但 `npm ci` 这一层构建仍然"看起来"是绿的。**根因是 npm 内置的
   `update-notifier` 会固定去连 `registry.npmjs.org` 检查 npm 自身有没有新版本，这个请求走的
   是硬编码地址，跟给 `npm ci` 配的 `--registry` 参数无关**——所以只换包下载源（比如改成
-  `registry.npmmirror.com`）解决不了这个问题，`frontend/Dockerfile` 已经用
-  `ENV NPM_CONFIG_UPDATE_NOTIFIER=false` 关掉这个检查，拉最新代码即可，不需要额外配置。
+  `registry.npmmirror.com`）解决不了这个问题。
+  单靠 `ENV NPM_CONFIG_UPDATE_NOTIFIER=false` 关掉这个检查也不一定管用——npm 自己也承认
+  这个配置有时候不生效（[npm/cli#8046](https://github.com/npm/cli/issues/8046)），配了但检查
+  照样发出去、照样在国内网络环境下卡住超时。真正管用的是不让任何一次失败的网络请求卡太久：
+  `frontend/Dockerfile` 已经把 `fetch-timeout`/`fetch-retries` 等都压到几秒级
+  （`NPM_CONFIG_FETCH_TIMEOUT=8000` 等），原本要卡 70 多秒才触发那个 bug 的请求，现在几秒
+  内就会失败或重试完，不再有机会撞上这个竞态。拉最新代码即可，不需要额外配置。
   用 `docker run --rm -v "$(pwd)/frontend":/app -w /app node:20-alpine sh -c "npm ci"`
   能单独复现这条报错，方便验证。
 
