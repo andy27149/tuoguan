@@ -97,6 +97,23 @@ case "$PKG_MANAGER" in
         ;;
 esac
 systemctl enable --now docker
+
+if ! docker compose version >/dev/null 2>&1 && ! command -v docker-compose >/dev/null 2>&1; then
+    # 有些发行版（比如 CentOS/EPEL 的 moby-engine）自带的是旧版 docker，既没有 compose v2
+    # 插件也没有 v1 独立命令，上面 "docker 命令已存在就跳过安装" 的判断会漏掉这种情况，
+    # 这里单独兜底装 v2 插件（deploy.sh 会自动识别 v2/v1 中可用的那个，不强制要求 v2）。
+    echo "==> 当前环境没有 docker compose（v2 插件）也没有 docker-compose（v1），尝试安装 v2 插件"
+    CLI_PLUGINS_DIR=/usr/local/lib/docker/cli-plugins
+    mkdir -p "$CLI_PLUGINS_DIR"
+    curl -fsSL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-$(uname -m)" \
+        -o "${CLI_PLUGINS_DIR}/docker-compose"
+    chmod +x "${CLI_PLUGINS_DIR}/docker-compose"
+    if ! docker compose version >/dev/null 2>&1; then
+        echo "错误：docker compose 插件安装失败（可能是网络无法访问 github.com）。" >&2
+        echo "可以改为手动安装 docker-compose v1（如 pip3 install docker-compose），deploy.sh 会自动识别使用。" >&2
+        exit 1
+    fi
+fi
 systemctl enable --now nginx
 
 echo "==> 准备 .env"

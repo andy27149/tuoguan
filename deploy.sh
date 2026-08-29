@@ -5,7 +5,14 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
-COMPOSE="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
+if docker compose version >/dev/null 2>&1; then
+    COMPOSE="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
+elif command -v docker-compose >/dev/null 2>&1; then
+    COMPOSE="docker-compose -f docker-compose.yml -f docker-compose.prod.yml"
+else
+    echo "错误：找不到 docker compose（v2 插件）或 docker-compose（v1 独立命令），请先安装其中一个。" >&2
+    exit 1
+fi
 
 if [[ ! -f .env ]]; then
     echo "错误：找不到 .env 文件。" >&2
