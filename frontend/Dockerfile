@@ -1,7 +1,7 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 # 真正的根因（已在服务器构建日志里实锤确认）：package-lock.json 曾经在一台连得到
-# 公司内网 npm 源（artifactory-corp.sddz.ebay.com）的机器上生成过，导致里面 29 个
+# 公司内网 npm 源的机器上生成过，导致里面 29 个
 # 包的 "resolved" 字段被永久写死成了这个内网地址。npm ci 装包时是严格按锁文件里
 # 每个包的 resolved URL 去抓的，只有该 URL 命中"官方 registry.npmjs.org"这个模式
 # 时才会被 --registry/NPM_REGISTRY 参数替换掉——写死成内网域名的这些包不会被替换，

@@ -267,8 +267,7 @@ docker compose start minio
 
   **真正的根因（已在服务器构建日志里确认）**：`frontend/package-lock.json` 曾经在一台
   配置了公司内网 npm 源的开发机上生成过（该机器的全局 `~/.npmrc` 指向内网 Artifactory），
-  导致锁文件里约 29 个包的 `resolved` 字段被永久写死成了内网地址
-  `artifactory-corp.sddz.ebay.com`。`npm ci` 装包时是严格按锁文件里每个包的 `resolved`
+  导致锁文件里约 29 个包的 `resolved` 字段被永久写死成了内网地址。`npm ci` 装包时是严格按锁文件里每个包的 `resolved`
   URL 去抓的，只有该 URL 命中"官方 `registry.npmjs.org`"这个模式时才会被
   `--registry`/`NPM_REGISTRY` 参数替换掉——写死成内网域名的包不会被替换，生产服务器
   当然连不上这个专属内网地址，这些包必然安装失败，重试 3 次也没用（不是偶发网络抖动，
