@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # 一键部署/更新脚本。用法：
-#   ./deploy.sh          # 拉取最新代码 + 重新构建 + 启动
-#   ./deploy.sh --no-pull  # 跳过 git pull，只重新构建 + 启动（适合本地已改好代码的情况）
+#   ./deploy.sh              # 拉取最新代码 + 重新构建 + 启动
+#   ./deploy.sh --no-pull    # 跳过 git pull，只重新构建 + 启动（适合本地已改好代码的情况）
+#   ./deploy.sh --no-cache   # 构建时不用 Docker 缓存（排查"缓存了不完整构建产物"类问题时用）
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
@@ -21,9 +22,11 @@ if [[ ! -f .env ]]; then
 fi
 
 PULL=1
+NO_CACHE=0
 for arg in "$@"; do
     case "$arg" in
         --no-pull) PULL=0 ;;
+        --no-cache) NO_CACHE=1 ;;
         *) echo "未知参数: $arg" >&2; exit 1 ;;
     esac
 done
@@ -39,7 +42,11 @@ if [[ "$PULL" -eq 1 ]]; then
 fi
 
 echo "==> 构建镜像"
-$COMPOSE build
+if [[ "$NO_CACHE" -eq 1 ]]; then
+    $COMPOSE build --no-cache
+else
+    $COMPOSE build
+fi
 
 echo "==> 启动/更新容器"
 $COMPOSE up -d

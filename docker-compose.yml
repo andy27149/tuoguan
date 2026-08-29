@@ -53,7 +53,10 @@ services:
       - "8080:8080"
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org}
     restart: unless-stopped
     depends_on:
       - backend
