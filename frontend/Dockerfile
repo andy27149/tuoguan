@@ -1,23 +1,36 @@
 FROM node:20-alpine AS build
 WORKDIR /app
-# update-notifier 会在 npm ci 快结束时固定去连 registry.npmjs.org 检查 npm 自身
-# 有没有新版本，这个请求走的是硬编码地址，跟下面 --registry 参数配的镜像源无关；
-# 国内网络访问不到/超时会触发 npm 自身的 "Exit handler never called!" bug，导致
-# node_modules 装到一半就崩，tsc 等 devDependencies 二进制缺失（报 sh: tsc: not
-# found），见 https://github.com/npm/cli/issues/8404。
-# 光设 update-notifier=false 不够可靠——npm 自己也承认这个配置有时候不生效
-# （见 https://github.com/npm/cli/issues/8046），配了也可能白配。真正管用的是不让
-# 任何一次失败的网络请求卡太久：把超时和重试都压到几秒级，原本卡 70 多秒才崩溃的
-# 请求现在几秒内就会失败/重试完，不再触发那个竞态 bug。
+# npm ci 有个长期存在的已知 bug（npm error "Exit handler never called!"，见
+# https://github.com/npm/cli/issues/8404 等多个 issue）：只要安装过程中有任意一个
+# 包的下载请求失败（不管是超时、连接被拒、还是证书校验失败——本机实测触发原因是
+# SELF_SIGNED_CERT_IN_CHAIN，跟"国内连不上 registry.npmjs.org"完全是两回事，
+# 但表现的 bug 是同一个），npm 内部有概率把某些包静默装成空目录，自己却仍然
+# 汇报退出码 0——不会让 npm ci 这一步失败，只会在下一步 `npm run build` 时才炸出
+# `sh: tsc: not found` 或类似报错。调超时/重试次数/npm 版本/Node 版本都试过，
+# 都不能保证这次安装请求不失败，所以没法从"防止触发"这个方向根治。
+# 真正管用的办法是反过来：不管这次 npm ci 内部有没有偷偷丢包，装完之后都去检查
+# 关键产物（tsc 二进制）在不在，不在就整个重装，重试几次还不行就让构建真正失败
+# （而不是带着残缺的 node_modules 悄悄往下走）。
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false
-ENV NPM_CONFIG_FETCH_TIMEOUT=8000
-ENV NPM_CONFIG_FETCH_RETRIES=1
-ENV NPM_CONFIG_FETCH_RETRY_MINTIMEOUT=1000
-ENV NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT=4000
-# 包本身的下载源默认走官方源，国内也可以用 --build-arg 切换到镜像加速，见 DEPLOY.md。
 ARG NPM_REGISTRY=https://registry.npmjs.org
 COPY package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund --registry="${NPM_REGISTRY}"
+RUN set -e; \
+    ok=0; \
+    for i in 1 2 3; do \
+      echo "===== npm ci 第 ${i} 次尝试 ====="; \
+      rm -rf node_modules; \
+      npm ci --no-audit --no-fund --registry="${NPM_REGISTRY}" || true; \
+      if [ -x node_modules/.bin/tsc ]; then \
+        ok=1; \
+        break; \
+      fi; \
+      echo "node_modules 不完整（tsc 缺失），准备重试"; \
+    done; \
+    if [ "${ok}" != "1" ]; then \
+      echo "===== npm ci 重试 3 次仍未装出 tsc，打印 debug log ====="; \
+      cat /root/.npm/_logs/*-debug-0.log 2>/dev/null; \
+      exit 1; \
+    fi
 COPY . .
 RUN npm run build
 

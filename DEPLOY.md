@@ -262,21 +262,21 @@ docker compose start minio
   v1（如果已安装）；如果 v1 也没有，装一个即可（`pip3 install docker-compose` 或参考
   `bootstrap.sh` 里下载 v2 插件二进制的做法）。
 - **前端构建报 `sh: tsc: not found`（`npm run build` 阶段失败）**：根因不是
-  `package.json`/`typescript` 配置问题，而是上一步 `npm ci` 快结束时触发了 npm 自身的一个
-  bug（`npm error Exit handler never called!`，[npm/cli#8404](https://github.com/npm/cli/issues/8404)
-  等多个 issue 报告过同样现象），导致 `node_modules` 装了一半就崩，`tsc` 等 devDependencies
-  里的二进制没生成，但 `npm ci` 这一层构建仍然"看起来"是绿的。**根因是 npm 内置的
-  `update-notifier` 会固定去连 `registry.npmjs.org` 检查 npm 自身有没有新版本，这个请求走的
-  是硬编码地址，跟给 `npm ci` 配的 `--registry` 参数无关**——所以只换包下载源（比如改成
-  `registry.npmmirror.com`）解决不了这个问题。
-  单靠 `ENV NPM_CONFIG_UPDATE_NOTIFIER=false` 关掉这个检查也不一定管用——npm 自己也承认
-  这个配置有时候不生效（[npm/cli#8046](https://github.com/npm/cli/issues/8046)），配了但检查
-  照样发出去、照样在国内网络环境下卡住超时。真正管用的是不让任何一次失败的网络请求卡太久：
-  `frontend/Dockerfile` 已经把 `fetch-timeout`/`fetch-retries` 等都压到几秒级
-  （`NPM_CONFIG_FETCH_TIMEOUT=8000` 等），原本要卡 70 多秒才触发那个 bug 的请求，现在几秒
-  内就会失败或重试完，不再有机会撞上这个竞态。拉最新代码即可，不需要额外配置。
-  用 `docker run --rm -v "$(pwd)/frontend":/app -w /app node:20-alpine sh -c "npm ci"`
-  能单独复现这条报错，方便验证。
+  `package.json`/`typescript` 配置问题（`npm ci` 默认会把 `dependencies` 和
+  `devDependencies` 都装上，`typescript` 放在 devDependencies 完全没问题），而是
+  `npm ci` 自身一个长期存在的 bug（`npm error Exit handler never called!`，
+  [npm/cli#8404](https://github.com/npm/cli/issues/8404) 等多个 issue 报告过同样现象）：
+  只要安装过程中**任意一个包**的下载请求失败（超时、连接被拒、证书校验失败都算，不局限于
+  某个特定域名或特定请求），npm 内部就有概率把某些包静默装成空目录，自己却仍然汇报退出码
+  0——不会让 `npm ci` 这一步失败，只会在下一步 `npm run build` 时才炸出
+  `sh: tsc: not found`。这个 bug 已经用本地环境直接复现验证过：本机网络会拦截 HTTPS
+  导致证书校验失败（`SELF_SIGNED_CERT_IN_CHAIN`），几乎每个包下载都先失败几次，最终
+  `tsc`、`rolldown` 等某个包的二进制就被装漏了；调超时/重试次数/npm 版本/Node 版本都
+  改过，只要网络请求会失败就还是会触发，说明没法从"防止某次请求失败"这个方向根治。
+  **真正管用的做法是反过来**：`frontend/Dockerfile` 现在会在 `npm ci` 跑完之后检查
+  `node_modules/.bin/tsc` 在不在，不在就整个重装，最多重试 3 次；3 次都装不出 `tsc`
+  才会让构建真正失败（并打印 npm debug log），不会再出现"构建看起来是绿的、装到
+  `npm run build` 才发现装漏了"的情况。拉最新代码即可，不需要额外配置。
 
   包本身的下载速度如果觉得慢，仍然可以用 `NPM_REGISTRY` 切换到国内镜像（跟上面那个 bug
   是两回事，`docker-compose.yml` 已经把这个变量接到了前端构建的 `--build-arg`）：
