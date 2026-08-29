@@ -21,4 +21,16 @@ describe('resolveShareToken', () => {
   it('returns null when there are extra path segments after the token', () => {
     expect(resolveShareToken('/share/abc123/extra')).toBeNull()
   })
+
+  it('extracts the token when served under a subpath', () => {
+    expect(resolveShareToken('/tuoguan/share/abc123', '/tuoguan/')).toBe('abc123')
+  })
+
+  it('returns null for the subpath root', () => {
+    expect(resolveShareToken('/tuoguan/', '/tuoguan/')).toBeNull()
+  })
+
+  it('returns null for a path outside the configured subpath', () => {
+    expect(resolveShareToken('/share/abc123', '/tuoguan/')).toBeNull()
+  })
 })

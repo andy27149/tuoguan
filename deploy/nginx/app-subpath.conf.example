@@ -1,0 +1,49 @@
+# 托管班挂在共用域名子路径下的 Nginx 配置片段
+#
+# 适用场景：域名（如 exam.example.com）的根路径 "/" 已经被别的系统占用，
+# 没法像 app.conf.example 那样独占整个域名，只能把托管班这套系统挂在
+# 一个子路径下（下面以 /tuoguan/ 为例）。
+#
+# 使用方法：
+#   1. 这不是一个完整的 server {} 块——因为域名根路径已经有另一个系统在用，
+#      通常也就已经有一份 server {} 配置了。把下面两个 location 块原样插入
+#      到那份已有的 server {} 里即可（插在哪一行都行，不需要在 catch-all
+#      的 location / 之前——nginx 对不带正则的 location 是按前缀长度匹配，
+#      /tuoguan/ 比 / 长，天然优先命中，与书写顺序无关）。
+#   2. 把下面的 /tuoguan/ 换成你实际要用的子路径（前后都要带斜杠）。
+#   3. 前端镜像必须用同名的 VITE_BASE_PATH 构建参数重新构建，见 .env.example
+#      里 VITE_BASE_PATH 的说明和 DEPLOY.md 第七节，光改 Nginx 配置没用——
+#      子路径前缀是在前端构建时就打包进静态资源里的，不是运行时可配置的。
+#   4. nginx -t && systemctl reload nginx
+
+# 子路径不带斜杠时跳转到带斜杠的形式，避免相对路径的静态资源在浏览器里
+# 被错误解析到上一级目录。
+location = /tuoguan {
+    return 301 /tuoguan/;
+}
+
+# /tuoguan/api/* 转发给后端容器。注意 proxy_pass 末尾的 "/"——它会把匹配到
+# 的 /tuoguan/api/ 前缀去掉再转发，所以后端容器完全不需要知道子路径的存在，
+# 收到的还是它原本 /api/... 的路由，不用改任何后端代码。
+location /tuoguan/api/ {
+    client_max_body_size 10m;
+    proxy_pass http://127.0.0.1:18080/api/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+
+# /tuoguan/ 下的其余请求交给前端静态资源容器。同样靠 proxy_pass 末尾的 "/"
+# 去掉 /tuoguan/ 前缀，前端容器收到的是它原本的根路径请求，容器本身不用
+# 感知子路径——子路径前缀是前端构建时通过 VITE_BASE_PATH 打包进 HTML/JS
+# 里的资源引用路径的，两边配合起来才是完整的子路径部署。
+location /tuoguan/ {
+    proxy_pass http://127.0.0.1:18081/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}

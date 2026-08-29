@@ -13,7 +13,8 @@
 | `docker-compose.prod.yml` | 生产环境覆盖：所有端口只绑定 `127.0.0.1`，容器改为 `restart: always`，backend 的 `MINIO_ENDPOINT` 改成公网地址 |
 | `.env.example` | 环境变量模板，部署前复制成 `.env` 并填入真实的强密码 |
 | `deploy.sh` | 日常更新部署脚本（`bootstrap.sh` 内部也会调用它） |
-| `deploy/nginx/app.conf.example` | 主站 Nginx 配置示例（前端 + `/api/`） |
+| `deploy/nginx/app.conf.example` | 主站 Nginx 配置示例（前端 + `/api/`），独占整个域名时用 |
+| `deploy/nginx/app-subpath.conf.example` | 域名根路径被别的系统占用、需要把本系统挂在子路径下时用，见下方"七、常见问题排查" |
 | `deploy/nginx/files.conf.example` | MinIO 独立子域名的 Nginx 配置示例 |
 
 ---
@@ -297,3 +298,16 @@ docker compose start minio
   ./deploy.sh --no-pull --no-cache
   ```
   加 `--no-cache` 是因为之前失败的构建可能已经把不完整的 `node_modules` 缓存进了镜像层。
+- **域名根路径已经被别的系统占用，只能把托管班挂在子路径下（比如 `/tuoguan/`）**：
+  1. `.env` 里加一行 `VITE_BASE_PATH=/tuoguan/`（前后都要带斜杠，见 `.env.example` 里的说明）。
+  2. 重新构建前端镜像——子路径前缀是构建时打包进静态资源的，不是运行时配置，必须
+     `--no-cache` 强制重新构建：`./deploy.sh --no-pull --no-cache`（或手动
+     `docker compose -f docker-compose.yml -f docker-compose.prod.yml build --no-cache frontend`）。
+  3. 把 `deploy/nginx/app-subpath.conf.example` 里的两个 `location` 块插入到域名现有的
+     `server {}` 配置里（把示例里的 `/tuoguan/` 换成实际用的子路径），`nginx -t &&
+     systemctl reload nginx`。注意 `bootstrap.sh` 生成的 `/etc/nginx/sites-available/tuoguan.conf`
+     是首次部署时一次性生成的静态文件，后续 `git pull`/`deploy.sh` 不会自动更新它，
+     子路径配置需要手动加进去。
+  4. 家长分享链接、静态资源、`/api/` 请求都会自动带上这个子路径前缀，不需要改任何
+     业务代码；`MINIO_PUBLIC_ENDPOINT` 走独立子域名（见上面"二、为什么 MinIO 需要
+     单独一个子域名"），跟前端挂在哪个子路径下无关，不用跟着改。

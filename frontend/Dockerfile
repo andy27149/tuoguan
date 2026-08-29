@@ -37,6 +37,10 @@ RUN set -e; \
       exit 1; \
     fi
 COPY . .
+# 部署在共用域名的子路径下（如 /tuoguan/）时通过这个构建参数传入，会被
+# vite.config.ts 读取写进打包产物的静态资源路径前缀，见 DEPLOY.md 第七节。
+ARG VITE_BASE_PATH=/
+ENV VITE_BASE_PATH=${VITE_BASE_PATH}
 RUN npm run build
 
 FROM nginx:1.27-alpine

@@ -23,7 +23,7 @@ export function ShareLinkModal({ studentId, studentName, onClose, onShowToast }:
     fetchShareLink(studentId)
       .then(({ token }) => {
         if (cancelled) return
-        setUrl(`${window.location.origin}/share/${token}`)
+        setUrl(`${window.location.origin}${import.meta.env.BASE_URL}share/${token}`)
       })
       .catch(() => {
         if (!cancelled) setError('加载失败，请重试')

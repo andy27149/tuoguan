@@ -5,7 +5,7 @@ import App from './App.tsx'
 import { ParentSharePage } from './pages/ParentSharePage.tsx'
 import { resolveShareToken } from './shareRoute.ts'
 
-const shareToken = resolveShareToken(window.location.pathname)
+const shareToken = resolveShareToken(window.location.pathname, import.meta.env.BASE_URL)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
