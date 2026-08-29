@@ -8,12 +8,46 @@
 
 | 文件 | 作用 |
 |---|---|
+| `bootstrap.sh` | **一条命令完成首次部署**：装依赖、生成 `.env`、配置 Nginx、签证书、构建启动，见下方"零、一键部署" |
 | `docker-compose.yml` | 基础编排：mysql / minio / backend / frontend 四个服务 |
 | `docker-compose.prod.yml` | 生产环境覆盖：所有端口只绑定 `127.0.0.1`，容器改为 `restart: always`，backend 的 `MINIO_ENDPOINT` 改成公网地址 |
 | `.env.example` | 环境变量模板，部署前复制成 `.env` 并填入真实的强密码 |
-| `deploy.sh` | 一键部署/更新脚本 |
+| `deploy.sh` | 日常更新部署脚本（`bootstrap.sh` 内部也会调用它） |
 | `deploy/nginx/app.conf.example` | 主站 Nginx 配置示例（前端 + `/api/`） |
 | `deploy/nginx/files.conf.example` | MinIO 独立子域名的 Nginx 配置示例 |
+
+---
+
+## 零、一键部署（推荐）
+
+如果只是想在一台全新服务器上把整套系统跑起来，不需要逐条执行下面的手动步骤——先满足
+三个前置条件，再跑一个命令就够了：
+
+1. 一台全新的 Ubuntu/Debian 或 CentOS/RHEL/Fedora 服务器，80/443 端口已对公网开放
+2. 两个域名（主域名 + MinIO 子域名，原因见第二节）的 DNS A 记录都已指向服务器公网 IP
+3. 代码已经 clone 到服务器上（全新服务器可能连 git 都还没有，先装一下：
+   Ubuntu/Debian 用 `sudo apt-get update && sudo apt-get install -y git`，
+   CentOS/RHEL/Fedora 用 `sudo dnf install -y git`）
+
+> CentOS 8 用户注意：官方镜像源已于 2022 年停止维护，如果 `dnf`/`yum` 报仓库不可用，
+> 需要先把仓库指向 `vault.centos.org`，脚本运行到装依赖那一步失败时会打印具体命令。
+
+```bash
+git clone <你的仓库地址> tuoguan && cd tuoguan
+sudo ./bootstrap.sh --domain example.com --files-domain files.example.com --email <EMAIL_ADDRESS>
+```
+
+不传参数直接 `sudo ./bootstrap.sh` 也可以，脚本会在执行时交互式询问这三项。
+
+脚本会自动完成：安装 Docker/Nginx/Certbot → 生成 `.env`（所有密码/密钥用 `openssl rand`
+随机生成，不需要手动编辑）→ 用你的域名渲染 Nginx 配置并启用 → 用 certbot 签发 HTTPS
+证书 → 构建并启动所有容器。全程约几分钟，结束后会打印验证用的 `curl` 命令。
+
+脚本可以重复运行：已存在的 `.env` 不会被覆盖，已装好的依赖不会重装，已签发的证书 certbot
+会自动跳过/续期。
+
+之后的日常更新部署仍然用 `./deploy.sh`，见第四节。如果想理解每一步具体做了什么、或者需要
+定制化配置（比如 apt/dnf 之外的系统、多台服务器分离部署等），继续看下面的手动步骤。
 
 ---
 
