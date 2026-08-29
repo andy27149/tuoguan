@@ -261,14 +261,20 @@ docker compose start minio
   的 `moby-engine`）缺 compose v2 插件。`deploy.sh` 已经会自动识别并退回使用 `docker-compose`
   v1（如果已安装）；如果 v1 也没有，装一个即可（`pip3 install docker-compose` 或参考
   `bootstrap.sh` 里下载 v2 插件二进制的做法）。
-- **前端构建报 `sh: tsc: not found`（`npm run build` 阶段失败）**：根因通常不是
-  `package.json`/`typescript` 配置问题，而是上一步 `npm ci` 被网络抖动打断后触发了 npm
-  自身的一个 bug（`npm error Exit handler never called!`），导致 `node_modules` 装了一半就
-  停了，`tsc` 等 devDependencies 里的二进制没生成，但 `npm ci` 这一层构建仍然"看起来"是
-  绿的。用 `docker run --rm -v "$(pwd)/frontend":/app -w /app node:20-alpine sh -c "npm ci"`
-  单独重跑一遍能看到这条报错。国内服务器直连 `registry.npmjs.org` 不稳定是最常见诱因，在
-  `.env` 里把 `NPM_REGISTRY` 改成国内镜像即可（`docker-compose.yml` 已经把这个变量接到了
-  前端构建的 `--build-arg`）：
+- **前端构建报 `sh: tsc: not found`（`npm run build` 阶段失败）**：根因不是
+  `package.json`/`typescript` 配置问题，而是上一步 `npm ci` 快结束时触发了 npm 自身的一个
+  bug（`npm error Exit handler never called!`，[npm/cli#8404](https://github.com/npm/cli/issues/8404)
+  等多个 issue 报告过同样现象），导致 `node_modules` 装了一半就崩，`tsc` 等 devDependencies
+  里的二进制没生成，但 `npm ci` 这一层构建仍然"看起来"是绿的。**根因是 npm 内置的
+  `update-notifier` 会固定去连 `registry.npmjs.org` 检查 npm 自身有没有新版本，这个请求走的
+  是硬编码地址，跟给 `npm ci` 配的 `--registry` 参数无关**——所以只换包下载源（比如改成
+  `registry.npmmirror.com`）解决不了这个问题，`frontend/Dockerfile` 已经用
+  `ENV NPM_CONFIG_UPDATE_NOTIFIER=false` 关掉这个检查，拉最新代码即可，不需要额外配置。
+  用 `docker run --rm -v "$(pwd)/frontend":/app -w /app node:20-alpine sh -c "npm ci"`
+  能单独复现这条报错，方便验证。
+
+  包本身的下载速度如果觉得慢，仍然可以用 `NPM_REGISTRY` 切换到国内镜像（跟上面那个 bug
+  是两回事，`docker-compose.yml` 已经把这个变量接到了前端构建的 `--build-arg`）：
   ```bash
   # .env 里有这一行就改值，没有就追加，避免出现重复的 NPM_REGISTRY
   if grep -q '^NPM_REGISTRY=' .env; then

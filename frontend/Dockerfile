@@ -1,10 +1,12 @@
 FROM node:20-alpine AS build
 WORKDIR /app
-# 默认走官方源；国内网络访问 registry.npmjs.org 不稳定时容易触发 npm 自身的
-# "Exit handler never called!" bug（安装过程被网络抖动打断导致 npm 内部崩溃，
-# 不是报错退出而是静默留下不完整的 node_modules，tsc 等 devDependencies 里的
-# 二进制就会缺失），构建时传 --build-arg NPM_REGISTRY=https://registry.npmmirror.com
-# 即可切换到国内镜像，见 DEPLOY.md 常见问题排查。
+# update-notifier 会在 npm ci 快结束时固定去连 registry.npmjs.org 检查 npm 自身
+# 有没有新版本，这个请求走的是硬编码地址，跟下面 --registry 参数配的镜像源无关；
+# 国内网络访问不到/超时会触发 npm 自身的 "Exit handler never called!" bug，导致
+# node_modules 装到一半就崩，tsc 等 devDependencies 二进制缺失（报 sh: tsc: not
+# found），见 https://github.com/npm/cli/issues/8404。关掉这个检查即可。
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
+# 包本身的下载源默认走官方源，国内也可以用 --build-arg 切换到镜像加速，见 DEPLOY.md。
 ARG NPM_REGISTRY=https://registry.npmjs.org
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund --registry="${NPM_REGISTRY}"
