@@ -1,0 +1,27 @@
+# 本地开发用的端口映射。Docker Compose 在没有显式传 -f 参数时会自动叠加读取这个文件，
+# 方便本地直接 `docker compose up` 就能从宿主机访问各服务。
+#
+# 生产环境的 deploy.sh 显式传了 `-f docker-compose.yml -f docker-compose.prod.yml`，
+# 一旦显式传了 -f，Compose 就不会再自动带上这个文件，端口只由 docker-compose.prod.yml
+# 里 127.0.0.1 那条决定，不会重复。如果这里的端口跟 docker-compose.prod.yml 重复声明
+# 在同一个 `-f` 组合里，Compose 会把两份 ports 列表拼接而不是覆盖，导致同一个宿主机
+# 端口被绑定两次（一次 0.0.0.0、一次 127.0.0.1）而互相冲突——这正是之前生产环境
+# mysql/minio 端口莫名 "bind: address already in use" 的真正原因，所以端口映射只能
+# 在“本地开发”和“生产”两个场景里二选一声明，不能两边都写。
+services:
+  mysql:
+    ports:
+      - "13306:3306"
+
+  minio:
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  backend:
+    ports:
+      - "18080:8080"
+
+  frontend:
+    ports:
+      - "18081:80"
