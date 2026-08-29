@@ -6,15 +6,26 @@
 #
 # 使用方法：
 #   1. 这不是一个完整的 server {} 块——因为域名根路径已经有另一个系统在用，
-#      通常也就已经有一份 server {} 配置了。把下面两个 location 块原样插入
-#      到那份已有的 server {} 里即可（插在哪一行都行，不需要在 catch-all
-#      的 location / 之前——nginx 对不带正则的 location 是按前缀长度匹配，
-#      /tuoguan/ 比 / 长，天然优先命中，与书写顺序无关）。
+#      通常也就已经有一份 server {} 配置了。把下面几个 location 块原样插入
+#      到那份已有的 server {} 里即可。
 #   2. 把下面的 /tuoguan/ 换成你实际要用的子路径（前后都要带斜杠）。
 #   3. 前端镜像必须用同名的 VITE_BASE_PATH 构建参数重新构建，见 .env.example
 #      里 VITE_BASE_PATH 的说明和 DEPLOY.md 第七节，光改 Nginx 配置没用——
 #      子路径前缀是在前端构建时就打包进静态资源里的，不是运行时可配置的。
 #   4. nginx -t && systemctl reload nginx
+#
+# 关于下面每个 location 都带的 "^~" 前缀，务必保留，不要删掉：
+# 如果已有的 server {} 块里有类似
+#   location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?)$ { ... }
+# 这种给静态资源文件后缀做缓存/直接从文件系统提供服务的正则 location（很常见，
+# 老系统一般都有），nginx 的 location 匹配优先级是：精确匹配 > 带 "^~" 的前缀
+# 匹配 > 正则 location（按配置文件里出现的顺序）> 不带 "^~" 的最长前缀匹配。
+# 也就是说，不带 "^~" 的 /tuoguan/ 前缀 location 天生会输给任何正则 location——
+# 哪怕 /tuoguan/ 明显更精确、写的位置也更靠前都没用，.js/.css/.svg 这类请求会
+# 被正则 location 先截走，从老系统的文件目录里找，自然全是 404，而没有扩展名
+# 的 /tuoguan/（首页 HTML）不会命中那条正则，所以看起来只有 HTML 能加载、
+# JS/CSS 一律 404。加上 "^~" 能让这几个 location 直接跳过正则匹配阶段，不需要
+# 改动、也不需要知道老系统那条正则 location 具体长什么样。
 
 # 子路径不带斜杠时跳转到带斜杠的形式，避免相对路径的静态资源在浏览器里
 # 被错误解析到上一级目录。
@@ -25,7 +36,7 @@ location = /tuoguan {
 # /tuoguan/api/* 转发给后端容器。注意 proxy_pass 末尾的 "/"——它会把匹配到
 # 的 /tuoguan/api/ 前缀去掉再转发，所以后端容器完全不需要知道子路径的存在，
 # 收到的还是它原本 /api/... 的路由，不用改任何后端代码。
-location /tuoguan/api/ {
+location ^~ /tuoguan/api/ {
     client_max_body_size 10m;
     proxy_pass http://127.0.0.1:18080/api/;
     proxy_http_version 1.1;
@@ -39,7 +50,7 @@ location /tuoguan/api/ {
 # 去掉 /tuoguan/ 前缀，前端容器收到的是它原本的根路径请求，容器本身不用
 # 感知子路径——子路径前缀是前端构建时通过 VITE_BASE_PATH 打包进 HTML/JS
 # 里的资源引用路径的，两边配合起来才是完整的子路径部署。
-location /tuoguan/ {
+location ^~ /tuoguan/ {
     proxy_pass http://127.0.0.1:18081/;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
