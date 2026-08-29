@@ -243,3 +243,21 @@ docker compose start minio
   应该能拿到 MinIO 的响应而不是连接失败）。
 - **`./deploy.sh` 提示工作区有未提交改动，拒绝 `git pull`**：说明服务器上有本地改动，
   按前面"日常更新部署"一节的说明处理，或者临时用 `./deploy.sh --no-pull`。
+- **`docker compose build` 报 `dial tcp ...: connect: connection refused`（拉取
+  `registry-1.docker.io` 镜像失败）**：国内服务器直连 Docker Hub 经常被拒，配置一个
+  registry mirror 即可（阿里云/腾讯云等云厂商控制台里也能领一个账号专属的加速地址，
+  比公共地址更稳定）：
+  ```bash
+  sudo mkdir -p /etc/docker
+  sudo tee /etc/docker/daemon.json <<'EOF'
+  { "registry-mirrors": ["https://docker.m.daocloud.io"] }
+  EOF
+  sudo systemctl restart docker
+  ```
+  如果 `/etc/docker/daemon.json` 已经存在且有其他配置，把 `registry-mirrors` 字段手动
+  合并进去，不要整个覆盖。改完用 `docker info | grep -A3 "Registry Mirrors"` 确认生效，
+  再重新跑 `./deploy.sh --no-pull`。
+- **`docker compose is not a docker command`**：说明装的是旧版 docker（比如 CentOS/EPEL
+  的 `moby-engine`）缺 compose v2 插件。`deploy.sh` 已经会自动识别并退回使用 `docker-compose`
+  v1（如果已安装）；如果 v1 也没有，装一个即可（`pip3 install docker-compose` 或参考
+  `bootstrap.sh` 里下载 v2 插件二进制的做法）。
