@@ -50,7 +50,7 @@ services:
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       MINIO_BUCKET: avatars
     ports:
-      - "8080:8080"
+      - "18080:8080"
 
   frontend:
     build:
@@ -61,7 +61,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "8081:80"
+      - "18081:80"
 
 volumes:
   mysql_data:

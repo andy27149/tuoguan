@@ -18,7 +18,7 @@ server {
 
     # /api/* 全部转发给后端容器
     location /api/ {
-        proxy_pass http://127.0.0.1:8080/api/;
+        proxy_pass http://127.0.0.1:18080/api/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -28,7 +28,7 @@ server {
 
     # 其余所有请求交给前端静态资源容器
     location / {
-        proxy_pass http://127.0.0.1:8081/;
+        proxy_pass http://127.0.0.1:18081/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
