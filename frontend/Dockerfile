@@ -1,16 +1,21 @@
 FROM node:20-alpine AS build
 WORKDIR /app
-# npm ci 有个长期存在的已知 bug（npm error "Exit handler never called!"，见
-# https://github.com/npm/cli/issues/8404 等多个 issue）：只要安装过程中有任意一个
-# 包的下载请求失败（不管是超时、连接被拒、还是证书校验失败——本机实测触发原因是
-# SELF_SIGNED_CERT_IN_CHAIN，跟"国内连不上 registry.npmjs.org"完全是两回事，
-# 但表现的 bug 是同一个），npm 内部有概率把某些包静默装成空目录，自己却仍然
-# 汇报退出码 0——不会让 npm ci 这一步失败，只会在下一步 `npm run build` 时才炸出
-# `sh: tsc: not found` 或类似报错。调超时/重试次数/npm 版本/Node 版本都试过，
-# 都不能保证这次安装请求不失败，所以没法从"防止触发"这个方向根治。
-# 真正管用的办法是反过来：不管这次 npm ci 内部有没有偷偷丢包，装完之后都去检查
-# 关键产物（tsc 二进制）在不在，不在就整个重装，重试几次还不行就让构建真正失败
-# （而不是带着残缺的 node_modules 悄悄往下走）。
+# 真正的根因（已在服务器构建日志里实锤确认）：package-lock.json 曾经在一台连得到
+# 公司内网 npm 源（artifactory-corp.sddz.ebay.com）的机器上生成过，导致里面 29 个
+# 包的 "resolved" 字段被永久写死成了这个内网地址。npm ci 装包时是严格按锁文件里
+# 每个包的 resolved URL 去抓的，只有该 URL 命中"官方 registry.npmjs.org"这个模式
+# 时才会被 --registry/NPM_REGISTRY 参数替换掉——写死成内网域名的这些包不会被替换，
+# 服务器当然连不上，于是这些包必然装不出来（装出来哪个包缺，取决于锁文件生成时
+# 哪些包命中了内网源，不是随机的）。frontend/.npmrc 已经把这个项目的 registry
+# 锁定成公共源，避免以后在这类装了公司内网 npm 源的机器上 `npm install` 时又被
+# 带偏；package-lock.json 也已经用公共源重新生成过，不应该再出现这个问题。
+# 下面这段"装完校验 tsc 是否存在、不在就重试、重试 3 次还不行就让构建真正失败"
+# 的逻辑仍然保留——这是防御 npm 自身另一个已知 bug（npm error "Exit handler never
+# called!"，https://github.com/npm/cli/issues/8404）的安全网：只要某次包下载请求
+# 因为真正的网络抖动（不是内网域名不可达这种必然失败）失败，npm 有概率把该包静默
+# 装成空目录却仍然汇报退出码 0，直到 npm run build 才会炸出来。重试对"内网域名
+# 不可达"这种必然失败没用（会正确地 3 次都失败然后让构建报错），但对偶发的网络
+# 抖动有用，留着比去掉更安全。
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 ARG NPM_REGISTRY=https://registry.npmjs.org
 COPY package.json package-lock.json ./

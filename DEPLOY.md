@@ -263,23 +263,31 @@ docker compose start minio
   `bootstrap.sh` 里下载 v2 插件二进制的做法）。
 - **前端构建报 `sh: tsc: not found`（`npm run build` 阶段失败）**：根因不是
   `package.json`/`typescript` 配置问题（`npm ci` 默认会把 `dependencies` 和
-  `devDependencies` 都装上，`typescript` 放在 devDependencies 完全没问题），而是
-  `npm ci` 自身一个长期存在的 bug（`npm error Exit handler never called!`，
-  [npm/cli#8404](https://github.com/npm/cli/issues/8404) 等多个 issue 报告过同样现象）：
-  只要安装过程中**任意一个包**的下载请求失败（超时、连接被拒、证书校验失败都算，不局限于
-  某个特定域名或特定请求），npm 内部就有概率把某些包静默装成空目录，自己却仍然汇报退出码
-  0——不会让 `npm ci` 这一步失败，只会在下一步 `npm run build` 时才炸出
-  `sh: tsc: not found`。这个 bug 已经用本地环境直接复现验证过：本机网络会拦截 HTTPS
-  导致证书校验失败（`SELF_SIGNED_CERT_IN_CHAIN`），几乎每个包下载都先失败几次，最终
-  `tsc`、`rolldown` 等某个包的二进制就被装漏了；调超时/重试次数/npm 版本/Node 版本都
-  改过，只要网络请求会失败就还是会触发，说明没法从"防止某次请求失败"这个方向根治。
-  **真正管用的做法是反过来**：`frontend/Dockerfile` 现在会在 `npm ci` 跑完之后检查
-  `node_modules/.bin/tsc` 在不在，不在就整个重装，最多重试 3 次；3 次都装不出 `tsc`
-  才会让构建真正失败（并打印 npm debug log），不会再出现"构建看起来是绿的、装到
-  `npm run build` 才发现装漏了"的情况。拉最新代码即可，不需要额外配置。
+  `devDependencies` 都装上，`typescript` 放在 devDependencies 完全没问题）。
 
-  包本身的下载速度如果觉得慢，仍然可以用 `NPM_REGISTRY` 切换到国内镜像（跟上面那个 bug
-  是两回事，`docker-compose.yml` 已经把这个变量接到了前端构建的 `--build-arg`）：
+  **真正的根因（已在服务器构建日志里确认）**：`frontend/package-lock.json` 曾经在一台
+  配置了公司内网 npm 源的开发机上生成过（该机器的全局 `~/.npmrc` 指向内网 Artifactory），
+  导致锁文件里约 29 个包的 `resolved` 字段被永久写死成了内网地址
+  `artifactory-corp.sddz.ebay.com`。`npm ci` 装包时是严格按锁文件里每个包的 `resolved`
+  URL 去抓的，只有该 URL 命中"官方 `registry.npmjs.org`"这个模式时才会被
+  `--registry`/`NPM_REGISTRY` 参数替换掉——写死成内网域名的包不会被替换，生产服务器
+  当然连不上这个专属内网地址，这些包必然安装失败，重试 3 次也没用（不是偶发网络抖动，
+  是永久不可达）。**修复方式**：新增了 `frontend/.npmrc` 把这个项目的 registry 锁定成
+  公共源，避免以后在类似机器上 `npm install`/`npm update` 时又被带偏；
+  `frontend/package-lock.json` 也已经用公共源整个重新生成，锁文件里所有 `resolved`
+  URL 现在都指向 `registry.npmjs.org`，不需要额外配置，拉最新代码即可。
+
+  另外，`npm ci` 自身还有一个已知的独立 bug（`npm error Exit handler never called!`，
+  [npm/cli#8404](https://github.com/npm/cli/issues/8404)）：只要安装过程中任意一个包的
+  下载请求因为真正的网络抖动失败（超时、连接被拒、证书校验失败等，跟上面"内网域名永久
+  不可达"是两回事），npm 内部有概率把某个包静默装成空目录却仍然汇报退出码 0。
+  `frontend/Dockerfile` 会在 `npm ci` 跑完之后检查 `node_modules/.bin/tsc` 在不在，
+  不在就整个重装，最多重试 3 次；3 次都装不出 `tsc` 才会让构建真正失败（并打印 npm
+  debug log）。这个逻辑作为防御偶发网络抖动的安全网继续保留，但它解决不了上面那种
+  "域名永久不可达"的问题——那种情况必须修锁文件，重试只会正确地失败 3 次然后报错。
+
+  包本身的下载速度如果觉得慢，仍然可以用 `NPM_REGISTRY` 切换到国内镜像（跟上面两个问题
+  都是两回事，`docker-compose.yml` 已经把这个变量接到了前端构建的 `--build-arg`）：
   ```bash
   # .env 里有这一行就改值，没有就追加，避免出现重复的 NPM_REGISTRY
   if grep -q '^NPM_REGISTRY=' .env; then
