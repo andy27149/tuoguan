@@ -17,7 +17,7 @@ public class TaskTemplateService {
     }
 
     public TaskTemplate create(Long institutionId, String subject, String name) {
-        TaskTemplate taskTemplate = new TaskTemplate(null, institutionId, subject, name, null);
+        TaskTemplate taskTemplate = new TaskTemplate(null, institutionId, subject, name, null, false);
         Long id = taskTemplateDao.insert(taskTemplate);
         return taskTemplateDao.findById(id)
                 .orElseThrow(() -> new IllegalStateException("Task template not found after insert: " + id));
@@ -31,6 +31,6 @@ public class TaskTemplateService {
         TaskTemplate taskTemplate = taskTemplateDao.findById(taskTemplateId)
                 .filter(t -> t.institutionId().equals(institutionId))
                 .orElseThrow(() -> new NotFoundException("Task template not found: " + taskTemplateId));
-        taskTemplateDao.deleteById(taskTemplate.id());
+        taskTemplateDao.archiveById(taskTemplate.id());
     }
 }

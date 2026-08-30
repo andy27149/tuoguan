@@ -8,9 +8,10 @@ interface ShareLinkModalProps {
   studentName: string
   onClose: () => void
   onShowToast: (message: string) => void
+  fetchFn?: (studentId: number) => Promise<{ token: string }>
 }
 
-export function ShareLinkModal({ studentId, studentName, onClose, onShowToast }: ShareLinkModalProps) {
+export function ShareLinkModal({ studentId, studentName, onClose, onShowToast, fetchFn = fetchShareLink }: ShareLinkModalProps) {
   const [url, setUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -20,7 +21,7 @@ export function ShareLinkModal({ studentId, studentName, onClose, onShowToast }:
     let cancelled = false
     setLoading(true)
     setError(null)
-    fetchShareLink(studentId)
+    fetchFn(studentId)
       .then(({ token }) => {
         if (cancelled) return
         setUrl(`${window.location.origin}${import.meta.env.BASE_URL}share/${token}`)
@@ -34,7 +35,7 @@ export function ShareLinkModal({ studentId, studentName, onClose, onShowToast }:
     return () => {
       cancelled = true
     }
-  }, [studentId])
+  }, [studentId, fetchFn])
 
   useEffect(() => {
     if (!url || !canvasRef.current) return

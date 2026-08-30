@@ -4,7 +4,12 @@ import { AdminDashboardPage } from './AdminDashboardPage'
 import * as adminApi from '../api/admin'
 import { ApiError } from '../api/client'
 
+const logout = vi.fn()
+
 vi.mock('../api/admin')
+vi.mock('../auth/AuthContext', () => ({
+  useAuth: () => ({ logout }),
+}))
 
 const TEACHERS = [
   { id: 1, phone: '13800000001', name: '张校长', role: 'ADMIN' as const, mustChangePassword: false },
@@ -91,47 +96,13 @@ describe('AdminDashboardPage', () => {
     await waitFor(() => expect(adminApi.fetchAdminDashboard).toHaveBeenCalledTimes(2))
   })
 
-  it('lists existing admin-created classes', async () => {
+  it('lists existing classes read-only', async () => {
     render(<AdminDashboardPage onBack={vi.fn()} />)
 
     expect(await screen.findByText(/托管一班/)).toBeInTheDocument()
     expect(screen.getByText(/教师 13800000002/)).toBeInTheDocument()
-  })
-
-  it('creates a class for a selected teacher and updates the list', async () => {
-    const created = { id: 2, name: '托管二班', teacherId: 1, teacherPhone: '13800000001' }
-    vi.mocked(adminApi.createAdminClass).mockResolvedValue(created)
-    render(<AdminDashboardPage onBack={vi.fn()} />)
-    await screen.findByText(/托管一班/)
-    expect(adminApi.fetchAdminDashboard).toHaveBeenCalledTimes(1)
-
-    fireEvent.change(screen.getByPlaceholderText('班级名称'), { target: { value: '托管二班' } })
-    fireEvent.change(screen.getByDisplayValue('选择教师'), { target: { value: '1' } })
-    fireEvent.click(screen.getByRole('button', { name: '创建班级' }))
-
-    await waitFor(() => expect(adminApi.createAdminClass).toHaveBeenCalledWith('托管二班', 1))
-    expect(await screen.findByText(/教师 13800000001/)).toBeInTheDocument()
-    await waitFor(() => expect(adminApi.fetchAdminDashboard).toHaveBeenCalledTimes(2))
-  })
-
-  it('shows teacher name and phone in the class-teacher dropdown options', async () => {
-    render(<AdminDashboardPage onBack={vi.fn()} />)
-    await screen.findByText(/托管一班/)
-
-    expect(screen.getByText('张校长（13800000001）')).toBeInTheDocument()
-    expect(screen.getByText('李老师（13800000002）')).toBeInTheDocument()
-  })
-
-  it('shows a duplicate-name message on 409 when creating a class', async () => {
-    vi.mocked(adminApi.createAdminClass).mockRejectedValue(new ApiError(409, '冲突'))
-    render(<AdminDashboardPage onBack={vi.fn()} />)
-    await screen.findByText(/托管一班/)
-
-    fireEvent.change(screen.getByPlaceholderText('班级名称'), { target: { value: '托管一班' } })
-    fireEvent.change(screen.getByDisplayValue('选择教师'), { target: { value: '2' } })
-    fireEvent.click(screen.getByRole('button', { name: '创建班级' }))
-
-    expect(await screen.findByText('该托管班名称已存在')).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('班级名称')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '创建班级' })).not.toBeInTheDocument()
   })
 
   it('calls onBack when the back button is clicked', async () => {
@@ -142,5 +113,14 @@ describe('AdminDashboardPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '返回看板' }))
 
     expect(onBack).toHaveBeenCalled()
+  })
+
+  it('calls logout when the logout button is clicked', async () => {
+    render(<AdminDashboardPage onBack={vi.fn()} />)
+    await screen.findByText(/13800000001/, { selector: 'li' })
+
+    fireEvent.click(screen.getByRole('button', { name: '退出登录' }))
+
+    expect(logout).toHaveBeenCalled()
   })
 })

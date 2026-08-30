@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import type { Student } from '../api/students'
 import type { DailyTask } from '../api/dailyTasks'
 import type { TaskTemplate } from '../api/taskTemplates'
+import type { MonthlyStats } from '../api/monthlyStats'
 import { computeCardStatus } from '../kanban/cardStatus'
 import { subjectColor, subjectIconMarkup } from '../kanban/subjectIcons'
 import { currentTimeString } from '../kanban/date'
@@ -21,16 +22,19 @@ interface StudentCardProps {
   comment: string
   arrivedAt: string
   date: string
-  onToggleTask: (taskId: number, completed: boolean) => void
-  onDeleteTask: (taskId: number) => void
-  onAddFromTemplate: (studentId: number, templateId: number) => Promise<void>
-  onAddCustom: (studentId: number, subject: string, name: string) => Promise<void>
-  onUploadAvatar: (studentId: number, file: File) => Promise<void>
-  onSetRating: (studentId: number, rating: number) => void
-  onSetComment: (studentId: number, comment: string) => void
-  onSetArrival: (studentId: number, arrivedAt: string) => void
-  onClearArrival: (studentId: number) => void
+  readOnly?: boolean
+  onToggleTask?: (taskId: number, completed: boolean) => void
+  onDeleteTask?: (taskId: number) => void
+  onAddFromTemplate?: (studentId: number, templateId: number) => Promise<void>
+  onAddCustom?: (studentId: number, subject: string, name: string) => Promise<void>
+  onUploadAvatar?: (studentId: number, file: File) => Promise<void>
+  onSetRating?: (studentId: number, rating: number) => void
+  onSetComment?: (studentId: number, comment: string) => void
+  onSetArrival?: (studentId: number, arrivedAt: string) => void
+  onClearArrival?: (studentId: number) => void
   onShowToast: (message: string) => void
+  statsFetchFn?: (studentId: number, month?: string) => Promise<MonthlyStats>
+  shareLinkFetchFn?: (studentId: number) => Promise<{ token: string }>
 }
 
 function ProgressRing({
@@ -92,6 +96,7 @@ export function StudentCard({
   comment,
   arrivedAt,
   date,
+  readOnly = false,
   onToggleTask,
   onDeleteTask,
   onAddFromTemplate,
@@ -102,6 +107,8 @@ export function StudentCard({
   onSetArrival,
   onClearArrival,
   onShowToast,
+  statsFetchFn,
+  shareLinkFetchFn,
 }: StudentCardProps) {
   const [adding, setAdding] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -120,14 +127,14 @@ export function StudentCard({
       tasks.length > 0 &&
       tasks.every((t) => (t.id === taskId ? true : t.completed))
     if (willBeDone) setJustCompleted(true)
-    onToggleTask(taskId, completed)
+    onToggleTask?.(taskId, completed)
   }
 
   function handleArrivalClick() {
     if (arrivedAt) {
       setShowingArrival(true)
     } else {
-      onSetArrival(student.id, currentTimeString())
+      onSetArrival?.(student.id, currentTimeString())
     }
   }
 
@@ -137,7 +144,7 @@ export function StudentCard({
     if (!file) return
     setUploading(true)
     try {
-      await onUploadAvatar(student.id, file)
+      await onUploadAvatar?.(student.id, file)
     } finally {
       setUploading(false)
     }
@@ -149,26 +156,38 @@ export function StudentCard({
 
       <div className="card-head">
         <div className="avatar-wrap">
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            aria-label={`上传${student.name}的头像`}
-            disabled={uploading}
-            className="avatar-btn"
-          >
-            {student.avatarUrl ? (
-              <img src={student.avatarUrl} alt={student.name} className="h-full w-full object-cover" />
-            ) : (
-              student.name.slice(0, 1)
-            )}
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            hidden
-            onChange={handleAvatarFileChange}
-          />
+          {readOnly ? (
+            <div className="avatar-btn" aria-hidden="true">
+              {student.avatarUrl ? (
+                <img src={student.avatarUrl} alt={student.name} className="h-full w-full object-cover" />
+              ) : (
+                student.name.slice(0, 1)
+              )}
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                aria-label={`上传${student.name}的头像`}
+                disabled={uploading}
+                className="avatar-btn"
+              >
+                {student.avatarUrl ? (
+                  <img src={student.avatarUrl} alt={student.name} className="h-full w-full object-cover" />
+                ) : (
+                  student.name.slice(0, 1)
+                )}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                hidden
+                onChange={handleAvatarFileChange}
+              />
+            </>
+          )}
         </div>
         <div>
           <p className="card-head__name">
@@ -181,7 +200,7 @@ export function StudentCard({
 
       <div className="today-rating">
         <span className="today-rating__label">今日评价</span>
-        <StarRating value={rating} onChange={(v) => onSetRating(student.id, v)} />
+        <StarRating value={rating} onChange={(v) => onSetRating?.(student.id, v)} readOnly={readOnly} />
       </div>
 
       <ul className="task-list">
@@ -191,6 +210,7 @@ export function StudentCard({
               type="checkbox"
               className="task-check"
               checked={task.completed}
+              disabled={readOnly}
               onChange={(e) => handleToggle(task.id, e.target.checked)}
               aria-label={task.name}
             />
@@ -202,14 +222,16 @@ export function StudentCard({
             <span className="task-text">
               [{task.subject}] {task.name}
             </span>
-            <button
-              type="button"
-              onClick={() => onDeleteTask(task.id)}
-              aria-label={`删除${task.name}`}
-              className="task-del"
-            >
-              ×
-            </button>
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={() => onDeleteTask?.(task.id)}
+                aria-label={`删除${task.name}`}
+                className="task-del"
+              >
+                ×
+              </button>
+            )}
           </li>
         ))}
         {tasks.length === 0 && (
@@ -219,28 +241,32 @@ export function StudentCard({
         )}
       </ul>
 
-      {adding ? (
-        <AddTaskForm
-          templates={templates}
-          onCancel={() => setAdding(false)}
-          onAddFromTemplate={async (templateId) => {
-            await onAddFromTemplate(student.id, templateId)
-            setAdding(false)
-          }}
-          onAddCustom={async (subject, name) => {
-            await onAddCustom(student.id, subject, name)
-            setAdding(false)
-          }}
-        />
-      ) : (
-        <button type="button" onClick={() => setAdding(true)} className="add-task-btn">
-          + 添加任务
-        </button>
-      )}
+      {!readOnly && (
+        <>
+          {adding ? (
+            <AddTaskForm
+              templates={templates}
+              onCancel={() => setAdding(false)}
+              onAddFromTemplate={async (templateId) => {
+                await onAddFromTemplate?.(student.id, templateId)
+                setAdding(false)
+              }}
+              onAddCustom={async (subject, name) => {
+                await onAddCustom?.(student.id, subject, name)
+                setAdding(false)
+              }}
+            />
+          ) : (
+            <button type="button" onClick={() => setAdding(true)} className="add-task-btn">
+              + 添加任务
+            </button>
+          )}
 
-      <button type="button" className="share-btn" onClick={() => setSharing(true)}>
-        分享给家长
-      </button>
+          <button type="button" className="share-btn" onClick={() => setSharing(true)}>
+            分享给家长
+          </button>
+        </>
+      )}
 
       <button type="button" className="share-btn" onClick={() => setShowingStats(true)}>
         月度统计
@@ -250,9 +276,13 @@ export function StudentCard({
         家长链接
       </button>
 
-      <button type="button" className="share-btn" onClick={handleArrivalClick}>
-        {arrivedAt ? `到了 · ${arrivedAt}` : '到了'}
-      </button>
+      {readOnly ? (
+        arrivedAt && <p className="share-btn share-btn--static">到了 · {arrivedAt}</p>
+      ) : (
+        <button type="button" className="share-btn" onClick={handleArrivalClick}>
+          {arrivedAt ? `到了 · ${arrivedAt}` : '到了'}
+        </button>
+      )}
 
       {sharing && (
         <SharePosterModal
@@ -262,7 +292,7 @@ export function StudentCard({
           comment={comment}
           dismissed={dismissed}
           date={date}
-          onCommentChange={(value) => onSetComment(student.id, value)}
+          onCommentChange={(value) => onSetComment?.(student.id, value)}
           onClose={() => setSharing(false)}
           onShowToast={onShowToast}
         />
@@ -273,6 +303,7 @@ export function StudentCard({
           studentId={student.id}
           studentName={student.name}
           onClose={() => setShowingStats(false)}
+          fetchFn={statsFetchFn}
         />
       )}
 
@@ -282,6 +313,7 @@ export function StudentCard({
           studentName={student.name}
           onClose={() => setShowingShareLink(false)}
           onShowToast={onShowToast}
+          fetchFn={shareLinkFetchFn}
         />
       )}
 
@@ -289,8 +321,8 @@ export function StudentCard({
         <ArrivalModal
           studentName={student.name}
           arrivedAt={arrivedAt}
-          onSave={(newArrivedAt) => onSetArrival(student.id, newArrivedAt)}
-          onClear={() => onClearArrival(student.id)}
+          onSave={(newArrivedAt) => onSetArrival?.(student.id, newArrivedAt)}
+          onClear={() => onClearArrival?.(student.id)}
           onClose={() => setShowingArrival(false)}
         />
       )}

@@ -6,6 +6,8 @@ import * as dailyTasksApi from '../api/dailyTasks'
 import * as dismissalApi from '../api/dismissal'
 import * as studentNotesApi from '../api/studentNotes'
 import * as arrivalApi from '../api/arrival'
+import * as adminApi from '../api/admin'
+import * as adminKanbanApi from '../api/adminKanban'
 import type { DailyTask } from '../api/dailyTasks'
 import { todayDateString } from '../kanban/date'
 import { groupBySchoolClass } from '../kanban/schoolClass'
@@ -55,7 +57,8 @@ export function KanbanPage({ onOpenRoster, onOpenAdmin }: KanbanPageProps) {
   }, [])
 
   useEffect(() => {
-    Promise.all([classesApi.fetchClasses(), templatesApi.fetchTaskTemplates()])
+    const fetchClassList = isAdmin ? adminApi.fetchAdminClasses() : classesApi.fetchClasses()
+    Promise.all([fetchClassList, templatesApi.fetchTaskTemplates()])
       .then(([classList, templateList]) => {
         setClasses(classList)
         setTemplates(templateList)
@@ -69,30 +72,42 @@ export function KanbanPage({ onOpenRoster, onOpenAdmin }: KanbanPageProps) {
         setError('加载失败，请刷新重试')
         setLoading(false)
       })
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin])
 
-  const loadClassData = useCallback(async (classId: number) => {
-    setLoading(true)
-    setError(null)
-    try {
-      const [studentList, taskList, dismissalStatus, noteList, arrivalList] = await Promise.all([
-        studentsApi.fetchStudents(classId),
-        dailyTasksApi.listForClass(classId, date),
-        dismissalApi.fetchDismissalStatus(classId, date),
-        studentNotesApi.fetchStudentNotes(classId, date),
-        arrivalApi.fetchArrivals(classId, date),
-      ])
-      setStudents(studentList.filter((s) => s.enrolled))
-      setTasks(taskList)
-      setDismissed(dismissalStatus.dismissed)
-      setNotesByStudent(new Map(noteList.map((n) => [n.studentId, { rating: n.rating, comment: n.comment }])))
-      setArrivalByStudent(new Map(arrivalList.map((a) => [a.studentId, a.arrivedAt])))
-    } catch {
-      setError('加载班级数据失败，请刷新重试')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const loadClassData = useCallback(
+    async (classId: number) => {
+      setLoading(true)
+      setError(null)
+      try {
+        const [studentList, taskList, dismissalStatus, noteList, arrivalList] = isAdmin
+          ? await Promise.all([
+              adminKanbanApi.fetchStudents(classId),
+              adminKanbanApi.listDailyTasksForClass(classId, date),
+              adminKanbanApi.fetchDismissalStatus(classId, date),
+              adminKanbanApi.fetchStudentNotes(classId, date),
+              adminKanbanApi.fetchArrivals(classId, date),
+            ])
+          : await Promise.all([
+              studentsApi.fetchStudents(classId),
+              dailyTasksApi.listForClass(classId, date),
+              dismissalApi.fetchDismissalStatus(classId, date),
+              studentNotesApi.fetchStudentNotes(classId, date),
+              arrivalApi.fetchArrivals(classId, date),
+            ])
+        setStudents(studentList.filter((s) => s.enrolled))
+        setTasks(taskList)
+        setDismissed(dismissalStatus.dismissed)
+        setNotesByStudent(new Map(noteList.map((n) => [n.studentId, { rating: n.rating, comment: n.comment }])))
+        setArrivalByStudent(new Map(arrivalList.map((a) => [a.studentId, a.arrivedAt])))
+      } catch {
+        setError('加载班级数据失败，请刷新重试')
+      } finally {
+        setLoading(false)
+      }
+    },
+    [isAdmin],
+  )
 
   useEffect(() => {
     if (activeClassId !== null) {
@@ -224,6 +239,23 @@ export function KanbanPage({ onOpenRoster, onOpenAdmin }: KanbanPageProps) {
   const schoolClassGroups = groupBySchoolClass(students)
 
   if (!loading && classes.length === 0) {
+    if (isAdmin) {
+      return (
+        <div className="no-class-screen">
+          <p>本机构暂无托管班级</p>
+          <div className="flex gap-2">
+            {onOpenAdmin && (
+              <button type="button" onClick={onOpenAdmin} className="logout-btn">
+                前往机构管理查看教师
+              </button>
+            )}
+            <button type="button" onClick={logout} className="logout-btn">
+              退出登录
+            </button>
+          </div>
+        </div>
+      )
+    }
     return (
       <div className="no-class-screen">
         <p>暂无托管班级</p>
@@ -237,6 +269,25 @@ export function KanbanPage({ onOpenRoster, onOpenAdmin }: KanbanPageProps) {
   function renderStudentCard(student: studentsApi.Student) {
     const note = notesByStudent.get(student.id) ?? EMPTY_NOTE
     const arrivedAt = arrivalByStudent.get(student.id) ?? EMPTY_ARRIVAL
+    if (isAdmin) {
+      return (
+        <StudentCard
+          key={student.id}
+          student={student}
+          tasks={tasksByStudent.get(student.id) ?? []}
+          dismissed={dismissed}
+          templates={templates}
+          rating={note.rating}
+          comment={note.comment}
+          arrivedAt={arrivedAt}
+          date={date}
+          readOnly
+          onShowToast={showToast}
+          statsFetchFn={adminKanbanApi.fetchMonthlyStats}
+          shareLinkFetchFn={adminKanbanApi.fetchShareLink}
+        />
+      )
+    }
     return (
       <StudentCard
         key={student.id}
@@ -279,11 +330,16 @@ export function KanbanPage({ onOpenRoster, onOpenAdmin }: KanbanPageProps) {
 
       <header className="app-header">
         <div className="app-header__top">
-          <h1 className="app-header__title">托管班看板</h1>
+          <h1 className="app-header__title">
+            托管班看板
+            {isAdmin && <span className="flag-chip">只读</span>}
+          </h1>
           <div className="flex gap-2">
-            <button type="button" onClick={onOpenRoster} className="logout-btn">
-              学生管理
-            </button>
+            {!isAdmin && (
+              <button type="button" onClick={onOpenRoster} className="logout-btn">
+                学生管理
+              </button>
+            )}
             {isAdmin && onOpenAdmin && (
               <button type="button" onClick={onOpenAdmin} className="logout-btn">
                 机构管理
@@ -318,20 +374,26 @@ export function KanbanPage({ onOpenRoster, onOpenAdmin }: KanbanPageProps) {
           <>
             <div className="date-row">
               <span className="date-row__date">{date}</span>
-              <DismissButton dismissed={dismissed} onDismiss={handleDismiss} onUndoDismiss={handleUndoDismiss} />
+              {!isAdmin && (
+                <DismissButton dismissed={dismissed} onDismiss={handleDismiss} onUndoDismiss={handleUndoDismiss} />
+              )}
             </div>
 
-            <TaskTemplateManager
-              templates={templates}
-              onCreate={handleCreateTemplate}
-              onDelete={handleDeleteTemplate}
-            />
+            {!isAdmin && (
+              <>
+                <TaskTemplateManager
+                  templates={templates}
+                  onCreate={handleCreateTemplate}
+                  onDelete={handleDeleteTemplate}
+                />
 
-            <AssignTaskBar
-              studentsBySchoolClass={schoolClassGroups}
-              templates={templates}
-              onAssign={handleBatchAssign}
-            />
+                <AssignTaskBar
+                  studentsBySchoolClass={schoolClassGroups}
+                  templates={templates}
+                  onAssign={handleBatchAssign}
+                />
+              </>
+            )}
 
             {schoolClassGroups.length > 1 ? (
               <div className="school-class-columns">

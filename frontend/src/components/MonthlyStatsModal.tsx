@@ -8,9 +8,10 @@ interface MonthlyStatsModalProps {
   studentId: number
   studentName: string
   onClose: () => void
+  fetchFn?: (studentId: number, month?: string) => Promise<MonthlyStats>
 }
 
-export function MonthlyStatsModal({ studentId, studentName, onClose }: MonthlyStatsModalProps) {
+export function MonthlyStatsModal({ studentId, studentName, onClose, fetchFn = fetchMonthlyStats }: MonthlyStatsModalProps) {
   const [month, setMonth] = useState(currentMonthString())
   const [stats, setStats] = useState<MonthlyStats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -21,7 +22,7 @@ export function MonthlyStatsModal({ studentId, studentName, onClose }: MonthlySt
     let cancelled = false
     setLoading(true)
     setError(null)
-    fetchMonthlyStats(studentId, month)
+    fetchFn(studentId, month)
       .then((result) => {
         if (cancelled) return
         setStats(result)
@@ -43,7 +44,7 @@ export function MonthlyStatsModal({ studentId, studentName, onClose }: MonthlySt
     return () => {
       cancelled = true
     }
-  }, [studentId, month])
+  }, [studentId, month, fetchFn])
 
   useEffect(() => {
     const onKeydown = (e: KeyboardEvent) => {

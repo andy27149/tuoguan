@@ -6,6 +6,10 @@ import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.auth.web.LoginResponse;
+import com.tuoguan.backend.roster.dao.ClassRoomDao;
+import com.tuoguan.backend.roster.dao.StudentDao;
+import com.tuoguan.backend.roster.domain.ClassRoom;
+import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.support.IntegrationTestBase;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +30,12 @@ class TaskTemplateControllerTest extends IntegrationTestBase {
 
     @Autowired
     private TeacherDao teacherDao;
+
+    @Autowired
+    private ClassRoomDao classRoomDao;
+
+    @Autowired
+    private StudentDao studentDao;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -105,6 +115,45 @@ class TaskTemplateControllerTest extends IntegrationTestBase {
         mockMvc.perform(delete("/api/task-templates/" + created.id())
                         .header("Authorization", "Bearer " + tokenA))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void deletingAssignedTemplateArchivesItInsteadOfFailing() throws Exception {
+        Long institutionId = institutionDao.insert("任务库控制器测试机构F");
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800006006",
+                passwordEncoder.encode("password"), Role.TEACHER, false, null));
+        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管班", null));
+        studentDao.insert(new Student(null, institutionId, classRoomId, "小明", "三年级2班", true, null, null));
+        String token = login("13800006006", "password");
+
+        MvcResult createResult = mockMvc.perform(post("/api/task-templates")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"subject\":\"数学\",\"name\":\"口算练习\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        TaskTemplateResponse created = objectMapper.readValue(
+                createResult.getResponse().getContentAsString(), TaskTemplateResponse.class);
+
+        mockMvc.perform(post("/api/classes/" + classRoomId + "/daily-tasks/batch")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"taskTemplateIds\":[" + created.id() + "],\"date\":\"2026-08-06\"}"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(delete("/api/task-templates/" + created.id())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/task-templates").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+
+        mockMvc.perform(get("/api/classes/" + classRoomId + "/daily-tasks?date=2026-08-06")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].subject").value("数学"));
     }
 
     private String login(String phone, String password) throws Exception {

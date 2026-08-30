@@ -13,5 +13,5 @@ public interface TaskTemplateDao {
 
     List<TaskTemplate> findAllByInstitutionId(Long institutionId);
 
-    void deleteById(Long id);
+    void archiveById(Long id);
 }

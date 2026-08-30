@@ -13,6 +13,7 @@ export function TaskTemplateManager({ templates, onCreate, onDelete }: TaskTempl
   const [name, setName] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -27,6 +28,18 @@ export function TaskTemplateManager({ templates, onCreate, onDelete }: TaskTempl
       setError('添加失败，请重试')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  async function handleDelete(id: number) {
+    setDeletingId(id)
+    setError(null)
+    try {
+      await onDelete(id)
+    } catch {
+      setError('删除失败，请重试')
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -51,9 +64,10 @@ export function TaskTemplateManager({ templates, onCreate, onDelete }: TaskTempl
                 </span>
                 <button
                   type="button"
-                  onClick={() => onDelete(t.id)}
+                  onClick={() => handleDelete(t.id)}
+                  disabled={deletingId === t.id}
                   aria-label={`删除模板${t.name}`}
-                  className="text-gray-400 hover:text-red-500"
+                  className="text-gray-400 hover:text-red-500 disabled:opacity-50"
                 >
                   ×
                 </button>

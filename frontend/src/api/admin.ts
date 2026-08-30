@@ -46,10 +46,3 @@ export function fetchAdminDashboard(date?: string): Promise<AdminDashboard> {
 export function fetchAdminClasses(): Promise<AdminClassRoom[]> {
   return apiFetch<AdminClassRoom[]>('/admin/classes')
 }
-
-export function createAdminClass(name: string, teacherId: number): Promise<AdminClassRoom> {
-  return apiFetch<AdminClassRoom>('/admin/classes', {
-    method: 'POST',
-    body: JSON.stringify({ name, teacherId }),
-  })
-}

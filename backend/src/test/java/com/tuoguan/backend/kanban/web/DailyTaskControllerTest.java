@@ -63,7 +63,7 @@ class DailyTaskControllerTest extends IntegrationTestBase {
         Long droppedId = studentDao.insert(new Student(null, institutionId, classRoomId, "小刚", "四年级1班",
                 true, null, null));
         studentDao.update(new Student(droppedId, institutionId, classRoomId, "小刚", "四年级1班", false, null, null));
-        Long templateId = taskTemplateDao.insert(new TaskTemplate(null, institutionId, "数学", "口算练习", null));
+        Long templateId = taskTemplateDao.insert(new TaskTemplate(null, institutionId, "数学", "口算练习", null, false));
         String token = login("13900005001", "password");
 
         MvcResult result = mockMvc.perform(post("/api/classes/" + classRoomId + "/daily-tasks/batch")
@@ -160,7 +160,7 @@ class DailyTaskControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("password"), Role.TEACHER, false, null));
         Long classRoomAId = classRoomDao.insert(new ClassRoom(null, institutionAId, teacherAId, "A班", null));
         Long institutionBId = institutionDao.insert("每日任务控制器测试机构E");
-        Long foreignTemplateId = taskTemplateDao.insert(new TaskTemplate(null, institutionBId, "数学", "口算练习", null));
+        Long foreignTemplateId = taskTemplateDao.insert(new TaskTemplate(null, institutionBId, "数学", "口算练习", null, false));
         String tokenA = login("13900005004", "password");
 
         mockMvc.perform(post("/api/classes/" + classRoomAId + "/daily-tasks/batch")
@@ -180,7 +180,7 @@ class DailyTaskControllerTest extends IntegrationTestBase {
         Long classRoomAId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherAId, "A班", null));
         Long studentAId = studentDao.insert(new Student(null, institutionId, classRoomAId, "小明", "三年级2班",
                 true, null, null));
-        Long templateId = taskTemplateDao.insert(new TaskTemplate(null, institutionId, "数学", "口算练习", null));
+        Long templateId = taskTemplateDao.insert(new TaskTemplate(null, institutionId, "数学", "口算练习", null, false));
 
         String tokenA = login("13900005005", "password-a");
         String tokenB = login("13900005006", "password-b");

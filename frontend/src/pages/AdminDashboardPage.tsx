@@ -2,12 +2,14 @@ import { useEffect, useState, type FormEvent } from 'react'
 import * as adminApi from '../api/admin'
 import { ApiError } from '../api/client'
 import { todayDateString } from '../kanban/date'
+import { useAuth } from '../auth/AuthContext'
 
 interface AdminDashboardPageProps {
   onBack: () => void
 }
 
 export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
+  const { logout } = useAuth()
   const [teachers, setTeachers] = useState<adminApi.Teacher[]>([])
   const [loadingTeachers, setLoadingTeachers] = useState(true)
   const [teacherLoadError, setTeacherLoadError] = useState<string | null>(null)
@@ -22,11 +24,6 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
   const [classes, setClasses] = useState<adminApi.AdminClassRoom[]>([])
   const [loadingClasses, setLoadingClasses] = useState(true)
   const [classLoadError, setClassLoadError] = useState<string | null>(null)
-
-  const [newClassName, setNewClassName] = useState('')
-  const [selectedTeacherId, setSelectedTeacherId] = useState('')
-  const [creatingClass, setCreatingClass] = useState(false)
-  const [createClassError, setCreateClassError] = useState<string | null>(null)
 
   const [date, setDate] = useState(todayDateString())
   const [dashboard, setDashboard] = useState<adminApi.AdminDashboard | null>(null)
@@ -96,39 +93,19 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
     }
   }
 
-  async function handleCreateClass(e: FormEvent) {
-    e.preventDefault()
-    const name = newClassName.trim()
-    if (!name || !selectedTeacherId) return
-    setCreatingClass(true)
-    setCreateClassError(null)
-    try {
-      const created = await adminApi.createAdminClass(name, Number(selectedTeacherId))
-      setClasses((prev) => [...prev, created])
-      setNewClassName('')
-      setSelectedTeacherId('')
-      loadDashboard()
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 409) {
-        setCreateClassError('该托管班名称已存在')
-      } else if (err instanceof ApiError && err.status === 404) {
-        setCreateClassError('所选教师不存在')
-      } else {
-        setCreateClassError('创建失败，请重试')
-      }
-    } finally {
-      setCreatingClass(false)
-    }
-  }
-
   return (
     <div className="min-h-screen pb-8">
       <header className="app-header">
         <div className="app-header__top">
           <h1 className="app-header__title">机构管理</h1>
-          <button type="button" onClick={onBack} className="logout-btn">
-            返回看板
-          </button>
+          <div className="flex gap-2">
+            <button type="button" onClick={onBack} className="logout-btn">
+              返回看板
+            </button>
+            <button type="button" onClick={logout} className="logout-btn">
+              退出登录
+            </button>
+          </div>
         </div>
       </header>
 
@@ -203,39 +180,7 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
         </div>
 
         <div className="rounded-lg border border-gray-200 bg-white p-3">
-          <h2 className="text-sm font-medium text-gray-700">新建托管班级</h2>
-          <form onSubmit={handleCreateClass} className="mt-2 flex flex-wrap gap-2">
-            <input
-              placeholder="班级名称"
-              value={newClassName}
-              onChange={(e) => setNewClassName(e.target.value)}
-              className="w-32 rounded border px-2 py-1 text-sm"
-            />
-            <select
-              value={selectedTeacherId}
-              onChange={(e) => setSelectedTeacherId(e.target.value)}
-              className="w-40 rounded border px-2 py-1 text-sm"
-            >
-              <option value="">选择教师</option>
-              {teachers.map((teacher) => (
-                <option key={teacher.id} value={teacher.id}>
-                  {teacher.name}（{teacher.phone}）
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              disabled={creatingClass || !newClassName.trim() || !selectedTeacherId}
-              className="rounded bg-blue-600 px-3 py-1 text-sm text-white disabled:opacity-50"
-            >
-              创建班级
-            </button>
-          </form>
-          {createClassError && (
-            <p role="alert" className="mt-1 text-xs text-red-600">
-              {createClassError}
-            </p>
-          )}
+          <h2 className="text-sm font-medium text-gray-700">托管班级列表（{classes.length}）</h2>
           {classLoadError && <p className="mt-1 text-sm text-red-600">{classLoadError}</p>}
           {loadingClasses && <p className="mt-1 text-sm text-gray-400">加载中...</p>}
           {!loadingClasses && (

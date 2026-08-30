@@ -131,7 +131,7 @@
     .class-tabs { flex-wrap: wrap; overflow-x: visible; }
   }
 
-  @media (orientation: landscape) and (pointer: coarse) {
+  @media (orientation: landscape) and (max-height: 500px) {
     .class-tabs { display: none; }
   }
 
@@ -652,6 +652,8 @@
   }
   .share-btn svg { width: 14px; height: 14px; }
   .share-btn:hover { background: rgba(7, 193, 96, 0.16); }
+  .share-btn--static { margin: 8px 0 0; cursor: default; }
+  .share-btn--static:hover { background: rgba(7, 193, 96, 0.08); }
 
   .task-list {
     list-style: none;

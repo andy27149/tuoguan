@@ -20,7 +20,8 @@ public class JdbcTaskTemplateDao implements TaskTemplateDao {
             rs.getLong("institution_id"),
             rs.getString("subject"),
             rs.getString("name"),
-            rs.getTimestamp("created_at").toInstant());
+            rs.getTimestamp("created_at").toInstant(),
+            rs.getBoolean("archived"));
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -46,7 +47,7 @@ public class JdbcTaskTemplateDao implements TaskTemplateDao {
     @Override
     public Optional<TaskTemplate> findById(Long id) {
         List<TaskTemplate> results = jdbcTemplate.query(
-                "SELECT id, institution_id, subject, name, created_at FROM task_template WHERE id = ?",
+                "SELECT id, institution_id, subject, name, created_at, archived FROM task_template WHERE id = ?",
                 ROW_MAPPER, id);
         return results.stream().findFirst();
     }
@@ -54,13 +55,13 @@ public class JdbcTaskTemplateDao implements TaskTemplateDao {
     @Override
     public List<TaskTemplate> findAllByInstitutionId(Long institutionId) {
         return jdbcTemplate.query(
-                "SELECT id, institution_id, subject, name, created_at FROM task_template "
-                        + "WHERE institution_id = ? ORDER BY id",
+                "SELECT id, institution_id, subject, name, created_at, archived FROM task_template "
+                        + "WHERE institution_id = ? AND archived = FALSE ORDER BY id",
                 ROW_MAPPER, institutionId);
     }
 
     @Override
-    public void deleteById(Long id) {
-        jdbcTemplate.update("DELETE FROM task_template WHERE id = ?", id);
+    public void archiveById(Long id) {
+        jdbcTemplate.update("UPDATE task_template SET archived = TRUE WHERE id = ?", id);
     }
 }
