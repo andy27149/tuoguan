@@ -58,4 +58,9 @@ public class JdbcClassDismissalDao implements ClassDismissalDao {
         jdbcTemplate.update("DELETE FROM class_dismissal WHERE class_room_id = ? AND dismissal_date = ?",
                 classRoomId, java.sql.Date.valueOf(date));
     }
+
+    @Override
+    public void deleteAllByClassRoomId(Long classRoomId) {
+        jdbcTemplate.update("DELETE FROM class_dismissal WHERE class_room_id = ?", classRoomId);
+    }
 }

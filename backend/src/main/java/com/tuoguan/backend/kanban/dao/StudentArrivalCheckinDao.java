@@ -14,4 +14,6 @@ public interface StudentArrivalCheckinDao {
     void upsert(Long institutionId, Long classRoomId, Long studentId, LocalDate date, String arrivedAt);
 
     void clear(Long studentId, LocalDate date);
+
+    void deleteAllByClassRoomId(Long classRoomId);
 }

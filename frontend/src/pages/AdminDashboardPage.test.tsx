@@ -37,7 +37,7 @@ describe('AdminDashboardPage', () => {
   it('lists teachers loaded on mount', async () => {
     render(<AdminDashboardPage onBack={vi.fn()} />)
 
-    await screen.findByText(/13800000001/, { selector: 'li' })
+    await screen.findByText(/13800000001/, { selector: 'span' })
     const teacherSection = screen.getByText('教师列表（2）').closest('div') as HTMLElement
     expect(within(teacherSection).getByText(/13800000002/)).toBeInTheDocument()
     expect(within(teacherSection).getByText(/待修改初始密码/)).toBeInTheDocument()
@@ -55,7 +55,7 @@ describe('AdminDashboardPage', () => {
     const created = { id: 3, phone: '13800000003', name: '王老师', role: 'TEACHER' as const, mustChangePassword: true }
     vi.mocked(adminApi.createTeacher).mockResolvedValue(created)
     render(<AdminDashboardPage onBack={vi.fn()} />)
-    await screen.findByText(/13800000001/, { selector: 'li' })
+    await screen.findByText(/13800000001/, { selector: 'span' })
 
     fireEvent.change(screen.getByPlaceholderText('手机号'), { target: { value: '13800000003' } })
     fireEvent.change(screen.getByPlaceholderText('教师姓名'), { target: { value: '王老师' } })
@@ -71,7 +71,7 @@ describe('AdminDashboardPage', () => {
   it('shows a duplicate-phone message on 409', async () => {
     vi.mocked(adminApi.createTeacher).mockRejectedValue(new ApiError(409, '冲突'))
     render(<AdminDashboardPage onBack={vi.fn()} />)
-    await screen.findByText(/13800000001/, { selector: 'li' })
+    await screen.findByText(/13800000001/, { selector: 'span' })
 
     fireEvent.change(screen.getByPlaceholderText('手机号'), { target: { value: '13800000002' } })
     fireEvent.change(screen.getByPlaceholderText('教师姓名'), { target: { value: '李老师' } })
@@ -85,7 +85,7 @@ describe('AdminDashboardPage', () => {
     const created = { id: 3, phone: '13800000003', name: '王老师', role: 'TEACHER' as const, mustChangePassword: true }
     vi.mocked(adminApi.createTeacher).mockResolvedValue(created)
     render(<AdminDashboardPage onBack={vi.fn()} />)
-    await screen.findByText(/13800000001/, { selector: 'li' })
+    await screen.findByText(/13800000001/, { selector: 'span' })
     expect(adminApi.fetchAdminDashboard).toHaveBeenCalledTimes(1)
 
     fireEvent.change(screen.getByPlaceholderText('手机号'), { target: { value: '13800000003' } })
@@ -108,7 +108,7 @@ describe('AdminDashboardPage', () => {
   it('calls onBack when the back button is clicked', async () => {
     const onBack = vi.fn()
     render(<AdminDashboardPage onBack={onBack} />)
-    await screen.findByText(/13800000001/, { selector: 'li' })
+    await screen.findByText(/13800000001/, { selector: 'span' })
 
     fireEvent.click(screen.getByRole('button', { name: '返回看板' }))
 
@@ -117,10 +117,73 @@ describe('AdminDashboardPage', () => {
 
   it('calls logout when the logout button is clicked', async () => {
     render(<AdminDashboardPage onBack={vi.fn()} />)
-    await screen.findByText(/13800000001/, { selector: 'li' })
+    await screen.findByText(/13800000001/, { selector: 'span' })
 
     fireEvent.click(screen.getByRole('button', { name: '退出登录' }))
 
     expect(logout).toHaveBeenCalled()
+  })
+
+  it('only shows a delete button for teacher-role rows', async () => {
+    render(<AdminDashboardPage onBack={vi.fn()} />)
+    await screen.findByText(/13800000001/, { selector: 'span' })
+
+    expect(screen.getAllByRole('button', { name: '删除' })).toHaveLength(1)
+  })
+
+  it('fetches deletion impact and opens the modal when delete is clicked', async () => {
+    vi.mocked(adminApi.fetchTeacherDeletionImpact).mockResolvedValue({
+      classCount: 1,
+      studentCount: 0,
+      templateCount: 1,
+      hasStudents: false,
+    })
+    render(<AdminDashboardPage onBack={vi.fn()} />)
+    await screen.findByText(/13800000001/, { selector: 'span' })
+
+    fireEvent.click(screen.getByRole('button', { name: '删除' }))
+
+    expect(adminApi.fetchTeacherDeletionImpact).toHaveBeenCalledWith(2)
+    expect(await screen.findByText(/该教师名下没有学生/)).toBeInTheDocument()
+  })
+
+  it('deletes the teacher and refreshes lists after confirming', async () => {
+    vi.mocked(adminApi.fetchTeacherDeletionImpact).mockResolvedValue({
+      classCount: 1,
+      studentCount: 0,
+      templateCount: 1,
+      hasStudents: false,
+    })
+    vi.mocked(adminApi.deleteTeacher).mockResolvedValue(undefined)
+    render(<AdminDashboardPage onBack={vi.fn()} />)
+    await screen.findByText(/13800000001/, { selector: 'span' })
+
+    fireEvent.click(screen.getByRole('button', { name: '删除' }))
+    await screen.findByText(/该教师名下没有学生/)
+    expect(adminApi.fetchTeachers).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByRole('button', { name: '确认删除' }))
+
+    await waitFor(() => expect(adminApi.deleteTeacher).toHaveBeenCalledWith(2, 'DELETE_ALL', undefined))
+    await waitFor(() => expect(adminApi.fetchTeachers).toHaveBeenCalledTimes(2))
+    expect(screen.queryByText(/该教师名下没有学生/)).not.toBeInTheDocument()
+  })
+
+  it('shows an error and keeps the list unchanged when deletion fails', async () => {
+    vi.mocked(adminApi.fetchTeacherDeletionImpact).mockResolvedValue({
+      classCount: 1,
+      studentCount: 0,
+      templateCount: 1,
+      hasStudents: false,
+    })
+    vi.mocked(adminApi.deleteTeacher).mockRejectedValue(new Error('boom'))
+    render(<AdminDashboardPage onBack={vi.fn()} />)
+    await screen.findByText(/13800000001/, { selector: 'span' })
+
+    fireEvent.click(screen.getByRole('button', { name: '删除' }))
+    await screen.findByText(/该教师名下没有学生/)
+    fireEvent.click(screen.getByRole('button', { name: '确认删除' }))
+
+    expect(await screen.findByText('删除失败，请重试')).toBeInTheDocument()
   })
 })

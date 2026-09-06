@@ -12,4 +12,6 @@ public interface ClassDismissalDao {
     Optional<ClassDismissal> findByClassRoomIdAndDate(Long classRoomId, LocalDate date);
 
     void deleteByClassRoomIdAndDate(Long classRoomId, LocalDate date);
+
+    void deleteAllByClassRoomId(Long classRoomId);
 }

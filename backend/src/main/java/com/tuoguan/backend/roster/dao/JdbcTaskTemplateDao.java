@@ -67,4 +67,15 @@ public class JdbcTaskTemplateDao implements TaskTemplateDao {
     public void archiveById(Long id) {
         jdbcTemplate.update("UPDATE task_template SET archived = TRUE WHERE id = ?", id);
     }
+
+    @Override
+    public void deleteAllByTeacherId(Long teacherId) {
+        jdbcTemplate.update("DELETE FROM task_template WHERE teacher_id = ?", teacherId);
+    }
+
+    @Override
+    public void reassignTeacher(Long oldTeacherId, Long newTeacherId) {
+        jdbcTemplate.update("UPDATE task_template SET teacher_id = ? WHERE teacher_id = ?",
+                newTeacherId, oldTeacherId);
+    }
 }

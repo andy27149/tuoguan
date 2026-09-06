@@ -46,3 +46,20 @@ export function fetchAdminDashboard(date?: string): Promise<AdminDashboard> {
 export function fetchAdminClasses(): Promise<AdminClassRoom[]> {
   return apiFetch<AdminClassRoom[]>('/admin/classes')
 }
+
+export interface TeacherDeletionImpact {
+  classCount: number
+  studentCount: number
+  templateCount: number
+  hasStudents: boolean
+}
+
+export function fetchTeacherDeletionImpact(teacherId: number): Promise<TeacherDeletionImpact> {
+  return apiFetch<TeacherDeletionImpact>(`/admin/teachers/${teacherId}/deletion-impact`)
+}
+
+export function deleteTeacher(teacherId: number, mode: 'DELETE_ALL' | 'TRANSFER', targetTeacherId?: number): Promise<void> {
+  const params = new URLSearchParams({ mode })
+  if (targetTeacherId) params.set('targetTeacherId', String(targetTeacherId))
+  return apiFetch<void>(`/admin/teachers/${teacherId}?${params.toString()}`, { method: 'DELETE' })
+}

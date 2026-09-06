@@ -66,4 +66,15 @@ public class JdbcClassRoomDao implements ClassRoomDao {
                         + "WHERE institution_id = ? ORDER BY id",
                 ROW_MAPPER, institutionId);
     }
+
+    @Override
+    public void deleteById(Long id) {
+        jdbcTemplate.update("DELETE FROM class_room WHERE id = ?", id);
+    }
+
+    @Override
+    public void reassignTeacher(Long oldTeacherId, Long newTeacherId) {
+        jdbcTemplate.update("UPDATE class_room SET teacher_id = ? WHERE teacher_id = ?",
+                newTeacherId, oldTeacherId);
+    }
 }

@@ -99,4 +99,9 @@ public class JdbcDailyTaskDao implements DailyTaskDao {
     public void deleteById(Long id) {
         jdbcTemplate.update("DELETE FROM daily_task WHERE id = ?", id);
     }
+
+    @Override
+    public void deleteAllByClassRoomId(Long classRoomId) {
+        jdbcTemplate.update("DELETE FROM daily_task WHERE class_room_id = ?", classRoomId);
+    }
 }

@@ -1,6 +1,7 @@
 package com.tuoguan.backend.roster.web;
 
 import com.tuoguan.backend.admin.web.DuplicatePhoneException;
+import com.tuoguan.backend.admin.web.InvalidTransferTargetException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -33,5 +34,10 @@ public class RosterExceptionHandler {
     @ExceptionHandler(DuplicatePhoneException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public void handleDuplicatePhone() {
+    }
+
+    @ExceptionHandler(InvalidTransferTargetException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public void handleInvalidTransferTarget() {
     }
 }

@@ -14,4 +14,6 @@ public interface StudentDailyNoteDao {
     void upsertRating(Long institutionId, Long classRoomId, Long studentId, LocalDate date, int rating);
 
     void upsertComment(Long institutionId, Long classRoomId, Long studentId, LocalDate date, String comment);
+
+    void deleteAllByClassRoomId(Long classRoomId);
 }

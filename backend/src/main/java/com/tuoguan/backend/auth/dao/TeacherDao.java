@@ -16,4 +16,6 @@ public interface TeacherDao {
     List<Teacher> findAllByInstitutionId(Long institutionId);
 
     void updatePassword(Long teacherId, String newPasswordHash);
+
+    void deleteById(Long id);
 }

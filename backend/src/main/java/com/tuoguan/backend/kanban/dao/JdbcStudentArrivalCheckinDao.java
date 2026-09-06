@@ -60,4 +60,9 @@ public class JdbcStudentArrivalCheckinDao implements StudentArrivalCheckinDao {
                 "DELETE FROM student_arrival_checkin WHERE student_id = ? AND checkin_date = ?",
                 studentId, java.sql.Date.valueOf(date));
     }
+
+    @Override
+    public void deleteAllByClassRoomId(Long classRoomId) {
+        jdbcTemplate.update("DELETE FROM student_arrival_checkin WHERE class_room_id = ?", classRoomId);
+    }
 }

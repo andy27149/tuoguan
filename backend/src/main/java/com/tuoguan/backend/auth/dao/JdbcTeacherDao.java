@@ -83,4 +83,9 @@ public class JdbcTeacherDao implements TeacherDao {
                 "UPDATE teacher SET password_hash = ?, must_change_password = FALSE WHERE id = ?",
                 newPasswordHash, teacherId);
     }
+
+    @Override
+    public void deleteById(Long id) {
+        jdbcTemplate.update("DELETE FROM teacher WHERE id = ?", id);
+    }
 }

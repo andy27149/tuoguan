@@ -19,4 +19,6 @@ public interface DailyTaskDao {
     void updateCompleted(Long id, boolean completed);
 
     void deleteById(Long id);
+
+    void deleteAllByClassRoomId(Long classRoomId);
 }

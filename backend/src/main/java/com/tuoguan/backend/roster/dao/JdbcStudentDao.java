@@ -94,4 +94,9 @@ public class JdbcStudentDao implements StudentDao {
     public String findShareToken(Long studentId) {
         return jdbcTemplate.queryForObject("SELECT share_token FROM student WHERE id = ?", String.class, studentId);
     }
+
+    @Override
+    public void deleteAllByClassRoomId(Long classRoomId) {
+        jdbcTemplate.update("DELETE FROM student WHERE class_room_id = ?", classRoomId);
+    }
 }

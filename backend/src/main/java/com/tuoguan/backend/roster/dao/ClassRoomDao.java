@@ -14,4 +14,8 @@ public interface ClassRoomDao {
     List<ClassRoom> findAllByTeacherId(Long teacherId);
 
     List<ClassRoom> findAllByInstitutionId(Long institutionId);
+
+    void deleteById(Long id);
+
+    void reassignTeacher(Long oldTeacherId, Long newTeacherId);
 }

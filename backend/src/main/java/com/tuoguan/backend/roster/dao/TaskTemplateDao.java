@@ -14,4 +14,8 @@ public interface TaskTemplateDao {
     List<TaskTemplate> findAllByInstitutionIdAndTeacherId(Long institutionId, Long teacherId);
 
     void archiveById(Long id);
+
+    void deleteAllByTeacherId(Long teacherId);
+
+    void reassignTeacher(Long oldTeacherId, Long newTeacherId);
 }

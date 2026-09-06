@@ -62,4 +62,9 @@ public class JdbcStudentDailyNoteDao implements StudentDailyNoteDao {
                         + "ON DUPLICATE KEY UPDATE comment = VALUES(comment)",
                 institutionId, classRoomId, studentId, java.sql.Date.valueOf(date), comment);
     }
+
+    @Override
+    public void deleteAllByClassRoomId(Long classRoomId) {
+        jdbcTemplate.update("DELETE FROM student_daily_note WHERE class_room_id = ?", classRoomId);
+    }
 }

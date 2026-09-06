@@ -3,6 +3,7 @@ import * as adminApi from '../api/admin'
 import { ApiError } from '../api/client'
 import { todayDateString } from '../kanban/date'
 import { useAuth } from '../auth/AuthContext'
+import { DeleteTeacherModal } from '../components/DeleteTeacherModal'
 
 interface AdminDashboardPageProps {
   onBack: () => void
@@ -29,6 +30,11 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
   const [dashboard, setDashboard] = useState<adminApi.AdminDashboard | null>(null)
   const [loadingDashboard, setLoadingDashboard] = useState(true)
   const [dashboardLoadError, setDashboardLoadError] = useState<string | null>(null)
+
+  const [deletingTeacher, setDeletingTeacher] = useState<adminApi.Teacher | null>(null)
+  const [deletionImpact, setDeletionImpact] = useState<adminApi.TeacherDeletionImpact | null>(null)
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   function loadTeachers() {
     setLoadingTeachers(true)
@@ -90,6 +96,37 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
       setCreateError(err instanceof ApiError && err.status === 409 ? '该手机号已注册' : '创建失败，请重试')
     } finally {
       setCreatingTeacher(false)
+    }
+  }
+
+  function handleOpenDeleteTeacher(teacher: adminApi.Teacher) {
+    setDeletingTeacher(teacher)
+    setDeletionImpact(null)
+    setDeleteError(null)
+    adminApi
+      .fetchTeacherDeletionImpact(teacher.id)
+      .then(setDeletionImpact)
+      .catch(() => {
+        setDeleteError('加载删除影响范围失败，请重试')
+        setDeletingTeacher(null)
+      })
+  }
+
+  async function handleConfirmDeleteTeacher(mode: 'DELETE_ALL' | 'TRANSFER', targetTeacherId?: number) {
+    if (!deletingTeacher) return
+    setDeleteSubmitting(true)
+    setDeleteError(null)
+    try {
+      await adminApi.deleteTeacher(deletingTeacher.id, mode, targetTeacherId)
+      setDeletingTeacher(null)
+      setDeletionImpact(null)
+      loadTeachers()
+      loadClasses()
+      loadDashboard()
+    } catch {
+      setDeleteError('删除失败，请重试')
+    } finally {
+      setDeleteSubmitting(false)
     }
   }
 
@@ -164,14 +201,29 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
         <div className="rounded-lg border border-gray-200 bg-white p-3">
           <h2 className="text-sm font-medium text-gray-700">教师列表（{teachers.length}）</h2>
           {teacherLoadError && <p className="mt-1 text-sm text-red-600">{teacherLoadError}</p>}
+          {deleteError && <p className="mt-1 text-sm text-red-600">{deleteError}</p>}
           {loadingTeachers && <p className="mt-1 text-sm text-gray-400">加载中...</p>}
           {!loadingTeachers && (
             <ul className="mt-2 space-y-2">
               {teachers.map((teacher) => (
-                <li key={teacher.id} className="rounded border border-gray-100 p-2 text-sm">
-                  {teacher.name ? `${teacher.name} · ` : ''}
-                  {teacher.phone} · {teacher.role === 'ADMIN' ? '管理员' : '教师'} ·{' '}
-                  {teacher.mustChangePassword ? '待修改初始密码' : '已启用'}
+                <li
+                  key={teacher.id}
+                  className="flex items-center justify-between gap-2 rounded border border-gray-100 p-2 text-sm"
+                >
+                  <span>
+                    {teacher.name ? `${teacher.name} · ` : ''}
+                    {teacher.phone} · {teacher.role === 'ADMIN' ? '管理员' : '教师'} ·{' '}
+                    {teacher.mustChangePassword ? '待修改初始密码' : '已启用'}
+                  </span>
+                  {teacher.role === 'TEACHER' && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenDeleteTeacher(teacher)}
+                      className="shrink-0 rounded border border-red-300 px-1.5 py-0.5 text-xs text-red-600"
+                    >
+                      删除
+                    </button>
+                  )}
                 </li>
               ))}
               {teachers.length === 0 && <li className="text-xs text-gray-400">暂无教师</li>}
@@ -236,6 +288,20 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
           )}
         </div>
       </main>
+
+      {deletingTeacher && (
+        <DeleteTeacherModal
+          teacherName={deletingTeacher.name || deletingTeacher.phone}
+          impact={deletionImpact}
+          otherTeachers={teachers.filter((t) => t.id !== deletingTeacher.id && t.role === 'TEACHER')}
+          onConfirm={handleConfirmDeleteTeacher}
+          onClose={() => {
+            setDeletingTeacher(null)
+            setDeletionImpact(null)
+          }}
+          submitting={deleteSubmitting}
+        />
+      )}
     </div>
   )
 }

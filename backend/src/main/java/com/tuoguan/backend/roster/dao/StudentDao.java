@@ -20,4 +20,6 @@ public interface StudentDao {
     Optional<Student> findByShareToken(String shareToken);
 
     String findShareToken(Long studentId);
+
+    void deleteAllByClassRoomId(Long classRoomId);
 }
