@@ -36,6 +36,7 @@ public class DailyTaskService {
         List<TaskTemplate> templates = taskTemplateIds.stream()
                 .map(id -> taskTemplateDao.findById(id)
                         .filter(t -> t.institutionId().equals(classRoom.institutionId()))
+                        .filter(t -> t.teacherId() != null && t.teacherId().equals(teacherId))
                         .orElseThrow(() -> new NotFoundException("Task template not found: " + id)))
                 .toList();
         List<Student> enrolledStudents = studentDao.findAllByClassRoomId(classRoomId).stream()
@@ -59,6 +60,7 @@ public class DailyTaskService {
         if (taskTemplateId != null) {
             TaskTemplate template = taskTemplateDao.findById(taskTemplateId)
                     .filter(t -> t.institutionId().equals(student.institutionId()))
+                    .filter(t -> t.teacherId() != null && t.teacherId().equals(teacherId))
                     .orElseThrow(() -> new NotFoundException("Task template not found: " + taskTemplateId));
             taskSubject = template.subject();
             taskName = template.name();

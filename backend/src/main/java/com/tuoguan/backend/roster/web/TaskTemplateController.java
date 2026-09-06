@@ -27,13 +27,13 @@ public class TaskTemplateController {
     @ResponseStatus(HttpStatus.CREATED)
     public TaskTemplateResponse create(@AuthenticationPrincipal TeacherPrincipal principal,
                                         @RequestBody CreateTaskTemplateRequest request) {
-        return TaskTemplateResponse.from(
-                taskTemplateService.create(principal.institutionId(), request.subject(), request.name()));
+        return TaskTemplateResponse.from(taskTemplateService.create(
+                principal.institutionId(), principal.teacherId(), request.subject(), request.name()));
     }
 
     @GetMapping("/api/task-templates")
     public List<TaskTemplateResponse> list(@AuthenticationPrincipal TeacherPrincipal principal) {
-        return taskTemplateService.list(principal.institutionId()).stream()
+        return taskTemplateService.list(principal.institutionId(), principal.teacherId()).stream()
                 .map(TaskTemplateResponse::from)
                 .toList();
     }
@@ -41,6 +41,6 @@ public class TaskTemplateController {
     @DeleteMapping("/api/task-templates/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@AuthenticationPrincipal TeacherPrincipal principal, @PathVariable Long id) {
-        taskTemplateService.delete(principal.institutionId(), id);
+        taskTemplateService.delete(principal.institutionId(), principal.teacherId(), id);
     }
 }

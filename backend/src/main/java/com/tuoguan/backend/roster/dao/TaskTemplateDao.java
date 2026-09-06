@@ -11,7 +11,7 @@ public interface TaskTemplateDao {
 
     Optional<TaskTemplate> findById(Long id);
 
-    List<TaskTemplate> findAllByInstitutionId(Long institutionId);
+    List<TaskTemplate> findAllByInstitutionIdAndTeacherId(Long institutionId, Long teacherId);
 
     void archiveById(Long id);
 }

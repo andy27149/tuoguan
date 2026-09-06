@@ -18,6 +18,7 @@ public class JdbcTaskTemplateDao implements TaskTemplateDao {
     private static final RowMapper<TaskTemplate> ROW_MAPPER = (rs, rowNum) -> new TaskTemplate(
             rs.getLong("id"),
             rs.getLong("institution_id"),
+            (Long) rs.getObject("teacher_id"),
             rs.getString("subject"),
             rs.getString("name"),
             rs.getTimestamp("created_at").toInstant(),
@@ -34,11 +35,12 @@ public class JdbcTaskTemplateDao implements TaskTemplateDao {
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(connection -> {
             PreparedStatement ps = connection.prepareStatement(
-                    "INSERT INTO task_template (institution_id, subject, name) VALUES (?, ?, ?)",
+                    "INSERT INTO task_template (institution_id, teacher_id, subject, name) VALUES (?, ?, ?, ?)",
                     Statement.RETURN_GENERATED_KEYS);
             ps.setLong(1, taskTemplate.institutionId());
-            ps.setString(2, taskTemplate.subject());
-            ps.setString(3, taskTemplate.name());
+            ps.setLong(2, taskTemplate.teacherId());
+            ps.setString(3, taskTemplate.subject());
+            ps.setString(4, taskTemplate.name());
             return ps;
         }, keyHolder);
         return keyHolder.getKey().longValue();
@@ -47,17 +49,18 @@ public class JdbcTaskTemplateDao implements TaskTemplateDao {
     @Override
     public Optional<TaskTemplate> findById(Long id) {
         List<TaskTemplate> results = jdbcTemplate.query(
-                "SELECT id, institution_id, subject, name, created_at, archived FROM task_template WHERE id = ?",
+                "SELECT id, institution_id, teacher_id, subject, name, created_at, archived "
+                        + "FROM task_template WHERE id = ?",
                 ROW_MAPPER, id);
         return results.stream().findFirst();
     }
 
     @Override
-    public List<TaskTemplate> findAllByInstitutionId(Long institutionId) {
+    public List<TaskTemplate> findAllByInstitutionIdAndTeacherId(Long institutionId, Long teacherId) {
         return jdbcTemplate.query(
-                "SELECT id, institution_id, subject, name, created_at, archived FROM task_template "
-                        + "WHERE institution_id = ? AND archived = FALSE ORDER BY id",
-                ROW_MAPPER, institutionId);
+                "SELECT id, institution_id, teacher_id, subject, name, created_at, archived FROM task_template "
+                        + "WHERE institution_id = ? AND teacher_id = ? AND archived = FALSE ORDER BY id",
+                ROW_MAPPER, institutionId, teacherId);
     }
 
     @Override

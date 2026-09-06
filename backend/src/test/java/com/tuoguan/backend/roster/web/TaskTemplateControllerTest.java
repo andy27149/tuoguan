@@ -88,6 +88,39 @@ class TaskTemplateControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void teachersFromSameInstitutionDoNotShareOrDeleteEachOthersTemplates() throws Exception {
+        Long institutionId = institutionDao.insert("任务库控制器测试机构G");
+        teacherDao.insert(new Teacher(null, institutionId, "13800006007",
+                passwordEncoder.encode("password-a"), Role.TEACHER, false, null));
+        teacherDao.insert(new Teacher(null, institutionId, "13800006008",
+                passwordEncoder.encode("password-b"), Role.TEACHER, false, null));
+
+        String tokenA = login("13800006007", "password-a");
+        String tokenB = login("13800006008", "password-b");
+
+        MvcResult createResult = mockMvc.perform(post("/api/task-templates")
+                        .header("Authorization", "Bearer " + tokenA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"subject\":\"数学\",\"name\":\"口算练习\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        TaskTemplateResponse created = objectMapper.readValue(
+                createResult.getResponse().getContentAsString(), TaskTemplateResponse.class);
+
+        mockMvc.perform(get("/api/task-templates").header("Authorization", "Bearer " + tokenB))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+
+        mockMvc.perform(delete("/api/task-templates/" + created.id())
+                        .header("Authorization", "Bearer " + tokenB))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(get("/api/task-templates").header("Authorization", "Bearer " + tokenA))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
     void deleteTemplateFromAnotherInstitutionReturnsNotFound() throws Exception {
         Long institutionAId = institutionDao.insert("任务库控制器测试机构D");
         teacherDao.insert(new Teacher(null, institutionAId, "13800006004",
