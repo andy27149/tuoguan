@@ -53,13 +53,28 @@ describe('TaskTemplateManager', () => {
     expect(screen.getByRole('button', { name: '添加' })).not.toBeDisabled()
   })
 
-  it('calls onDelete with the template id', () => {
+  it('asks for confirmation before deleting, and does nothing on cancel', () => {
     const onDelete = vi.fn().mockResolvedValue(undefined)
     render(<TaskTemplateManager templates={TEMPLATES} onCreate={vi.fn()} onDelete={onDelete} />)
     fireEvent.click(screen.getByRole('button', { name: '任务库管理（2）展开' }))
 
     fireEvent.click(screen.getByRole('button', { name: '删除模板口算练习' }))
+    expect(screen.getByText('确认删除任务「口算练习」吗？')).toBeInTheDocument()
 
-    expect(onDelete).toHaveBeenCalledWith(1)
+    fireEvent.click(screen.getByRole('button', { name: '否' }))
+
+    expect(onDelete).not.toHaveBeenCalled()
+    expect(screen.queryByText('确认删除任务「口算练习」吗？')).not.toBeInTheDocument()
+  })
+
+  it('calls onDelete with the template id after confirming', async () => {
+    const onDelete = vi.fn().mockResolvedValue(undefined)
+    render(<TaskTemplateManager templates={TEMPLATES} onCreate={vi.fn()} onDelete={onDelete} />)
+    fireEvent.click(screen.getByRole('button', { name: '任务库管理（2）展开' }))
+
+    fireEvent.click(screen.getByRole('button', { name: '删除模板口算练习' }))
+    fireEvent.click(screen.getByRole('button', { name: '是' }))
+
+    await waitFor(() => expect(onDelete).toHaveBeenCalledWith(1))
   })
 })

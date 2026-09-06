@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import type { TaskTemplate } from '../api/taskTemplates'
+import { ConfirmDialog } from './ConfirmDialog'
 
 interface TaskTemplateManagerProps {
   templates: TaskTemplate[]
@@ -14,6 +15,7 @@ export function TaskTemplateManager({ templates, onCreate, onDelete }: TaskTempl
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [confirmingTemplate, setConfirmingTemplate] = useState<TaskTemplate | null>(null)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -43,6 +45,13 @@ export function TaskTemplateManager({ templates, onCreate, onDelete }: TaskTempl
     }
   }
 
+  async function handleConfirmDelete() {
+    if (!confirmingTemplate) return
+    const id = confirmingTemplate.id
+    setConfirmingTemplate(null)
+    await handleDelete(id)
+  }
+
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-3">
       <button
@@ -64,7 +73,7 @@ export function TaskTemplateManager({ templates, onCreate, onDelete }: TaskTempl
                 </span>
                 <button
                   type="button"
-                  onClick={() => handleDelete(t.id)}
+                  onClick={() => setConfirmingTemplate(t)}
                   disabled={deletingId === t.id}
                   aria-label={`删除模板${t.name}`}
                   className="text-gray-400 hover:text-red-500 disabled:opacity-50"
@@ -99,6 +108,15 @@ export function TaskTemplateManager({ templates, onCreate, onDelete }: TaskTempl
           </form>
           {error && <p className="text-xs text-red-600">{error}</p>}
         </div>
+      )}
+
+      {confirmingTemplate && (
+        <ConfirmDialog
+          title="删除任务模板"
+          message={`确认删除任务「${confirmingTemplate.name}」吗？`}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setConfirmingTemplate(null)}
+        />
       )}
     </div>
   )
