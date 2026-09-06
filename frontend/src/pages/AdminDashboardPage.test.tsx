@@ -128,7 +128,8 @@ describe('AdminDashboardPage', () => {
     render(<AdminDashboardPage onBack={vi.fn()} />)
     await screen.findByText(/13800000001/, { selector: 'span' })
 
-    expect(screen.getAllByRole('button', { name: '删除' })).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: '删除教师张校长' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '删除教师李老师' })).toBeInTheDocument()
   })
 
   it('fetches deletion impact and opens the modal when delete is clicked', async () => {
@@ -141,7 +142,7 @@ describe('AdminDashboardPage', () => {
     render(<AdminDashboardPage onBack={vi.fn()} />)
     await screen.findByText(/13800000001/, { selector: 'span' })
 
-    fireEvent.click(screen.getByRole('button', { name: '删除' }))
+    fireEvent.click(screen.getByRole('button', { name: '删除教师李老师' }))
 
     expect(adminApi.fetchTeacherDeletionImpact).toHaveBeenCalledWith(2)
     expect(await screen.findByText(/该教师名下没有学生/)).toBeInTheDocument()
@@ -158,7 +159,7 @@ describe('AdminDashboardPage', () => {
     render(<AdminDashboardPage onBack={vi.fn()} />)
     await screen.findByText(/13800000001/, { selector: 'span' })
 
-    fireEvent.click(screen.getByRole('button', { name: '删除' }))
+    fireEvent.click(screen.getByRole('button', { name: '删除教师李老师' }))
     await screen.findByText(/该教师名下没有学生/)
     expect(adminApi.fetchTeachers).toHaveBeenCalledTimes(1)
 
@@ -180,9 +181,67 @@ describe('AdminDashboardPage', () => {
     render(<AdminDashboardPage onBack={vi.fn()} />)
     await screen.findByText(/13800000001/, { selector: 'span' })
 
-    fireEvent.click(screen.getByRole('button', { name: '删除' }))
+    fireEvent.click(screen.getByRole('button', { name: '删除教师李老师' }))
     await screen.findByText(/该教师名下没有学生/)
     fireEvent.click(screen.getByRole('button', { name: '确认删除' }))
+
+    expect(await screen.findByText('删除失败，请重试')).toBeInTheDocument()
+  })
+
+  it('asks for confirmation before deleting a class, and does nothing on cancel', async () => {
+    vi.mocked(adminApi.fetchClassRoomDeletionImpact).mockResolvedValue({ studentCount: 0 })
+    render(<AdminDashboardPage onBack={vi.fn()} />)
+    await screen.findByText(/托管一班/)
+
+    fireEvent.click(screen.getByRole('button', { name: '删除班级托管一班' }))
+
+    expect(adminApi.fetchClassRoomDeletionImpact).toHaveBeenCalledWith(1)
+    expect(await screen.findByText('确认删除班级「托管一班」吗？此操作不可恢复。')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '否' }))
+
+    expect(adminApi.deleteClassRoom).not.toHaveBeenCalled()
+    expect(screen.queryByText('确认删除班级「托管一班」吗？此操作不可恢复。')).not.toBeInTheDocument()
+  })
+
+  it('shows the student count warning when the class has students', async () => {
+    vi.mocked(adminApi.fetchClassRoomDeletionImpact).mockResolvedValue({ studentCount: 3 })
+    render(<AdminDashboardPage onBack={vi.fn()} />)
+    await screen.findByText(/托管一班/)
+
+    fireEvent.click(screen.getByRole('button', { name: '删除班级托管一班' }))
+
+    expect(
+      await screen.findByText('班级「托管一班」下有 3 名学生，删除后班级、学生及相关记录将全部清空，且不可恢复，确认删除吗？'),
+    ).toBeInTheDocument()
+  })
+
+  it('deletes the class and refreshes lists after confirming', async () => {
+    vi.mocked(adminApi.fetchClassRoomDeletionImpact).mockResolvedValue({ studentCount: 0 })
+    vi.mocked(adminApi.deleteClassRoom).mockResolvedValue(undefined)
+    render(<AdminDashboardPage onBack={vi.fn()} />)
+    await screen.findByText(/托管一班/)
+    expect(adminApi.fetchAdminClasses).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByRole('button', { name: '删除班级托管一班' }))
+    await screen.findByText('确认删除班级「托管一班」吗？此操作不可恢复。')
+
+    fireEvent.click(screen.getByRole('button', { name: '是' }))
+
+    await waitFor(() => expect(adminApi.deleteClassRoom).toHaveBeenCalledWith(1))
+    await waitFor(() => expect(adminApi.fetchAdminClasses).toHaveBeenCalledTimes(2))
+    expect(screen.queryByText('确认删除班级「托管一班」吗？此操作不可恢复。')).not.toBeInTheDocument()
+  })
+
+  it('shows an error when class deletion fails', async () => {
+    vi.mocked(adminApi.fetchClassRoomDeletionImpact).mockResolvedValue({ studentCount: 0 })
+    vi.mocked(adminApi.deleteClassRoom).mockRejectedValue(new Error('boom'))
+    render(<AdminDashboardPage onBack={vi.fn()} />)
+    await screen.findByText(/托管一班/)
+
+    fireEvent.click(screen.getByRole('button', { name: '删除班级托管一班' }))
+    await screen.findByText('确认删除班级「托管一班」吗？此操作不可恢复。')
+    fireEvent.click(screen.getByRole('button', { name: '是' }))
 
     expect(await screen.findByText('删除失败，请重试')).toBeInTheDocument()
   })

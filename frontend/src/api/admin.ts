@@ -63,3 +63,15 @@ export function deleteTeacher(teacherId: number, mode: 'DELETE_ALL' | 'TRANSFER'
   if (targetTeacherId) params.set('targetTeacherId', String(targetTeacherId))
   return apiFetch<void>(`/admin/teachers/${teacherId}?${params.toString()}`, { method: 'DELETE' })
 }
+
+export interface ClassRoomDeletionImpact {
+  studentCount: number
+}
+
+export function fetchClassRoomDeletionImpact(classRoomId: number): Promise<ClassRoomDeletionImpact> {
+  return apiFetch<ClassRoomDeletionImpact>(`/admin/classes/${classRoomId}/deletion-impact`)
+}
+
+export function deleteClassRoom(classRoomId: number): Promise<void> {
+  return apiFetch<void>(`/admin/classes/${classRoomId}`, { method: 'DELETE' })
+}

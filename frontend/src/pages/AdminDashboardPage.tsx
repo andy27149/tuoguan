@@ -4,6 +4,7 @@ import { ApiError } from '../api/client'
 import { todayDateString } from '../kanban/date'
 import { useAuth } from '../auth/AuthContext'
 import { DeleteTeacherModal } from '../components/DeleteTeacherModal'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 
 interface AdminDashboardPageProps {
   onBack: () => void
@@ -35,6 +36,11 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
   const [deletionImpact, setDeletionImpact] = useState<adminApi.TeacherDeletionImpact | null>(null)
   const [deleteSubmitting, setDeleteSubmitting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  const [deletingClassRoom, setDeletingClassRoom] = useState<adminApi.AdminClassRoom | null>(null)
+  const [classDeletionImpact, setClassDeletionImpact] = useState<adminApi.ClassRoomDeletionImpact | null>(null)
+  const [classDeleteSubmitting, setClassDeleteSubmitting] = useState(false)
+  const [classDeleteError, setClassDeleteError] = useState<string | null>(null)
 
   function loadTeachers() {
     setLoadingTeachers(true)
@@ -130,6 +136,36 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
     }
   }
 
+  function handleOpenDeleteClassRoom(classRoom: adminApi.AdminClassRoom) {
+    setDeletingClassRoom(classRoom)
+    setClassDeletionImpact(null)
+    setClassDeleteError(null)
+    adminApi
+      .fetchClassRoomDeletionImpact(classRoom.id)
+      .then(setClassDeletionImpact)
+      .catch(() => {
+        setClassDeleteError('加载删除影响范围失败，请重试')
+        setDeletingClassRoom(null)
+      })
+  }
+
+  async function handleConfirmDeleteClassRoom() {
+    if (!deletingClassRoom || classDeletionImpact === null) return
+    setClassDeleteSubmitting(true)
+    setClassDeleteError(null)
+    try {
+      await adminApi.deleteClassRoom(deletingClassRoom.id)
+      setDeletingClassRoom(null)
+      setClassDeletionImpact(null)
+      loadClasses()
+      loadDashboard()
+    } catch {
+      setClassDeleteError('删除失败，请重试')
+    } finally {
+      setClassDeleteSubmitting(false)
+    }
+  }
+
   return (
     <div className="min-h-screen pb-8">
       <header className="app-header">
@@ -218,6 +254,7 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
                   {teacher.role === 'TEACHER' && (
                     <button
                       type="button"
+                      aria-label={`删除教师${teacher.name || teacher.phone}`}
                       onClick={() => handleOpenDeleteTeacher(teacher)}
                       className="shrink-0 rounded border border-red-300 px-1.5 py-0.5 text-xs text-red-600"
                     >
@@ -234,12 +271,26 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
         <div className="rounded-lg border border-gray-200 bg-white p-3">
           <h2 className="text-sm font-medium text-gray-700">托管班级列表（{classes.length}）</h2>
           {classLoadError && <p className="mt-1 text-sm text-red-600">{classLoadError}</p>}
+          {classDeleteError && <p className="mt-1 text-sm text-red-600">{classDeleteError}</p>}
           {loadingClasses && <p className="mt-1 text-sm text-gray-400">加载中...</p>}
           {!loadingClasses && (
             <ul className="mt-2 space-y-2">
               {classes.map((classRoom) => (
-                <li key={classRoom.id} className="rounded border border-gray-100 p-2 text-sm">
-                  {classRoom.name} · 教师 {classRoom.teacherPhone}
+                <li
+                  key={classRoom.id}
+                  className="flex items-center justify-between gap-2 rounded border border-gray-100 p-2 text-sm"
+                >
+                  <span>
+                    {classRoom.name} · 教师 {classRoom.teacherPhone}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={`删除班级${classRoom.name}`}
+                    onClick={() => handleOpenDeleteClassRoom(classRoom)}
+                    className="shrink-0 rounded border border-red-300 px-1.5 py-0.5 text-xs text-red-600"
+                  >
+                    删除
+                  </button>
                 </li>
               ))}
               {classes.length === 0 && <li className="text-xs text-gray-400">暂无班级</li>}
@@ -300,6 +351,25 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
             setDeletionImpact(null)
           }}
           submitting={deleteSubmitting}
+        />
+      )}
+
+      {deletingClassRoom && (
+        <ConfirmDialog
+          title="删除班级"
+          message={
+            classDeletionImpact === null
+              ? '加载中...'
+              : classDeletionImpact.studentCount > 0
+                ? `班级「${deletingClassRoom.name}」下有 ${classDeletionImpact.studentCount} 名学生，删除后班级、学生及相关记录将全部清空，且不可恢复，确认删除吗？`
+                : `确认删除班级「${deletingClassRoom.name}」吗？此操作不可恢复。`
+          }
+          onConfirm={handleConfirmDeleteClassRoom}
+          onCancel={() => {
+            setDeletingClassRoom(null)
+            setClassDeletionImpact(null)
+          }}
+          confirming={classDeleteSubmitting}
         />
       )}
     </div>
