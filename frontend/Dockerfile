@@ -18,8 +18,24 @@ WORKDIR /app
 # 抖动有用，留着比去掉更安全。
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 ARG NPM_REGISTRY=https://registry.npmjs.org
+# 本地开发机如果处于会做 TLS 中间人拦截的公司网络/代理下（如 Netskope 等 CASB），
+# npm ci 访问 registry.npmjs.org 会报 SELF_SIGNED_CERT_IN_CHAIN。把代理签发的根证书
+# （.pem/.crt）放进仓库里的 docker-dev-ca-certs/ 目录后，下面会拼成一个 bundle 并通过
+# NODE_EXTRA_CA_CERTS 让 npm 信任；目录为空时 NODE_EXTRA_CA_CERTS 不会被设置，行为和
+# 之前完全一样。
+COPY docker-dev-ca-certs/ /tmp/dev-ca-certs/
+RUN : > /tmp/dev-ca-certs/bundle.pem; \
+    for f in /tmp/dev-ca-certs/*.crt /tmp/dev-ca-certs/*.pem; do \
+      [ -f "$f" ] && cat "$f" >> /tmp/dev-ca-certs/bundle.pem; \
+    done; \
+    if [ -s /tmp/dev-ca-certs/bundle.pem ]; then \
+      echo "export NODE_EXTRA_CA_CERTS=/tmp/dev-ca-certs/bundle.pem" > /tmp/dev-ca-certs/env.sh; \
+    else \
+      : > /tmp/dev-ca-certs/env.sh; \
+    fi
 COPY package.json package-lock.json ./
 RUN set -e; \
+    . /tmp/dev-ca-certs/env.sh; \
     ok=0; \
     for i in 1 2 3; do \
       echo "===== npm ci 第 ${i} 次尝试 ====="; \

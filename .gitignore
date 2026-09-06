@@ -7,6 +7,13 @@ backend/.mvn/
 frontend/node_modules/
 frontend/dist/
 
+# 本地开发机若处于会做 TLS 中间人拦截的公司网络/代理下，构建镜像时可把代理签发的
+# 根证书丢进这两个目录（.gitkeep 之外的文件都不追踪），见对应 Dockerfile 里的说明
+backend/docker-dev-ca-certs/*
+!backend/docker-dev-ca-certs/.gitkeep
+frontend/docker-dev-ca-certs/*
+!frontend/docker-dev-ca-certs/.gitkeep
+
 # env
 .env
 
