@@ -313,4 +313,22 @@ describe('AdminDashboardPage', () => {
 
     expect(await screen.findByText('该教师下已有同名班级')).toBeInTheDocument()
   })
+
+  it('warns before saving when reassigning a class to a different teacher', async () => {
+    vi.mocked(adminApi.fetchTeachers).mockResolvedValue([
+      ...TEACHERS,
+      { id: 3, phone: '13800000003', name: '王老师', role: 'TEACHER' as const, mustChangePassword: false },
+    ])
+    render(<AdminDashboardPage onBack={vi.fn()} />)
+    await screen.findByText(/托管一班/)
+
+    fireEvent.click(screen.getByRole('button', { name: '编辑班级托管一班' }))
+    expect(screen.queryByText(/整体转移给新教师/)).not.toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('班级教师1'), { target: { value: '3' } })
+    expect(screen.getByText(/整体转移给新教师/)).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('班级教师1'), { target: { value: '2' } })
+    expect(screen.queryByText(/整体转移给新教师/)).not.toBeInTheDocument()
+  })
 })

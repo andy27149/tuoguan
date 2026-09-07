@@ -429,6 +429,11 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
                     >
                       取消
                     </button>
+                    {editingClassTeacherId !== null && editingClassTeacherId !== classRoom.teacherId && (
+                      <p className="w-full text-xs text-amber-600">
+                        该操作将把班级「{classRoom.name}」（含班内学生、任务库等全部内容）整体转移给新教师，确认后无法撤回
+                      </p>
+                    )}
                   </li>
                 ) : (
                   <li
