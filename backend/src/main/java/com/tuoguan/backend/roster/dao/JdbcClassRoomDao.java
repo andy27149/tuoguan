@@ -77,4 +77,10 @@ public class JdbcClassRoomDao implements ClassRoomDao {
         jdbcTemplate.update("UPDATE class_room SET teacher_id = ? WHERE teacher_id = ?",
                 newTeacherId, oldTeacherId);
     }
+
+    @Override
+    public void update(Long id, String name, Long teacherId) {
+        jdbcTemplate.update("UPDATE class_room SET name = ?, teacher_id = ? WHERE id = ?",
+                name, teacherId, id);
+    }
 }

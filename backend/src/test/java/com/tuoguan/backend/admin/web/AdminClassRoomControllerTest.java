@@ -20,6 +20,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -104,6 +105,126 @@ class AdminClassRoomControllerTest extends IntegrationTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"托管三班\",\"teacherId\":1}"))
                 .andExpect(status().isMethodNotAllowed());
+    }
+
+    @Test
+    void adminRenamesClassRoomAndReassignsTeacher() throws Exception {
+        Long institutionId = institutionDao.insert("改名班级测试机构A");
+        teacherDao.insert(new Teacher(null, institutionId, "13600004001",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherAId = teacherDao.insert(new Teacher(null, institutionId, "13600004002",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long teacherBId = teacherDao.insert(new Teacher(null, institutionId, "13600004003",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherAId, "托管十班", null));
+        String adminToken = login("13600004001", "admin-password");
+
+        mockMvc.perform(patch("/api/admin/classes/" + classRoomId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"托管十一班\",\"teacherId\":" + teacherBId + "}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("托管十一班"))
+                .andExpect(jsonPath("$.teacherId").value(teacherBId))
+                .andExpect(jsonPath("$.teacherPhone").value("13600004003"));
+
+        assertThat(classRoomDao.findById(classRoomId)).get()
+                .extracting(ClassRoom::name, ClassRoom::teacherId)
+                .containsExactly("托管十一班", teacherBId);
+    }
+
+    @Test
+    void renamingClassRoomFromAnotherInstitutionReturnsNotFound() throws Exception {
+        Long institutionAId = institutionDao.insert("改名班级测试机构B");
+        Long institutionBId = institutionDao.insert("改名班级测试机构C");
+        teacherDao.insert(new Teacher(null, institutionAId, "13600004004",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherBId = teacherDao.insert(new Teacher(null, institutionBId, "13600004005",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionBId, teacherBId, "托管十二班", null));
+        String adminToken = login("13600004004", "admin-password");
+
+        mockMvc.perform(patch("/api/admin/classes/" + classRoomId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"托管十三班\",\"teacherId\":" + teacherBId + "}"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void reassigningClassRoomToTeacherFromAnotherInstitutionReturnsNotFound() throws Exception {
+        Long institutionAId = institutionDao.insert("改名班级测试机构D");
+        Long institutionBId = institutionDao.insert("改名班级测试机构E");
+        teacherDao.insert(new Teacher(null, institutionAId, "13600004006",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherAId = teacherDao.insert(new Teacher(null, institutionAId, "13600004007",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long teacherBId = teacherDao.insert(new Teacher(null, institutionBId, "13600004008",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionAId, teacherAId, "托管十四班", null));
+        String adminToken = login("13600004006", "admin-password");
+
+        mockMvc.perform(patch("/api/admin/classes/" + classRoomId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"托管十五班\",\"teacherId\":" + teacherBId + "}"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void rejectsDuplicateClassNameWhenRenaming() throws Exception {
+        Long institutionId = institutionDao.insert("改名班级测试机构F");
+        teacherDao.insert(new Teacher(null, institutionId, "13600004009",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13600004010",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管十六班", null));
+        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管十七班", null));
+        String adminToken = login("13600004009", "admin-password");
+
+        mockMvc.perform(patch("/api/admin/classes/" + classRoomId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"托管十六班\",\"teacherId\":" + teacherId + "}"))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void nonAdminTeacherIsForbiddenFromRenamingClassRoom() throws Exception {
+        Long institutionId = institutionDao.insert("改名班级测试机构G");
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13600004011",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管十八班", null));
+        String token = login("13600004011", "teacher-password");
+
+        mockMvc.perform(patch("/api/admin/classes/" + classRoomId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"托管十九班\",\"teacherId\":" + teacherId + "}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void rejectsBlankNameOrNullTeacherIdWhenRenamingClassRoom() throws Exception {
+        Long institutionId = institutionDao.insert("改名班级测试机构H");
+        teacherDao.insert(new Teacher(null, institutionId, "13600004012",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13600004013",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管二十班", null));
+        String adminToken = login("13600004012", "admin-password");
+
+        mockMvc.perform(patch("/api/admin/classes/" + classRoomId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"\",\"teacherId\":" + teacherId + "}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(patch("/api/admin/classes/" + classRoomId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"托管二十一班\"}"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

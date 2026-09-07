@@ -17,5 +17,7 @@ public interface TeacherDao {
 
     void updatePassword(Long teacherId, String newPasswordHash);
 
+    void updateName(Long teacherId, String name);
+
     void deleteById(Long id);
 }

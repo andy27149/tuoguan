@@ -2,12 +2,15 @@ package com.tuoguan.backend.admin.web;
 
 import com.tuoguan.backend.admin.service.AdminClassRoomService;
 import com.tuoguan.backend.auth.security.TeacherPrincipal;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -26,6 +29,14 @@ public class AdminClassRoomController {
     @PreAuthorize("hasRole('ADMIN')")
     public List<AdminClassRoomResponse> list(@AuthenticationPrincipal TeacherPrincipal principal) {
         return adminClassRoomService.listClassRooms(principal.institutionId());
+    }
+
+    @PatchMapping("/api/admin/classes/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public AdminClassRoomResponse update(@AuthenticationPrincipal TeacherPrincipal principal, @PathVariable Long id,
+                                          @Valid @RequestBody UpdateClassRoomRequest request) {
+        return adminClassRoomService.updateClassRoom(principal.institutionId(), id, request.name(),
+                request.teacherId());
     }
 
     @GetMapping("/api/admin/classes/{id}/deletion-impact")

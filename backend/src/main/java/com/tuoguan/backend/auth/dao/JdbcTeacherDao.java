@@ -85,6 +85,11 @@ public class JdbcTeacherDao implements TeacherDao {
     }
 
     @Override
+    public void updateName(Long teacherId, String name) {
+        jdbcTemplate.update("UPDATE teacher SET name = ? WHERE id = ?", name, teacherId);
+    }
+
+    @Override
     public void deleteById(Long id) {
         jdbcTemplate.update("DELETE FROM teacher WHERE id = ?", id);
     }

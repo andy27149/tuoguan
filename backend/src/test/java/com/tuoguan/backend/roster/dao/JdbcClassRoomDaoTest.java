@@ -54,4 +54,21 @@ class JdbcClassRoomDaoTest extends IntegrationTestBase {
         assertThat(found).hasSize(1);
         assertThat(found.get(0).name()).isEqualTo("二年级托管班");
     }
+
+    @Test
+    void updateChangesNameAndTeacher() {
+        Long institutionId = institutionDao.insert("班级测试机构C");
+        Long teacherAId = teacherDao.insert(new Teacher(null, institutionId, "13900001004", "hash",
+                Role.TEACHER, false, null));
+        Long teacherBId = teacherDao.insert(new Teacher(null, institutionId, "13900001005", "hash",
+                Role.TEACHER, false, null));
+        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherAId, "四年级托管班", null));
+
+        classRoomDao.update(classRoomId, "五年级托管班", teacherBId);
+
+        Optional<ClassRoom> found = classRoomDao.findById(classRoomId);
+        assertThat(found).isPresent();
+        assertThat(found.get().name()).isEqualTo("五年级托管班");
+        assertThat(found.get().teacherId()).isEqualTo(teacherBId);
+    }
 }

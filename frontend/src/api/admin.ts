@@ -38,6 +38,13 @@ export function createTeacher(phone: string, name: string, initialPassword: stri
   })
 }
 
+export function updateTeacherName(teacherId: number, name: string): Promise<Teacher> {
+  return apiFetch<Teacher>(`/admin/teachers/${teacherId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name }),
+  })
+}
+
 export function fetchAdminDashboard(date?: string): Promise<AdminDashboard> {
   const query = date ? `?date=${date}` : ''
   return apiFetch<AdminDashboard>(`/admin/dashboard${query}`)
@@ -45,6 +52,13 @@ export function fetchAdminDashboard(date?: string): Promise<AdminDashboard> {
 
 export function fetchAdminClasses(): Promise<AdminClassRoom[]> {
   return apiFetch<AdminClassRoom[]>('/admin/classes')
+}
+
+export function updateClassRoom(classRoomId: number, name: string, teacherId: number): Promise<AdminClassRoom> {
+  return apiFetch<AdminClassRoom>(`/admin/classes/${classRoomId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name, teacherId }),
+  })
 }
 
 export interface TeacherDeletionImpact {

@@ -10,6 +10,7 @@ import com.tuoguan.backend.kanban.dao.StudentDailyNoteDao;
 import com.tuoguan.backend.roster.dao.ClassRoomDao;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.ClassRoom;
+import com.tuoguan.backend.roster.web.DuplicateClassNameException;
 import com.tuoguan.backend.roster.web.NotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,6 +55,18 @@ public class AdminClassRoomService {
                 .toList();
     }
 
+    public AdminClassRoomResponse updateClassRoom(Long institutionId, Long classRoomId, String name, Long teacherId) {
+        requireClassRoomInInstitution(institutionId, classRoomId);
+        Teacher teacher = requireTeacherInInstitution(institutionId, teacherId);
+        boolean duplicate = classRoomDao.findAllByTeacherId(teacherId).stream()
+                .anyMatch(c -> c.name().equals(name) && !c.id().equals(classRoomId));
+        if (duplicate) {
+            throw new DuplicateClassNameException("Class name already exists: " + name);
+        }
+        classRoomDao.update(classRoomId, name, teacherId);
+        return new AdminClassRoomResponse(classRoomId, name, teacher.id(), teacher.phone());
+    }
+
     public ClassRoomDeletionImpact getDeletionImpact(Long institutionId, Long classRoomId) {
         ClassRoom classRoom = requireClassRoomInInstitution(institutionId, classRoomId);
         return new ClassRoomDeletionImpact(studentDao.findAllByClassRoomId(classRoom.id()).size());
@@ -77,5 +90,14 @@ public class AdminClassRoomService {
             throw new NotFoundException("ClassRoom not found: " + classRoomId);
         }
         return classRoom;
+    }
+
+    private Teacher requireTeacherInInstitution(Long institutionId, Long teacherId) {
+        Teacher teacher = teacherDao.findById(teacherId)
+                .orElseThrow(() -> new NotFoundException("Teacher not found: " + teacherId));
+        if (!teacher.institutionId().equals(institutionId)) {
+            throw new NotFoundException("Teacher not found: " + teacherId);
+        }
+        return teacher;
     }
 }

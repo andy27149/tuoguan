@@ -22,6 +22,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -119,6 +120,72 @@ class AdminTeacherControllerTest extends IntegrationTestBase {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2));
+    }
+
+    @Test
+    void adminRenamesTeacher() throws Exception {
+        Long institutionId = institutionDao.insert("改名教师测试机构A");
+        teacherDao.insert(new Teacher(null, institutionId, "13700004001",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13700004002",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        String token = login("13700004001", "admin-password");
+
+        mockMvc.perform(patch("/api/admin/teachers/" + teacherId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"新名字老师\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("新名字老师"));
+
+        assertThat(teacherDao.findById(teacherId)).get().extracting(Teacher::name).isEqualTo("新名字老师");
+    }
+
+    @Test
+    void renamingTeacherFromAnotherInstitutionReturnsNotFound() throws Exception {
+        Long institutionAId = institutionDao.insert("改名教师测试机构B");
+        Long institutionBId = institutionDao.insert("改名教师测试机构C");
+        teacherDao.insert(new Teacher(null, institutionAId, "13700004003",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long otherTeacherId = teacherDao.insert(new Teacher(null, institutionBId, "13700004004",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        String token = login("13700004003", "admin-password");
+
+        mockMvc.perform(patch("/api/admin/teachers/" + otherTeacherId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"新名字老师\"}"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void nonAdminTeacherIsForbiddenFromRenamingTeachers() throws Exception {
+        Long institutionId = institutionDao.insert("改名教师测试机构D");
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13700004005",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        String token = login("13700004005", "teacher-password");
+
+        mockMvc.perform(patch("/api/admin/teachers/" + teacherId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"新名字老师\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void rejectsBlankNameWhenRenamingTeacher() throws Exception {
+        Long institutionId = institutionDao.insert("改名教师测试机构E");
+        teacherDao.insert(new Teacher(null, institutionId, "13700004006",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13700004007",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        String token = login("13700004006", "admin-password");
+
+        mockMvc.perform(patch("/api/admin/teachers/" + teacherId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"\"}"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

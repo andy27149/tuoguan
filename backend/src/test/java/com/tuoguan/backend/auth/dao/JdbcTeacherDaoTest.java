@@ -48,6 +48,20 @@ class JdbcTeacherDaoTest extends IntegrationTestBase {
     }
 
     @Test
+    void updateNameChangesName() {
+        Long institutionId = institutionDao.insert("测试机构E");
+        Teacher teacher = new Teacher(null, institutionId, "13900000004", "张老师", "hash",
+                Role.TEACHER, false, null);
+        Long teacherId = teacherDao.insert(teacher);
+
+        teacherDao.updateName(teacherId, "李老师");
+
+        Optional<Teacher> found = teacherDao.findById(teacherId);
+        assertThat(found).isPresent();
+        assertThat(found.get().name()).isEqualTo("李老师");
+    }
+
+    @Test
     void findByPhoneReturnsEmptyWhenNotFound() {
         Optional<Teacher> found = teacherDao.findByPhone("13900000099");
 

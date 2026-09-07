@@ -18,4 +18,6 @@ public interface ClassRoomDao {
     void deleteById(Long id);
 
     void reassignTeacher(Long oldTeacherId, Long newTeacherId);
+
+    void update(Long id, String name, Long teacherId);
 }

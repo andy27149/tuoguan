@@ -42,6 +42,17 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
   const [classDeleteSubmitting, setClassDeleteSubmitting] = useState(false)
   const [classDeleteError, setClassDeleteError] = useState<string | null>(null)
 
+  const [editingTeacherId, setEditingTeacherId] = useState<number | null>(null)
+  const [editingTeacherName, setEditingTeacherName] = useState('')
+  const [teacherEditSubmitting, setTeacherEditSubmitting] = useState(false)
+  const [teacherEditError, setTeacherEditError] = useState<string | null>(null)
+
+  const [editingClassRoomId, setEditingClassRoomId] = useState<number | null>(null)
+  const [editingClassName, setEditingClassName] = useState('')
+  const [editingClassTeacherId, setEditingClassTeacherId] = useState<number | null>(null)
+  const [classEditSubmitting, setClassEditSubmitting] = useState(false)
+  const [classEditError, setClassEditError] = useState<string | null>(null)
+
   function loadTeachers() {
     setLoadingTeachers(true)
     setTeacherLoadError(null)
@@ -102,6 +113,65 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
       setCreateError(err instanceof ApiError && err.status === 409 ? '该手机号已注册' : '创建失败，请重试')
     } finally {
       setCreatingTeacher(false)
+    }
+  }
+
+  function handleStartEditTeacher(teacher: adminApi.Teacher) {
+    setEditingTeacherId(teacher.id)
+    setEditingTeacherName(teacher.name)
+    setTeacherEditError(null)
+  }
+
+  function handleCancelEditTeacher() {
+    setEditingTeacherId(null)
+    setTeacherEditError(null)
+  }
+
+  async function handleSaveTeacherName() {
+    if (editingTeacherId === null) return
+    const name = editingTeacherName.trim()
+    if (!name) return
+    setTeacherEditSubmitting(true)
+    setTeacherEditError(null)
+    try {
+      await adminApi.updateTeacherName(editingTeacherId, name)
+      setEditingTeacherId(null)
+      loadTeachers()
+      loadClasses()
+    } catch {
+      setTeacherEditError('保存失败，请重试')
+    } finally {
+      setTeacherEditSubmitting(false)
+    }
+  }
+
+  function handleStartEditClassRoom(classRoom: adminApi.AdminClassRoom) {
+    setEditingClassRoomId(classRoom.id)
+    setEditingClassName(classRoom.name)
+    setEditingClassTeacherId(classRoom.teacherId)
+    setClassEditError(null)
+  }
+
+  function handleCancelEditClassRoom() {
+    setEditingClassRoomId(null)
+    setClassEditError(null)
+  }
+
+  async function handleSaveClassRoom() {
+    if (editingClassRoomId === null || editingClassTeacherId === null) return
+    const name = editingClassName.trim()
+    if (!name) return
+    setClassEditSubmitting(true)
+    setClassEditError(null)
+    try {
+      await adminApi.updateClassRoom(editingClassRoomId, name, editingClassTeacherId)
+      setEditingClassRoomId(null)
+      loadClasses()
+      loadDashboard()
+    } catch (err) {
+      setClassEditError(err instanceof ApiError && err.status === 409 ? '该教师下已有同名班级' : '保存失败，请重试')
+    } finally {
+      setClassEditSubmitting(false)
     }
   }
 
@@ -238,31 +308,72 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
           <h2 className="text-sm font-medium text-gray-700">教师列表（{teachers.length}）</h2>
           {teacherLoadError && <p className="mt-1 text-sm text-red-600">{teacherLoadError}</p>}
           {deleteError && <p className="mt-1 text-sm text-red-600">{deleteError}</p>}
+          {teacherEditError && <p className="mt-1 text-sm text-red-600">{teacherEditError}</p>}
           {loadingTeachers && <p className="mt-1 text-sm text-gray-400">加载中...</p>}
           {!loadingTeachers && (
             <ul className="mt-2 space-y-2">
-              {teachers.map((teacher) => (
-                <li
-                  key={teacher.id}
-                  className="flex items-center justify-between gap-2 rounded border border-gray-100 p-2 text-sm"
-                >
-                  <span>
-                    {teacher.name ? `${teacher.name} · ` : ''}
-                    {teacher.phone} · {teacher.role === 'ADMIN' ? '管理员' : '教师'} ·{' '}
-                    {teacher.mustChangePassword ? '待修改初始密码' : '已启用'}
-                  </span>
-                  {teacher.role === 'TEACHER' && (
+              {teachers.map((teacher) =>
+                editingTeacherId === teacher.id ? (
+                  <li
+                    key={teacher.id}
+                    className="flex items-center gap-2 rounded border border-gray-100 p-2 text-sm"
+                  >
+                    <input
+                      aria-label={`教师姓名${teacher.phone}`}
+                      value={editingTeacherName}
+                      onChange={(e) => setEditingTeacherName(e.target.value)}
+                      className="w-32 rounded border px-2 py-1 text-sm"
+                    />
                     <button
                       type="button"
-                      aria-label={`删除教师${teacher.name || teacher.phone}`}
-                      onClick={() => handleOpenDeleteTeacher(teacher)}
-                      className="shrink-0 rounded border border-red-300 px-1.5 py-0.5 text-xs text-red-600"
+                      onClick={handleSaveTeacherName}
+                      disabled={teacherEditSubmitting || !editingTeacherName.trim()}
+                      className="shrink-0 rounded bg-blue-600 px-1.5 py-0.5 text-xs text-white disabled:opacity-50"
                     >
-                      删除
+                      保存
                     </button>
-                  )}
-                </li>
-              ))}
+                    <button
+                      type="button"
+                      onClick={handleCancelEditTeacher}
+                      disabled={teacherEditSubmitting}
+                      className="shrink-0 rounded border border-gray-300 px-1.5 py-0.5 text-xs text-gray-600"
+                    >
+                      取消
+                    </button>
+                  </li>
+                ) : (
+                  <li
+                    key={teacher.id}
+                    className="flex items-center justify-between gap-2 rounded border border-gray-100 p-2 text-sm"
+                  >
+                    <span>
+                      {teacher.name ? `${teacher.name} · ` : ''}
+                      {teacher.phone} · {teacher.role === 'ADMIN' ? '管理员' : '教师'} ·{' '}
+                      {teacher.mustChangePassword ? '待修改初始密码' : '已启用'}
+                    </span>
+                    <span className="flex shrink-0 gap-1.5">
+                      <button
+                        type="button"
+                        aria-label={`编辑教师${teacher.name || teacher.phone}`}
+                        onClick={() => handleStartEditTeacher(teacher)}
+                        className="rounded border border-gray-300 px-1.5 py-0.5 text-xs text-gray-600"
+                      >
+                        编辑
+                      </button>
+                      {teacher.role === 'TEACHER' && (
+                        <button
+                          type="button"
+                          aria-label={`删除教师${teacher.name || teacher.phone}`}
+                          onClick={() => handleOpenDeleteTeacher(teacher)}
+                          className="rounded border border-red-300 px-1.5 py-0.5 text-xs text-red-600"
+                        >
+                          删除
+                        </button>
+                      )}
+                    </span>
+                  </li>
+                ),
+              )}
               {teachers.length === 0 && <li className="text-xs text-gray-400">暂无教师</li>}
             </ul>
           )}
@@ -272,27 +383,82 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
           <h2 className="text-sm font-medium text-gray-700">托管班级列表（{classes.length}）</h2>
           {classLoadError && <p className="mt-1 text-sm text-red-600">{classLoadError}</p>}
           {classDeleteError && <p className="mt-1 text-sm text-red-600">{classDeleteError}</p>}
+          {classEditError && <p className="mt-1 text-sm text-red-600">{classEditError}</p>}
           {loadingClasses && <p className="mt-1 text-sm text-gray-400">加载中...</p>}
           {!loadingClasses && (
             <ul className="mt-2 space-y-2">
-              {classes.map((classRoom) => (
-                <li
-                  key={classRoom.id}
-                  className="flex items-center justify-between gap-2 rounded border border-gray-100 p-2 text-sm"
-                >
-                  <span>
-                    {classRoom.name} · 教师 {classRoom.teacherPhone}
-                  </span>
-                  <button
-                    type="button"
-                    aria-label={`删除班级${classRoom.name}`}
-                    onClick={() => handleOpenDeleteClassRoom(classRoom)}
-                    className="shrink-0 rounded border border-red-300 px-1.5 py-0.5 text-xs text-red-600"
+              {classes.map((classRoom) =>
+                editingClassRoomId === classRoom.id ? (
+                  <li
+                    key={classRoom.id}
+                    className="flex flex-wrap items-center gap-2 rounded border border-gray-100 p-2 text-sm"
                   >
-                    删除
-                  </button>
-                </li>
-              ))}
+                    <input
+                      aria-label={`班级名称${classRoom.id}`}
+                      value={editingClassName}
+                      onChange={(e) => setEditingClassName(e.target.value)}
+                      className="w-28 rounded border px-2 py-1 text-sm"
+                    />
+                    <select
+                      aria-label={`班级教师${classRoom.id}`}
+                      value={editingClassTeacherId ?? ''}
+                      onChange={(e) => setEditingClassTeacherId(Number(e.target.value))}
+                      className="rounded border px-2 py-1 text-sm"
+                    >
+                      {teachers
+                        .filter((t) => t.role === 'TEACHER')
+                        .map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name || t.phone}
+                          </option>
+                        ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={handleSaveClassRoom}
+                      disabled={classEditSubmitting || !editingClassName.trim()}
+                      className="shrink-0 rounded bg-blue-600 px-1.5 py-0.5 text-xs text-white disabled:opacity-50"
+                    >
+                      保存
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelEditClassRoom}
+                      disabled={classEditSubmitting}
+                      className="shrink-0 rounded border border-gray-300 px-1.5 py-0.5 text-xs text-gray-600"
+                    >
+                      取消
+                    </button>
+                  </li>
+                ) : (
+                  <li
+                    key={classRoom.id}
+                    className="flex items-center justify-between gap-2 rounded border border-gray-100 p-2 text-sm"
+                  >
+                    <span>
+                      {classRoom.name} · 教师 {classRoom.teacherPhone}
+                    </span>
+                    <span className="flex shrink-0 gap-1.5">
+                      <button
+                        type="button"
+                        aria-label={`编辑班级${classRoom.name}`}
+                        onClick={() => handleStartEditClassRoom(classRoom)}
+                        className="rounded border border-gray-300 px-1.5 py-0.5 text-xs text-gray-600"
+                      >
+                        编辑
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`删除班级${classRoom.name}`}
+                        onClick={() => handleOpenDeleteClassRoom(classRoom)}
+                        className="rounded border border-red-300 px-1.5 py-0.5 text-xs text-red-600"
+                      >
+                        删除
+                      </button>
+                    </span>
+                  </li>
+                ),
+              )}
               {classes.length === 0 && <li className="text-xs text-gray-400">暂无班级</li>}
             </ul>
           )}

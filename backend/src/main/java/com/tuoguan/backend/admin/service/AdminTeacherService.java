@@ -68,6 +68,13 @@ public class AdminTeacherService {
         return teacherDao.findAllByInstitutionId(institutionId);
     }
 
+    public Teacher renameTeacher(Long institutionId, Long teacherId, String name) {
+        requireTeacherInInstitution(institutionId, teacherId);
+        teacherDao.updateName(teacherId, name);
+        return teacherDao.findById(teacherId)
+                .orElseThrow(() -> new IllegalStateException("Teacher not found after update: " + teacherId));
+    }
+
     public TeacherDeletionImpact getDeletionImpact(Long institutionId, Long teacherId) {
         requireTeacherInInstitution(institutionId, teacherId);
         List<ClassRoom> classRooms = classRoomDao.findAllByTeacherId(teacherId);

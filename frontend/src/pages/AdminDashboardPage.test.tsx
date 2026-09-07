@@ -245,4 +245,72 @@ describe('AdminDashboardPage', () => {
 
     expect(await screen.findByText('删除失败，请重试')).toBeInTheDocument()
   })
+
+  it('renames a teacher and refreshes the list', async () => {
+    const renamed = { id: 2, phone: '13800000002', name: '李老师改', role: 'TEACHER' as const, mustChangePassword: true }
+    vi.mocked(adminApi.updateTeacherName).mockResolvedValue(renamed)
+    render(<AdminDashboardPage onBack={vi.fn()} />)
+    await screen.findByText(/13800000001/, { selector: 'span' })
+    expect(adminApi.fetchTeachers).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByRole('button', { name: '编辑教师李老师' }))
+    const input = screen.getByLabelText('教师姓名13800000002')
+    fireEvent.change(input, { target: { value: '李老师改' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+
+    await waitFor(() => expect(adminApi.updateTeacherName).toHaveBeenCalledWith(2, '李老师改'))
+    await waitFor(() => expect(adminApi.fetchTeachers).toHaveBeenCalledTimes(2))
+    expect(screen.queryByLabelText('教师姓名13800000002')).not.toBeInTheDocument()
+  })
+
+  it('cancels teacher rename without calling the API', async () => {
+    render(<AdminDashboardPage onBack={vi.fn()} />)
+    await screen.findByText(/13800000001/, { selector: 'span' })
+
+    fireEvent.click(screen.getByRole('button', { name: '编辑教师李老师' }))
+    fireEvent.change(screen.getByLabelText('教师姓名13800000002'), { target: { value: '改动但取消' } })
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+
+    expect(adminApi.updateTeacherName).not.toHaveBeenCalled()
+    expect(screen.queryByLabelText('教师姓名13800000002')).not.toBeInTheDocument()
+  })
+
+  it('shows an error when teacher rename fails', async () => {
+    vi.mocked(adminApi.updateTeacherName).mockRejectedValue(new Error('boom'))
+    render(<AdminDashboardPage onBack={vi.fn()} />)
+    await screen.findByText(/13800000001/, { selector: 'span' })
+
+    fireEvent.click(screen.getByRole('button', { name: '编辑教师李老师' }))
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+
+    expect(await screen.findByText('保存失败，请重试')).toBeInTheDocument()
+  })
+
+  it('renames a class and reassigns it to another teacher', async () => {
+    const updated = { id: 1, name: '托管一班改', teacherId: 1, teacherPhone: '13800000001' }
+    vi.mocked(adminApi.updateClassRoom).mockResolvedValue(updated)
+    render(<AdminDashboardPage onBack={vi.fn()} />)
+    await screen.findByText(/托管一班/)
+    expect(adminApi.fetchAdminClasses).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByRole('button', { name: '编辑班级托管一班' }))
+    fireEvent.change(screen.getByLabelText('班级名称1'), { target: { value: '托管一班改' } })
+    expect(screen.queryByLabelText('班级教师1')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+
+    await waitFor(() => expect(adminApi.updateClassRoom).toHaveBeenCalledWith(1, '托管一班改', 2))
+    await waitFor(() => expect(adminApi.fetchAdminClasses).toHaveBeenCalledTimes(2))
+    expect(screen.queryByLabelText('班级名称1')).not.toBeInTheDocument()
+  })
+
+  it('shows a duplicate-name error when class rename fails with 409', async () => {
+    vi.mocked(adminApi.updateClassRoom).mockRejectedValue(new ApiError(409, '冲突'))
+    render(<AdminDashboardPage onBack={vi.fn()} />)
+    await screen.findByText(/托管一班/)
+
+    fireEvent.click(screen.getByRole('button', { name: '编辑班级托管一班' }))
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+
+    expect(await screen.findByText('该教师下已有同名班级')).toBeInTheDocument()
+  })
 })
