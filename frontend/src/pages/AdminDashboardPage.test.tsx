@@ -24,7 +24,7 @@ const DASHBOARD = {
   ],
 }
 
-const ADMIN_CLASSES = [{ id: 1, name: '托管一班', teacherId: 2, teacherPhone: '13800000002' }]
+const ADMIN_CLASSES = [{ id: 1, name: '托管一班', teacherId: 2, teacherName: '李老师', teacherPhone: '13800000002' }]
 
 describe('AdminDashboardPage', () => {
   beforeEach(() => {
@@ -100,7 +100,7 @@ describe('AdminDashboardPage', () => {
     render(<AdminDashboardPage onBack={vi.fn()} />)
 
     expect(await screen.findByText(/托管一班/)).toBeInTheDocument()
-    expect(screen.getByText(/教师 13800000002/)).toBeInTheDocument()
+    expect(screen.getByText(/李老师 13800000002/)).toBeInTheDocument()
     expect(screen.queryByPlaceholderText('班级名称')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '创建班级' })).not.toBeInTheDocument()
   })
@@ -287,7 +287,7 @@ describe('AdminDashboardPage', () => {
   })
 
   it('renames a class and reassigns it to another teacher', async () => {
-    const updated = { id: 1, name: '托管一班改', teacherId: 1, teacherPhone: '13800000001' }
+    const updated = { id: 1, name: '托管一班改', teacherId: 1, teacherName: '张校长', teacherPhone: '13800000001' }
     vi.mocked(adminApi.updateClassRoom).mockResolvedValue(updated)
     render(<AdminDashboardPage onBack={vi.fn()} />)
     await screen.findByText(/托管一班/)

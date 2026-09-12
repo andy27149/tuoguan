@@ -47,11 +47,14 @@ public class AdminClassRoomService {
     }
 
     public List<AdminClassRoomResponse> listClassRooms(Long institutionId) {
-        Map<Long, String> phoneByTeacherId = teacherDao.findAllByInstitutionId(institutionId).stream()
-                .collect(Collectors.toMap(Teacher::id, Teacher::phone));
+        Map<Long, Teacher> teacherById = teacherDao.findAllByInstitutionId(institutionId).stream()
+                .collect(Collectors.toMap(Teacher::id, t -> t));
         return classRoomDao.findAllByInstitutionId(institutionId).stream()
-                .map(c -> new AdminClassRoomResponse(c.id(), c.name(), c.teacherId(),
-                        phoneByTeacherId.getOrDefault(c.teacherId(), "-")))
+                .map(c -> {
+                    Teacher teacher = teacherById.get(c.teacherId());
+                    return new AdminClassRoomResponse(c.id(), c.name(), c.teacherId(),
+                            teacher != null ? teacher.name() : "-", teacher != null ? teacher.phone() : "-");
+                })
                 .toList();
     }
 
@@ -64,7 +67,7 @@ public class AdminClassRoomService {
             throw new DuplicateClassNameException("Class name already exists: " + name);
         }
         classRoomDao.update(classRoomId, name, teacherId);
-        return new AdminClassRoomResponse(classRoomId, name, teacher.id(), teacher.phone());
+        return new AdminClassRoomResponse(classRoomId, name, teacher.id(), teacher.name(), teacher.phone());
     }
 
     public ClassRoomDeletionImpact getDeletionImpact(Long institutionId, Long classRoomId) {

@@ -1,4 +1,5 @@
 import { apiFetch, apiUpload } from './client'
+import { compressImage } from '../utils/imageCompression'
 
 export interface Student {
   id: number
@@ -31,9 +32,10 @@ export function updateStudent(
   })
 }
 
-export function uploadAvatar(studentId: number, file: File): Promise<Student> {
+export async function uploadAvatar(studentId: number, file: File): Promise<Student> {
+  const compressed = await compressImage(file)
   const formData = new FormData()
-  formData.append('file', file)
+  formData.append('file', compressed)
   return apiUpload<Student>(`/students/${studentId}/avatar`, formData)
 }
 

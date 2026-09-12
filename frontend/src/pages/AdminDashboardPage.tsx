@@ -441,7 +441,7 @@ export function AdminDashboardPage({ onBack }: AdminDashboardPageProps) {
                     className="flex items-center justify-between gap-2 rounded border border-gray-100 p-2 text-sm"
                   >
                     <span>
-                      {classRoom.name} · 教师 {classRoom.teacherPhone}
+                      {classRoom.name} · {classRoom.teacherName} {classRoom.teacherPhone}
                     </span>
                     <span className="flex shrink-0 gap-1.5">
                       <button

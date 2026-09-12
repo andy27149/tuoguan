@@ -24,6 +24,7 @@ export interface AdminClassRoom {
   id: number
   name: string
   teacherId: number
+  teacherName: string
   teacherPhone: string
 }
 
