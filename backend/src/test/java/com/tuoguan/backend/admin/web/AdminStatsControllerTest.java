@@ -7,6 +7,7 @@ import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.auth.web.LoginResponse;
 import com.tuoguan.backend.kanban.dao.DailyTaskDao;
+import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
 import com.tuoguan.backend.kanban.domain.DailyTask;
 import com.tuoguan.backend.roster.dao.ClassRoomDao;
 import com.tuoguan.backend.roster.dao.StudentDao;
@@ -44,6 +45,9 @@ class AdminStatsControllerTest extends IntegrationTestBase {
     private DailyTaskDao dailyTaskDao;
 
     @Autowired
+    private StudentArrivalCheckinDao studentArrivalCheckinDao;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Autowired
@@ -53,9 +57,9 @@ class AdminStatsControllerTest extends IntegrationTestBase {
     void dashboardReportsPerClassCompletionCounts() throws Exception {
         LocalDate date = LocalDate.of(2026, 8, 6);
         Long institutionId = institutionDao.insert("管理员统计测试机构A");
-        teacherDao.insert(new Teacher(null, institutionId, "13600002001",
+        teacherDao.insert(new Teacher(null, institutionId, "13600005001",
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
-        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13600002002",
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13600005002",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
 
         // Class 1: two enrolled students; one fully done, one partially done.
@@ -75,11 +79,13 @@ class AdminStatsControllerTest extends IntegrationTestBase {
         insertTask(institutionId, classRoom1Id, student1BId, date, "语文", false);
         insertTask(institutionId, classRoom1Id, droppedId, date, "数学", true);
 
+        studentArrivalCheckinDao.upsert(institutionId, classRoom1Id, student1AId, date, "08:00");
+
         // Class 2: one enrolled student with no tasks that day.
         Long classRoom2Id = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "二班", null));
         studentDao.insert(new Student(null, institutionId, classRoom2Id, "小丽", "三年级1班", true, null, null));
 
-        String token = login("13600002001", "admin-password");
+        String token = login("13600005001", "admin-password");
 
         MvcResult result = mockMvc.perform(get("/api/admin/dashboard?date=2026-08-06")
                         .header("Authorization", "Bearer " + token))
@@ -92,18 +98,20 @@ class AdminStatsControllerTest extends IntegrationTestBase {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(jsonPath("$.classes[0].className").value("一班"))
                 .andExpect(jsonPath("$.classes[0].studentCount").value(2))
+                .andExpect(jsonPath("$.classes[0].checkinCount").value(1))
                 .andExpect(jsonPath("$.classes[0].completedStudentCount").value(1))
                 .andExpect(jsonPath("$.classes[1].className").value("二班"))
                 .andExpect(jsonPath("$.classes[1].studentCount").value(1))
+                .andExpect(jsonPath("$.classes[1].checkinCount").value(0))
                 .andExpect(jsonPath("$.classes[1].completedStudentCount").value(0));
     }
 
     @Test
     void nonAdminTeacherIsForbiddenFromViewingDashboard() throws Exception {
         Long institutionId = institutionDao.insert("管理员统计测试机构B");
-        teacherDao.insert(new Teacher(null, institutionId, "13600002003",
+        teacherDao.insert(new Teacher(null, institutionId, "13600005003",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        String token = login("13600002003", "teacher-password");
+        String token = login("13600005003", "teacher-password");
 
         mockMvc.perform(get("/api/admin/dashboard")
                         .header("Authorization", "Bearer " + token))

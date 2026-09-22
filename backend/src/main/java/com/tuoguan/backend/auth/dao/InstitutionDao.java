@@ -12,4 +12,8 @@ public interface InstitutionDao {
     Optional<Institution> findById(Long id);
 
     List<Institution> findAll();
+
+    void updateName(Long id, String name);
+
+    void updateLogoObjectKey(Long id, String logoObjectKey);
 }

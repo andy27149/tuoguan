@@ -12,6 +12,7 @@ export interface ClassSummary {
   classRoomId: number
   className: string
   studentCount: number
+  checkinCount: number
   completedStudentCount: number
 }
 

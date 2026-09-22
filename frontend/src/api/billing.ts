@@ -1,0 +1,205 @@
+import { apiFetch } from './client'
+
+export interface ClassBillingRate {
+  id: number
+  institutionId: number
+  classRoomId: number
+  tuitionRatePerMonth: number
+  mealRatePerDay: number
+  updatedAt: string
+}
+
+export interface StudentExtraFee {
+  id: number
+  institutionId: number
+  studentId: number
+  name: string
+  pricePerLesson: number
+  createdAt: string
+}
+
+export interface StudentExtraFeeRow {
+  id: number
+  name: string
+  pricePerLesson: number
+  lessonCount: number
+  amount: number
+}
+
+export interface ClassBillingRateRow {
+  classRoomId: number
+  className: string
+  tuitionRatePerMonth: number | null
+  mealRatePerDay: number | null
+}
+
+export interface StudentLeaveRecord {
+  id: number
+  institutionId: number
+  studentId: number
+  classRoomId: number
+  leaveDate: string
+  reason: string | null
+  createdAt: string
+}
+
+export interface MonthlyBillExtraFeeLine {
+  id: number
+  monthlyBillId: number
+  name: string
+  pricePerLesson: number
+  lessonCount: number
+  amount: number
+}
+
+export interface MonthlyBill {
+  id: number
+  institutionId: number
+  studentId: number
+  classRoomId: number
+  yearMonth: string
+  totalWeekdays: number
+  leaveDays: number
+  attendanceDays: number
+  tuitionAmount: number
+  mealAmount: number
+  extraFeeTotal: number
+  totalAmount: number
+  isPaid: boolean
+  generatedAt: string
+  extraFeeLines: MonthlyBillExtraFeeLine[]
+}
+
+export interface BillOverviewRow {
+  studentId: number
+  studentName: string
+  classRoomId: number
+  className: string
+  teacherName: string
+  billId: number | null
+  totalAmount: number | null
+  isPaid: boolean
+  yearMonth: string
+}
+
+export function fetchClassBillingRate(classId: number): Promise<ClassBillingRate | null> {
+  return apiFetch<ClassBillingRate | null>(`/admin/classes/${classId}/billing-rate`)
+}
+
+export function upsertClassBillingRate(
+  classId: number,
+  tuitionRatePerMonth: number,
+  mealRatePerDay: number,
+): Promise<ClassBillingRate> {
+  return apiFetch<ClassBillingRate>(`/admin/classes/${classId}/billing-rate`, {
+    method: 'PUT',
+    body: JSON.stringify({ tuitionRatePerMonth, mealRatePerDay }),
+  })
+}
+
+export function fetchAllClassBillingRates(): Promise<ClassBillingRateRow[]> {
+  return apiFetch<ClassBillingRateRow[]>('/admin/classes/billing-rates')
+}
+
+export function bulkSetClassBillingRate(
+  tuitionRatePerMonth: number,
+  mealRatePerDay: number,
+): Promise<ClassBillingRateRow[]> {
+  return apiFetch<ClassBillingRateRow[]>('/admin/classes/billing-rates/bulk-set', {
+    method: 'PUT',
+    body: JSON.stringify({ tuitionRatePerMonth, mealRatePerDay }),
+  })
+}
+
+export function fetchClassBills(classId: number, month: string): Promise<MonthlyBill[]> {
+  return apiFetch<MonthlyBill[]>(`/admin/classes/${classId}/bills?month=${month}`)
+}
+
+export function generateClassBills(classId: number, month: string): Promise<MonthlyBill[]> {
+  return apiFetch<MonthlyBill[]>(`/admin/classes/${classId}/bills/generate?month=${month}`, { method: 'POST' })
+}
+
+export function generateStudentBill(
+  studentId: number,
+  month: string,
+  tuitionOverride?: number,
+): Promise<MonthlyBill> {
+  return apiFetch<MonthlyBill>(`/admin/students/${studentId}/bills/generate?month=${month}`, {
+    method: 'POST',
+    ...(tuitionOverride !== undefined ? { body: JSON.stringify({ tuitionOverride }) } : {}),
+  })
+}
+
+export function fetchStudentExtraFees(studentId: number, month: string): Promise<StudentExtraFeeRow[]> {
+  return apiFetch<StudentExtraFeeRow[]>(`/admin/students/${studentId}/extra-fees?month=${month}`)
+}
+
+export function addStudentExtraFee(
+  studentId: number,
+  name: string,
+  pricePerLesson: number,
+): Promise<StudentExtraFee> {
+  return apiFetch<StudentExtraFee>(`/admin/students/${studentId}/extra-fees`, {
+    method: 'POST',
+    body: JSON.stringify({ name, pricePerLesson }),
+  })
+}
+
+export function setExtraFeeLessonCount(
+  studentId: number,
+  feeId: number,
+  month: string,
+  lessonCount: number,
+): Promise<StudentExtraFeeRow> {
+  return apiFetch<StudentExtraFeeRow>(`/admin/students/${studentId}/extra-fees/${feeId}/lesson-count?month=${month}`, {
+    method: 'PUT',
+    body: JSON.stringify({ lessonCount }),
+  })
+}
+
+export function deleteStudentExtraFee(studentId: number, feeId: number): Promise<void> {
+  return apiFetch<void>(`/admin/students/${studentId}/extra-fees/${feeId}`, { method: 'DELETE' })
+}
+
+export function fetchStudentLeaveRecords(studentId: number, month: string): Promise<StudentLeaveRecord[]> {
+  return apiFetch<StudentLeaveRecord[]>(`/admin/students/${studentId}/leave-records?month=${month}`)
+}
+
+export function registerStudentLeaveRange(
+  studentId: number,
+  startDate: string,
+  endDate: string,
+  reason?: string,
+): Promise<StudentLeaveRecord[]> {
+  return apiFetch<StudentLeaveRecord[]>(`/admin/students/${studentId}/leave-records`, {
+    method: 'POST',
+    body: JSON.stringify({ startDate, endDate, reason }),
+  })
+}
+
+export function cancelStudentLeave(studentId: number, date: string): Promise<void> {
+  return apiFetch<void>(`/admin/students/${studentId}/leave-records/${date}`, { method: 'DELETE' })
+}
+
+export function fetchBillOverview(
+  month?: string,
+  classRoomId?: number,
+  studentName?: string,
+): Promise<BillOverviewRow[]> {
+  const params = new URLSearchParams()
+  if (month) params.set('month', month)
+  if (classRoomId !== undefined) params.set('classRoomId', String(classRoomId))
+  if (studentName) params.set('studentName', studentName)
+  return apiFetch<BillOverviewRow[]>(`/admin/bills?${params.toString()}`)
+}
+
+export function fetchBillDetail(billId: number): Promise<MonthlyBill> {
+  return apiFetch<MonthlyBill>(`/admin/bills/${billId}`)
+}
+
+export function setBillPaid(billId: number, isPaid: boolean): Promise<MonthlyBill> {
+  return apiFetch<MonthlyBill>(`/admin/bills/${billId}/paid`, {
+    method: 'PATCH',
+    body: JSON.stringify({ isPaid }),
+  })
+}

@@ -49,6 +49,21 @@ public class StorageService {
         return objectKey;
     }
 
+    public String uploadLogo(Long institutionId, String contentType, byte[] content) {
+        String objectKey = "logos/%d/%s".formatted(institutionId, UUID.randomUUID());
+        try (ByteArrayInputStream in = new ByteArrayInputStream(content)) {
+            minioClient.putObject(PutObjectArgs.builder()
+                    .bucket(bucket)
+                    .object(objectKey)
+                    .stream(in, content.length, -1)
+                    .contentType(contentType)
+                    .build());
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to upload logo to MinIO: " + objectKey, e);
+        }
+        return objectKey;
+    }
+
     public String avatarUrl(String objectKey) {
         if (objectKey == null) {
             return null;

@@ -9,15 +9,25 @@ import { PlatformAdminPage } from './pages/PlatformAdminPage'
 
 function AuthenticatedApp() {
   const [view, setView] = useState<'kanban' | 'roster' | 'admin'>('kanban')
+  const [jumpToClassId, setJumpToClassId] = useState<number | null>(null)
+
+  function handleOpenClassKanban(classId: number) {
+    setJumpToClassId(classId)
+    setView('kanban')
+  }
 
   if (view === 'roster') {
     return <RosterPage onBack={() => setView('kanban')} />
   }
   if (view === 'admin') {
-    return <AdminDashboardPage onBack={() => setView('kanban')} />
+    return <AdminDashboardPage onBack={() => setView('kanban')} onOpenClassKanban={handleOpenClassKanban} />
   }
   return (
-    <KanbanPage onOpenRoster={() => setView('roster')} onOpenAdmin={() => setView('admin')} />
+    <KanbanPage
+      onOpenRoster={() => setView('roster')}
+      onOpenAdmin={() => setView('admin')}
+      initialClassId={jumpToClassId ?? undefined}
+    />
   )
 }
 

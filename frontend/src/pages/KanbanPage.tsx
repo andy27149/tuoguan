@@ -32,9 +32,10 @@ const EMPTY_ARRIVAL = ''
 interface KanbanPageProps {
   onOpenRoster: () => void
   onOpenAdmin?: () => void
+  initialClassId?: number
 }
 
-export function KanbanPage({ onOpenRoster, onOpenAdmin }: KanbanPageProps) {
+export function KanbanPage({ onOpenRoster, onOpenAdmin, initialClassId }: KanbanPageProps) {
   const { logout, state } = useAuth()
   const isAdmin = state.status === 'authenticated' && state.teacher.role === 'ADMIN'
   const [classes, setClasses] = useState<classesApi.ClassRoom[]>([])
@@ -63,7 +64,11 @@ export function KanbanPage({ onOpenRoster, onOpenAdmin }: KanbanPageProps) {
         setClasses(classList)
         setTemplates(templateList)
         if (classList.length > 0) {
-          setActiveClassId(classList[0].id)
+          const preferred =
+            initialClassId !== undefined && classList.some((c) => c.id === initialClassId)
+              ? initialClassId
+              : classList[0].id
+          setActiveClassId(preferred)
         } else {
           setLoading(false)
         }

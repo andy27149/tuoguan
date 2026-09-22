@@ -36,10 +36,11 @@ public class JdbcInstitutionDao implements InstitutionDao {
     @Override
     public Optional<Institution> findById(Long id) {
         List<Institution> results = jdbcTemplate.query(
-                "SELECT id, name, created_at FROM institution WHERE id = ?",
+                "SELECT id, name, logo_object_key, created_at FROM institution WHERE id = ?",
                 (rs, rowNum) -> new Institution(
                         rs.getLong("id"),
                         rs.getString("name"),
+                        rs.getString("logo_object_key"),
                         rs.getTimestamp("created_at").toInstant()),
                 id);
         return results.stream().findFirst();
@@ -48,10 +49,21 @@ public class JdbcInstitutionDao implements InstitutionDao {
     @Override
     public List<Institution> findAll() {
         return jdbcTemplate.query(
-                "SELECT id, name, created_at FROM institution ORDER BY created_at",
+                "SELECT id, name, logo_object_key, created_at FROM institution ORDER BY created_at",
                 (rs, rowNum) -> new Institution(
                         rs.getLong("id"),
                         rs.getString("name"),
+                        rs.getString("logo_object_key"),
                         rs.getTimestamp("created_at").toInstant()));
+    }
+
+    @Override
+    public void updateName(Long id, String name) {
+        jdbcTemplate.update("UPDATE institution SET name = ? WHERE id = ?", name, id);
+    }
+
+    @Override
+    public void updateLogoObjectKey(Long id, String logoObjectKey) {
+        jdbcTemplate.update("UPDATE institution SET logo_object_key = ? WHERE id = ?", logoObjectKey, id);
     }
 }

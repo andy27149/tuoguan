@@ -1,6 +1,10 @@
 package com.tuoguan.backend.roster.web;
 
+import com.tuoguan.backend.admin.web.BillingRateNotConfiguredException;
+import com.tuoguan.backend.admin.web.DuplicateExtraFeeException;
 import com.tuoguan.backend.admin.web.DuplicatePhoneException;
+import com.tuoguan.backend.admin.web.InvalidLeaveDateException;
+import com.tuoguan.backend.admin.web.InvalidLogoException;
 import com.tuoguan.backend.admin.web.InvalidTransferTargetException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -39,5 +43,25 @@ public class RosterExceptionHandler {
     @ExceptionHandler(InvalidTransferTargetException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public void handleInvalidTransferTarget() {
+    }
+
+    @ExceptionHandler(BillingRateNotConfiguredException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public void handleBillingRateNotConfigured() {
+    }
+
+    @ExceptionHandler(InvalidLeaveDateException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public void handleInvalidLeaveDate() {
+    }
+
+    @ExceptionHandler(DuplicateExtraFeeException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public void handleDuplicateExtraFee() {
+    }
+
+    @ExceptionHandler(InvalidLogoException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public void handleInvalidLogo() {
     }
 }

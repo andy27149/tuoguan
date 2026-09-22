@@ -5,6 +5,10 @@ import com.tuoguan.backend.admin.web.InvalidTransferTargetException;
 import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
+import com.tuoguan.backend.billing.dao.ClassBillingRateDao;
+import com.tuoguan.backend.billing.dao.MonthlyBillDao;
+import com.tuoguan.backend.billing.dao.StudentExtraFeeDao;
+import com.tuoguan.backend.billing.dao.StudentLeaveRecordDao;
 import com.tuoguan.backend.kanban.dao.ClassDismissalDao;
 import com.tuoguan.backend.kanban.dao.DailyTaskDao;
 import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
@@ -37,12 +41,18 @@ public class AdminTeacherService {
     private final StudentArrivalCheckinDao studentArrivalCheckinDao;
     private final ClassDismissalDao classDismissalDao;
     private final TaskTemplateDao taskTemplateDao;
+    private final ClassBillingRateDao classBillingRateDao;
+    private final StudentExtraFeeDao studentExtraFeeDao;
+    private final StudentLeaveRecordDao studentLeaveRecordDao;
+    private final MonthlyBillDao monthlyBillDao;
 
     public AdminTeacherService(TeacherDao teacherDao, PasswordEncoder passwordEncoder, ClassRoomDao classRoomDao,
                                 StudentDao studentDao, DailyTaskDao dailyTaskDao,
                                 StudentDailyNoteDao studentDailyNoteDao,
                                 StudentArrivalCheckinDao studentArrivalCheckinDao,
-                                ClassDismissalDao classDismissalDao, TaskTemplateDao taskTemplateDao) {
+                                ClassDismissalDao classDismissalDao, TaskTemplateDao taskTemplateDao,
+                                ClassBillingRateDao classBillingRateDao, StudentExtraFeeDao studentExtraFeeDao,
+                                StudentLeaveRecordDao studentLeaveRecordDao, MonthlyBillDao monthlyBillDao) {
         this.teacherDao = teacherDao;
         this.passwordEncoder = passwordEncoder;
         this.classRoomDao = classRoomDao;
@@ -52,6 +62,10 @@ public class AdminTeacherService {
         this.studentArrivalCheckinDao = studentArrivalCheckinDao;
         this.classDismissalDao = classDismissalDao;
         this.taskTemplateDao = taskTemplateDao;
+        this.classBillingRateDao = classBillingRateDao;
+        this.studentExtraFeeDao = studentExtraFeeDao;
+        this.studentLeaveRecordDao = studentLeaveRecordDao;
+        this.monthlyBillDao = monthlyBillDao;
     }
 
     public Teacher createTeacher(Long institutionId, String phone, String name, String initialPassword) {
@@ -102,6 +116,12 @@ public class AdminTeacherService {
                 studentDailyNoteDao.deleteAllByClassRoomId(classRoom.id());
                 studentArrivalCheckinDao.deleteAllByClassRoomId(classRoom.id());
                 classDismissalDao.deleteAllByClassRoomId(classRoom.id());
+                classBillingRateDao.deleteAllByClassRoomId(classRoom.id());
+                monthlyBillDao.deleteAllByClassRoomId(classRoom.id());
+                studentLeaveRecordDao.deleteAllByClassRoomId(classRoom.id());
+                for (var student : studentDao.findAllByClassRoomId(classRoom.id())) {
+                    studentExtraFeeDao.deleteAllByStudentId(student.id());
+                }
                 studentDao.deleteAllByClassRoomId(classRoom.id());
                 classRoomDao.deleteById(classRoom.id());
             }

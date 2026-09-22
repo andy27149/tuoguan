@@ -125,7 +125,7 @@ export function PlatformAdminPage() {
               {institutions.map((institution) => (
                 <li key={institution.id} className="rounded border border-gray-100 p-2 text-sm">
                   {institution.name} · {institution.teacherCount} 位教师 · 创建于{' '}
-                  {new Date(institution.createdAt).toLocaleDateString()}
+                  {new Date(institution.createdAt).toLocaleDateString('zh-CN')}
                 </li>
               ))}
               {institutions.length === 0 && <li className="text-xs text-gray-400">暂无机构</li>}

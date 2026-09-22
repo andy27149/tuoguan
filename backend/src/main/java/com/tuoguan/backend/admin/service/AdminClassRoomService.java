@@ -3,6 +3,10 @@ package com.tuoguan.backend.admin.service;
 import com.tuoguan.backend.admin.web.AdminClassRoomResponse;
 import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Teacher;
+import com.tuoguan.backend.billing.dao.ClassBillingRateDao;
+import com.tuoguan.backend.billing.dao.MonthlyBillDao;
+import com.tuoguan.backend.billing.dao.StudentExtraFeeDao;
+import com.tuoguan.backend.billing.dao.StudentLeaveRecordDao;
 import com.tuoguan.backend.kanban.dao.ClassDismissalDao;
 import com.tuoguan.backend.kanban.dao.DailyTaskDao;
 import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
@@ -32,11 +36,17 @@ public class AdminClassRoomService {
     private final StudentDailyNoteDao studentDailyNoteDao;
     private final StudentArrivalCheckinDao studentArrivalCheckinDao;
     private final ClassDismissalDao classDismissalDao;
+    private final ClassBillingRateDao classBillingRateDao;
+    private final StudentExtraFeeDao studentExtraFeeDao;
+    private final StudentLeaveRecordDao studentLeaveRecordDao;
+    private final MonthlyBillDao monthlyBillDao;
 
     public AdminClassRoomService(ClassRoomDao classRoomDao, TeacherDao teacherDao, StudentDao studentDao,
                                   DailyTaskDao dailyTaskDao, StudentDailyNoteDao studentDailyNoteDao,
                                   StudentArrivalCheckinDao studentArrivalCheckinDao,
-                                  ClassDismissalDao classDismissalDao) {
+                                  ClassDismissalDao classDismissalDao, ClassBillingRateDao classBillingRateDao,
+                                  StudentExtraFeeDao studentExtraFeeDao, StudentLeaveRecordDao studentLeaveRecordDao,
+                                  MonthlyBillDao monthlyBillDao) {
         this.classRoomDao = classRoomDao;
         this.teacherDao = teacherDao;
         this.studentDao = studentDao;
@@ -44,6 +54,10 @@ public class AdminClassRoomService {
         this.studentDailyNoteDao = studentDailyNoteDao;
         this.studentArrivalCheckinDao = studentArrivalCheckinDao;
         this.classDismissalDao = classDismissalDao;
+        this.classBillingRateDao = classBillingRateDao;
+        this.studentExtraFeeDao = studentExtraFeeDao;
+        this.studentLeaveRecordDao = studentLeaveRecordDao;
+        this.monthlyBillDao = monthlyBillDao;
     }
 
     public List<AdminClassRoomResponse> listClassRooms(Long institutionId) {
@@ -82,6 +96,12 @@ public class AdminClassRoomService {
         studentDailyNoteDao.deleteAllByClassRoomId(classRoom.id());
         studentArrivalCheckinDao.deleteAllByClassRoomId(classRoom.id());
         classDismissalDao.deleteAllByClassRoomId(classRoom.id());
+        classBillingRateDao.deleteAllByClassRoomId(classRoom.id());
+        monthlyBillDao.deleteAllByClassRoomId(classRoom.id());
+        studentLeaveRecordDao.deleteAllByClassRoomId(classRoom.id());
+        for (var student : studentDao.findAllByClassRoomId(classRoom.id())) {
+            studentExtraFeeDao.deleteAllByStudentId(student.id());
+        }
         studentDao.deleteAllByClassRoomId(classRoom.id());
         classRoomDao.deleteById(classRoom.id());
     }

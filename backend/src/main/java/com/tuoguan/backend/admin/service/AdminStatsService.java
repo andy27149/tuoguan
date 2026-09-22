@@ -2,6 +2,7 @@ package com.tuoguan.backend.admin.service;
 
 import com.tuoguan.backend.admin.web.AdminDashboardResponse.ClassSummary;
 import com.tuoguan.backend.kanban.dao.DailyTaskDao;
+import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
 import com.tuoguan.backend.kanban.domain.DailyTask;
 import com.tuoguan.backend.roster.dao.ClassRoomDao;
 import com.tuoguan.backend.roster.dao.StudentDao;
@@ -20,11 +21,14 @@ public class AdminStatsService {
     private final ClassRoomDao classRoomDao;
     private final StudentDao studentDao;
     private final DailyTaskDao dailyTaskDao;
+    private final StudentArrivalCheckinDao studentArrivalCheckinDao;
 
-    public AdminStatsService(ClassRoomDao classRoomDao, StudentDao studentDao, DailyTaskDao dailyTaskDao) {
+    public AdminStatsService(ClassRoomDao classRoomDao, StudentDao studentDao, DailyTaskDao dailyTaskDao,
+                              StudentArrivalCheckinDao studentArrivalCheckinDao) {
         this.classRoomDao = classRoomDao;
         this.studentDao = studentDao;
         this.dailyTaskDao = dailyTaskDao;
+        this.studentArrivalCheckinDao = studentArrivalCheckinDao;
     }
 
     public List<ClassSummary> getDashboard(Long institutionId, LocalDate date) {
@@ -49,6 +53,9 @@ public class AdminStatsService {
                 })
                 .count();
 
-        return new ClassSummary(classRoom.id(), classRoom.name(), enrolledStudents.size(), completedStudentCount);
+        int checkinCount = studentArrivalCheckinDao.findAllByClassRoomIdAndDate(classRoom.id(), date).size();
+
+        return new ClassSummary(classRoom.id(), classRoom.name(), enrolledStudents.size(), checkinCount,
+                completedStudentCount);
     }
 }
