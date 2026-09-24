@@ -1,13 +1,13 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { MonthlyStatsModal } from './MonthlyStatsModal'
 import * as monthlyStatsApi from '../api/monthlyStats'
 import type { MonthlyStats } from '../api/monthlyStats'
-import { currentMonthString, shiftMonthString, todayDateString } from '../kanban/date'
+import { currentMonthString, shiftMonthString } from '../kanban/date'
 
 vi.mock('../api/monthlyStats')
 
-const TODAY = todayDateString()
+const TODAY = '2026-08-15'
 
 const STATS: MonthlyStats = {
   completedDays: 1,
@@ -53,8 +53,14 @@ const EMPTY_STATS: MonthlyStats = {
 
 describe('MonthlyStatsModal', () => {
   beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date(`${TODAY}T12:00:00`))
     vi.resetAllMocks()
     vi.mocked(monthlyStatsApi.fetchMonthlyStats).mockResolvedValue(STATS)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('shows the fetched completed/incomplete counts and average rating', async () => {
