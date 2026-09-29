@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { ApiError } from '../api/client'
+import { BrandMark } from '../brand/BrandMark'
 
 export function ChangePasswordPage() {
   const { completeChangePassword } = useAuth()
@@ -28,7 +29,11 @@ export function ChangePasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
+      <div className="flex items-center gap-2 mb-6">
+        <BrandMark size={40} />
+        <span className="text-lg font-semibold text-gray-800">奕成长课后平台</span>
+      </div>
       <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 bg-white p-6 rounded-lg shadow">
         <h1 className="text-xl font-semibold text-center">首次登录需修改密码</h1>
         <div>

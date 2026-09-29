@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import * as classesApi from '../api/classes'
 import * as studentsApi from '../api/students'
 import { ApiError } from '../api/client'
+import { BrandMark } from '../brand/BrandMark'
 
 interface RosterPageProps {
   onBack: () => void
@@ -147,7 +148,10 @@ export function RosterPage({ onBack }: RosterPageProps) {
     <div className="min-h-screen pb-8">
       <header className="app-header">
         <div className="app-header__top">
-          <h1 className="app-header__title">学生/花名册管理</h1>
+          <h1 className="app-header__title">
+            <BrandMark size={22} />
+            学生/花名册管理
+          </h1>
           <button type="button" onClick={onBack} className="logout-btn">
             返回看板
           </button>

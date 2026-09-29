@@ -4,6 +4,7 @@ import type { DailyTask } from '../api/dailyTasks'
 import { computeCardStatus } from '../kanban/cardStatus'
 import { subjectColor, subjectIconMarkup } from '../kanban/subjectIcons'
 import { StarRating } from './StarRating'
+import { BrandMark } from '../brand/BrandMark'
 
 interface SharePosterStudent {
   id: number
@@ -166,6 +167,11 @@ export function SharePosterModal({
                 {line}
               </span>
             ))}
+          </p>
+
+          <p className="share-poster__brand">
+            <BrandMark size={14} />
+            奕成长课后平台
           </p>
         </div>
 

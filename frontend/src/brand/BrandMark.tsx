@@ -1,0 +1,38 @@
+interface BrandMarkProps {
+  size?: number
+  className?: string
+}
+
+let gradientIdCounter = 0
+
+export function BrandMark({ size = 24, className }: BrandMarkProps) {
+  const gradientId = `brandMarkGradient${gradientIdCounter++}`
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 200 200"
+      aria-hidden="true"
+      className={className}
+      style={{ flexShrink: 0 }}
+    >
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#8b7ae0" />
+          <stop offset="1" stopColor="#4e3fa8" />
+        </linearGradient>
+      </defs>
+      <rect x="10" y="10" width="180" height="180" rx="48" fill={`url(#${gradientId})`} />
+      <path
+        d="M100 158 C100 146 100 130 100 116"
+        stroke="#ffffff"
+        strokeWidth="9"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path d="M100 132 C76 132 58 116 62 92 C88 94 100 110 100 132 Z" fill="#ffffff" />
+      <path d="M100 122 C120 120 136 104 133 82 C110 85 99 102 100 122 Z" fill="#e7e1fb" />
+      <path d="M100 62 L106 74 L118 78 L106 82 L100 96 L94 82 L82 78 L94 74 Z" fill="#f0a93e" />
+    </svg>
+  )
+}

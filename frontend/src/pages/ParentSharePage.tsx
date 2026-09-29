@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { fetchPublicShare, type PublicShare } from '../api/publicShare'
 import { currentMonthString, todayDateString } from '../kanban/date'
 import { MonthlyStatsView } from '../components/MonthlyStatsView'
+import { BrandMark } from '../brand/BrandMark'
 
 interface ParentSharePageProps {
   token: string
@@ -71,6 +72,11 @@ export function ParentSharePage({ token }: ParentSharePageProps) {
               selectedDate={selectedDate}
               onSelectDate={setSelectedDate}
             />
+
+            <p className="parent-share-page__brand">
+              <BrandMark size={14} />
+              奕成长课后平台
+            </p>
           </>
         )}
       </div>

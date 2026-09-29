@@ -17,6 +17,7 @@ import { DismissButton } from '../components/DismissButton'
 import { TaskTemplateManager } from '../components/TaskTemplateManager'
 import { Toast } from '../components/Toast'
 import { useAuth } from '../auth/AuthContext'
+import { BrandMark } from '../brand/BrandMark'
 
 const date = todayDateString()
 
@@ -336,6 +337,7 @@ export function KanbanPage({ onOpenRoster, onOpenAdmin, initialClassId }: Kanban
       <header className="app-header">
         <div className="app-header__top">
           <h1 className="app-header__title">
+            <BrandMark size={22} />
             托管班看板
             {isAdmin && <span className="flag-chip">只读</span>}
           </h1>

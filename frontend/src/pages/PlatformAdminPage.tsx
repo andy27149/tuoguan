@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import * as platformApi from '../api/platform'
 import { ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { BrandMark } from '../brand/BrandMark'
 
 export function PlatformAdminPage() {
   const { logout } = useAuth()
@@ -57,7 +58,10 @@ export function PlatformAdminPage() {
     <div className="min-h-screen pb-8">
       <header className="app-header">
         <div className="app-header__top">
-          <h1 className="app-header__title">平台管理</h1>
+          <h1 className="app-header__title">
+            <BrandMark size={22} />
+            平台管理
+          </h1>
           <button type="button" onClick={logout} className="logout-btn">
             退出登录
           </button>
