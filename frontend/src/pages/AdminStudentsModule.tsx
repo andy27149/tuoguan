@@ -31,6 +31,7 @@ export function AdminStudentsModule() {
                 <th className="border-b border-[#ece7de] bg-[#faf7ff] px-4 py-3">学籍班</th>
                 <th className="border-b border-[#ece7de] bg-[#faf7ff] px-4 py-3">托管班</th>
                 <th className="border-b border-[#ece7de] bg-[#faf7ff] px-4 py-3">身份</th>
+                <th className="border-b border-[#ece7de] bg-[#faf7ff] px-4 py-3">课外课报名</th>
                 <th className="border-b border-[#ece7de] bg-[#faf7ff] px-4 py-3">操作</th>
               </tr>
             </thead>
@@ -58,6 +59,22 @@ export function AdminStudentsModule() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
+                    {student.enrolledCourseNames.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {student.enrolledCourseNames.map((name) => (
+                          <span
+                            key={name}
+                            className="rounded-full bg-[#eef0fd] px-2 py-0.5 text-xs text-[#4b4a9c]"
+                          >
+                            {name}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-[#7c7391]">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
                     {student.offCampusOnly && (
                       <button
                         type="button"
@@ -72,7 +89,7 @@ export function AdminStudentsModule() {
               ))}
               {students.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-3 text-xs text-[#7c7391]">
+                  <td colSpan={6} className="px-4 py-3 text-xs text-[#7c7391]">
                     暂无学生
                   </td>
                 </tr>

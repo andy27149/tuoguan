@@ -39,6 +39,13 @@ public class AdminInstitutionController {
         return adminInstitutionService.updateName(principal.institutionId(), request.name());
     }
 
+    @PutMapping("/feature-flags")
+    public InstitutionSettingsResponse updateFeatureFlags(@AuthenticationPrincipal TeacherPrincipal principal,
+                                                            @Valid @RequestBody UpdateFeatureFlagsRequest request) {
+        return adminInstitutionService.updateFeatureFlags(principal.institutionId(), request.custodyEnabled(),
+                request.offCampusEnabled());
+    }
+
     @PostMapping("/logo")
     public InstitutionSettingsResponse uploadLogo(@AuthenticationPrincipal TeacherPrincipal principal,
                                                    @RequestParam("file") MultipartFile file) {

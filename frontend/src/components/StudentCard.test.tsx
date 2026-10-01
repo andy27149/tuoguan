@@ -11,7 +11,14 @@ vi.mock('qrcode', () => ({
   default: { toCanvas: vi.fn() },
 }))
 
-const STUDENT: Student = { id: 1, name: '小明', schoolClassName: '一年级1班', enrolled: true, avatarUrl: null }
+const STUDENT: Student = {
+  id: 1,
+  name: '小明',
+  schoolClassName: '一年级1班',
+  enrolled: true,
+  avatarUrl: null,
+  enrolledCourseNames: [],
+}
 
 function setup(overrides: Partial<ComponentProps<typeof StudentCard>> = {}) {
   return render(

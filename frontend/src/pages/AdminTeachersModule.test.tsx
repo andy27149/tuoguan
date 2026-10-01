@@ -29,6 +29,10 @@ describe('AdminTeachersModule', () => {
     const teacherSection = screen.getByText('教师列表（2）').closest('div') as HTMLElement
     expect(within(teacherSection).getByText('13800000002')).toBeInTheDocument()
     expect(within(teacherSection).getByText(/待修改初始密码/)).toBeInTheDocument()
+    const zhangRow = (await screen.findByText('13800000001', { selector: 'td' })).closest('tr') as HTMLElement
+    expect(within(zhangRow).getByText('管理员')).toBeInTheDocument()
+    const liRow = screen.getByText('13800000002', { selector: 'td' }).closest('tr') as HTMLElement
+    expect(within(liRow).getByText('教师')).toBeInTheDocument()
   })
 
   it('shows the classes each teacher manages, clickable to jump to the class kanban', async () => {
@@ -55,9 +59,26 @@ describe('AdminTeachersModule', () => {
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
 
     await waitFor(() =>
-      expect(adminApi.createTeacher).toHaveBeenCalledWith('13800000003', '王老师', 'initial123'),
+      expect(adminApi.createTeacher).toHaveBeenCalledWith('13800000003', '王老师', 'initial123', 'TEACHER'),
     )
     expect(await screen.findByText(/初始密码 initial123/)).toBeInTheDocument()
+  })
+
+  it('creates an admin account when the 管理员 role is selected', async () => {
+    const created = { id: 4, phone: '13800000004', name: '第二管理员', role: 'ADMIN' as const, mustChangePassword: true }
+    vi.mocked(adminApi.createTeacher).mockResolvedValue(created)
+    render(<AdminTeachersModule />)
+    await screen.findByText('13800000001', { selector: 'td' })
+
+    fireEvent.change(screen.getByPlaceholderText('手机号'), { target: { value: '13800000004' } })
+    fireEvent.change(screen.getByPlaceholderText('教师姓名'), { target: { value: '第二管理员' } })
+    fireEvent.change(screen.getByPlaceholderText('初始密码'), { target: { value: 'initial123' } })
+    fireEvent.click(screen.getByRole('radio', { name: '管理员' }))
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
+
+    await waitFor(() =>
+      expect(adminApi.createTeacher).toHaveBeenCalledWith('13800000004', '第二管理员', 'initial123', 'ADMIN'),
+    )
   })
 
   it('shows a duplicate-phone message on 409', async () => {

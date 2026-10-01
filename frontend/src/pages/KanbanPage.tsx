@@ -35,9 +35,18 @@ interface KanbanPageProps {
   onOpenConsumption: () => void
   onOpenAdmin?: () => void
   initialClassId?: number
+  hasClasses?: boolean
+  hasCourses?: boolean
 }
 
-export function KanbanPage({ onOpenRoster, onOpenConsumption, onOpenAdmin, initialClassId }: KanbanPageProps) {
+export function KanbanPage({
+  onOpenRoster,
+  onOpenConsumption,
+  onOpenAdmin,
+  initialClassId,
+  hasClasses = true,
+  hasCourses = true,
+}: KanbanPageProps) {
   const { logout, state } = useAuth()
   const isAdmin = state.status === 'authenticated' && state.teacher.role === 'ADMIN'
   const [classes, setClasses] = useState<classesApi.ClassRoom[]>([])
@@ -263,6 +272,16 @@ export function KanbanPage({ onOpenRoster, onOpenConsumption, onOpenAdmin, initi
         </div>
       )
     }
+    if (!hasClasses && hasCourses) {
+      return (
+        <div className="no-class-screen">
+          <p>暂无托管班级</p>
+          <button type="button" onClick={onOpenConsumption} className="logout-btn">
+            前往消课
+          </button>
+        </div>
+      )
+    }
     return (
       <div className="no-class-screen">
         <p>暂无托管班级</p>
@@ -343,12 +362,12 @@ export function KanbanPage({ onOpenRoster, onOpenConsumption, onOpenAdmin, initi
             {isAdmin && <span className="flag-chip">只读</span>}
           </h1>
           <div className="flex gap-2">
-            {!isAdmin && (
+            {!isAdmin && hasClasses && (
               <button type="button" onClick={onOpenRoster} className="logout-btn">
                 学生管理
               </button>
             )}
-            {!isAdmin && (
+            {!isAdmin && hasCourses && (
               <button type="button" onClick={onOpenConsumption} className="logout-btn">
                 消课
               </button>

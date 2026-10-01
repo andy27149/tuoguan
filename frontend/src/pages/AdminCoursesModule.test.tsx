@@ -52,43 +52,36 @@ describe('AdminCoursesModule', () => {
     expect(await screen.findByText('未配置')).toBeInTheDocument()
   })
 
-  it('sets a price and reassigns the teacher for a course', async () => {
+  it('reassigns the teacher for a course', async () => {
     vi.mocked(courseApi.updateAdminCourse).mockResolvedValue(undefined)
     render(<AdminCoursesModule />)
     await screen.findByText('书法课')
 
-    fireEvent.click(screen.getByRole('button', { name: '设置单价书法课' }))
-    fireEvent.change(screen.getByLabelText('课程单价10'), { target: { value: '80' } })
+    fireEvent.click(screen.getByRole('button', { name: '改派书法课' }))
     fireEvent.change(screen.getByLabelText('负责教师10'), { target: { value: '3' } })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
 
-    await waitFor(() =>
-      expect(courseApi.updateAdminCourse).toHaveBeenCalledWith(10, { pricePerLesson: 80, teacherId: 3 }),
-    )
+    await waitFor(() => expect(courseApi.updateAdminCourse).toHaveBeenCalledWith(10, { teacherId: 3 }))
     await waitFor(() => expect(courseApi.fetchAdminCourses).toHaveBeenCalledTimes(2))
   })
 
-  it('shows an error when saving the price/teacher fails', async () => {
+  it('shows an error when reassigning the teacher fails', async () => {
     vi.mocked(courseApi.updateAdminCourse).mockRejectedValue(new Error('boom'))
     render(<AdminCoursesModule />)
     await screen.findByText('书法课')
 
-    fireEvent.click(screen.getByRole('button', { name: '设置单价书法课' }))
+    fireEvent.click(screen.getByRole('button', { name: '改派书法课' }))
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
 
     expect(await screen.findByText('保存失败，请重试')).toBeInTheDocument()
   })
 
-  it('rejects an invalid price without saving', async () => {
+  it('shows a hint pointing to the pricing center instead of an inline price editor', async () => {
     render(<AdminCoursesModule />)
     await screen.findByText('书法课')
 
-    fireEvent.click(screen.getByRole('button', { name: '设置单价书法课' }))
-    fireEvent.change(screen.getByLabelText('课程单价10'), { target: { value: 'abc' } })
-    fireEvent.click(screen.getByRole('button', { name: '保存' }))
-
-    expect(await screen.findByText('请输入有效的单价')).toBeInTheDocument()
-    expect(courseApi.updateAdminCourse).not.toHaveBeenCalled()
+    expect(screen.getByText('请到定价中心修改')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /设置单价/ })).not.toBeInTheDocument()
   })
 
   it('toggles a course active state', async () => {

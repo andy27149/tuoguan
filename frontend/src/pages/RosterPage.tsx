@@ -245,6 +245,11 @@ export function RosterPage({ onBack }: RosterPageProps) {
                       <span>
                         {student.name} · {student.schoolClassName}
                         {!student.enrolled && <span className="ml-2 text-xs text-gray-400">（已停用）</span>}
+                        {student.enrolledCourseNames.length > 0 && (
+                          <span className="ml-2 text-xs text-gray-400">
+                            另报名：{student.enrolledCourseNames.join('、')}
+                          </span>
+                        )}
                       </span>
                       <span className="flex gap-2">
                         <button

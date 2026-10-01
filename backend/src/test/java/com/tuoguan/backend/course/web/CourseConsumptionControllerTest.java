@@ -168,6 +168,92 @@ class CourseConsumptionControllerTest extends IntegrationTestBase {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    void batchConsumptionCreatesRecordsOnlyForPresentStudents() throws Exception {
+        Long institutionId = institutionDao.insert("批量消课测试机构A");
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800020001",
+                passwordEncoder.encode("password"), Role.TEACHER, false, null));
+        Long courseId = courseDao.insert(new Course(null, institutionId, teacherId, "书法课",
+                new BigDecimal("50.00"), 45, true, null));
+        Long presentStudentId = studentDao.insert(new Student(null, institutionId, null, "小明", null, true, null, null));
+        Long absentStudentId = studentDao.insert(new Student(null, institutionId, null, "小红", null, true, null, null));
+        enrollmentDao.insert(new StudentCourseEnrollment(null, institutionId, presentStudentId, courseId, true, null));
+        enrollmentDao.insert(new StudentCourseEnrollment(null, institutionId, absentStudentId, courseId, true, null));
+        String token = login("13800020001", "password");
+
+        mockMvc.perform(post("/api/courses/" + courseId + "/consumption/batch")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2024-01-02\",\"presentStudentIds\":[" + presentStudentId + "]}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].studentId").value(presentStudentId))
+                .andExpect(jsonPath("$[0].priceSnapshot").value(50.00));
+    }
+
+    @Test
+    void repeatedBatchConsumptionOnSameDaySilentlySkipsAlreadyRecordedStudents() throws Exception {
+        Long institutionId = institutionDao.insert("批量消课测试机构B");
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800020002",
+                passwordEncoder.encode("password"), Role.TEACHER, false, null));
+        Long courseId = courseDao.insert(new Course(null, institutionId, teacherId, "美术课",
+                new BigDecimal("40.00"), 45, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, null, "小明", null, true, null, null));
+        enrollmentDao.insert(new StudentCourseEnrollment(null, institutionId, studentId, courseId, true, null));
+        String token = login("13800020002", "password");
+
+        mockMvc.perform(post("/api/courses/" + courseId + "/consumption/batch")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2024-01-02\",\"presentStudentIds\":[" + studentId + "]}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.length()").value(1));
+
+        mockMvc.perform(post("/api/courses/" + courseId + "/consumption/batch")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2024-01-02\",\"presentStudentIds\":[" + studentId + "]}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void batchConsumptionOnUnpricedCourseReturnsBadRequest() throws Exception {
+        Long institutionId = institutionDao.insert("批量消课测试机构C");
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800020003",
+                passwordEncoder.encode("password"), Role.TEACHER, false, null));
+        Long courseId = courseDao.insert(new Course(null, institutionId, teacherId, "围棋课", null, 45, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, null, "小明", null, true, null, null));
+        enrollmentDao.insert(new StudentCourseEnrollment(null, institutionId, studentId, courseId, true, null));
+        String token = login("13800020003", "password");
+
+        mockMvc.perform(post("/api/courses/" + courseId + "/consumption/batch")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2024-01-02\",\"presentStudentIds\":[" + studentId + "]}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void batchConsumptionOnAnotherTeachersCourseReturnsNotFound() throws Exception {
+        Long institutionId = institutionDao.insert("批量消课测试机构D");
+        Long ownerTeacherId = teacherDao.insert(new Teacher(null, institutionId, "13800020004",
+                passwordEncoder.encode("owner-password"), Role.TEACHER, false, null));
+        teacherDao.insert(new Teacher(null, institutionId, "13800020005",
+                passwordEncoder.encode("intruder-password"), Role.TEACHER, false, null));
+        Long courseId = courseDao.insert(new Course(null, institutionId, ownerTeacherId, "声乐课",
+                new BigDecimal("30.00"), 45, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, null, "小明", null, true, null, null));
+        enrollmentDao.insert(new StudentCourseEnrollment(null, institutionId, studentId, courseId, true, null));
+        String intruderToken = login("13800020005", "intruder-password");
+
+        mockMvc.perform(post("/api/courses/" + courseId + "/consumption/batch")
+                        .header("Authorization", "Bearer " + intruderToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2024-01-02\",\"presentStudentIds\":[" + studentId + "]}"))
+                .andExpect(status().isNotFound());
+    }
+
     private String login(String phone, String password) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

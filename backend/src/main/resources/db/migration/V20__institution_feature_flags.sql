@@ -1,0 +1,3 @@
+ALTER TABLE institution
+    ADD COLUMN custody_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    ADD COLUMN off_campus_enabled BOOLEAN NOT NULL DEFAULT TRUE;

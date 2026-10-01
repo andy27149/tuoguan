@@ -109,60 +109,72 @@ describe('CourseConsumptionPage', () => {
     await waitFor(() => expect(courseApi.unenrollStudent).toHaveBeenCalledWith(1, 100))
   })
 
-  it('records consumption for a student', async () => {
-    vi.mocked(courseApi.recordConsumption).mockResolvedValue({
-      id: 1,
-      studentId: 100,
-      courseId: 1,
-      courseName: null,
-      consumptionDate: '2026-09-30',
-      priceSnapshot: 50,
-      teacherName: null,
-    })
-    setup()
-    await screen.findByText('小明')
-
-    fireEvent.click(screen.getAllByRole('button', { name: '消课' })[0])
-    fireEvent.click(screen.getByRole('button', { name: '确认消课' }))
-
-    await waitFor(() =>
-      expect(courseApi.recordConsumption).toHaveBeenCalledWith(1, 100, expect.any(String), false),
-    )
-  })
-
-  it('shows a confirmation dialog on duplicate same-day consumption and retries with confirm=true', async () => {
-    vi.mocked(courseApi.recordConsumption)
-      .mockRejectedValueOnce(new ApiError(409, 'dup'))
-      .mockResolvedValueOnce({
-        id: 2,
+  it('defaults all roster students to present and submits a roll call for everyone', async () => {
+    vi.mocked(courseApi.recordBatchConsumption).mockResolvedValue([
+      {
+        id: 1,
         studentId: 100,
         courseId: 1,
         courseName: null,
         consumptionDate: '2026-09-30',
         priceSnapshot: 50,
         teacherName: null,
-      })
+      },
+      {
+        id: 2,
+        studentId: 200,
+        courseId: 1,
+        courseName: null,
+        consumptionDate: '2026-09-30',
+        priceSnapshot: 50,
+        teacherName: null,
+      },
+    ])
     setup()
     await screen.findByText('小明')
 
-    fireEvent.click(screen.getAllByRole('button', { name: '消课' })[0])
-    fireEvent.click(screen.getByRole('button', { name: '确认消课' }))
+    expect(screen.getByRole('checkbox', { name: /小明/ })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: /小红/ })).toBeChecked()
 
-    expect(await screen.findByText('该学生今日已有消课记录，是否继续再记一次消课？')).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: '是' }))
+    fireEvent.click(screen.getByRole('button', { name: '确认消课（2人）' }))
 
     await waitFor(() =>
-      expect(courseApi.recordConsumption).toHaveBeenLastCalledWith(1, 100, expect.any(String), true),
+      expect(courseApi.recordBatchConsumption).toHaveBeenCalledWith(1, expect.any(String), [100, 200]),
     )
   })
 
-  it('shows an unpriced-course error message and disables consume when the course has no price', async () => {
+  it('unchecking a student excludes them from the submitted roll call', async () => {
+    vi.mocked(courseApi.recordBatchConsumption).mockResolvedValue([])
+    setup()
+    await screen.findByText('小明')
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /小红/ }))
+    expect(screen.getByRole('button', { name: '确认消课（1人）' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '确认消课（1人）' }))
+
+    await waitFor(() =>
+      expect(courseApi.recordBatchConsumption).toHaveBeenCalledWith(1, expect.any(String), [100]),
+    )
+  })
+
+  it('shows a friendly error when the roll call submission fails on an unpriced course', async () => {
+    vi.mocked(courseApi.recordBatchConsumption).mockRejectedValue(new ApiError(400, 'unpriced'))
+    setup()
+    await screen.findByText('小明')
+
+    fireEvent.click(screen.getByRole('button', { name: '确认消课（2人）' }))
+
+    expect(await screen.findByText('该课程尚未配置单价，请联系管理员配置')).toBeInTheDocument()
+  })
+
+  it('shows an unpriced-course warning and disables roll call when the course has no price', async () => {
     vi.mocked(courseApi.fetchMyCourses).mockResolvedValue([{ ...COURSES[0], pricePerLesson: null }])
     setup()
     await screen.findByText('小明')
 
     expect(screen.getByText('该课程尚未配置单价，请联系管理员配置后再消课')).toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: '消课' })[0]).toBeDisabled()
+    expect(screen.getByRole('checkbox', { name: /小明/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /确认消课/ })).toBeDisabled()
   })
 })

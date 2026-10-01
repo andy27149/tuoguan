@@ -1,6 +1,7 @@
 package com.tuoguan.backend.admin.service;
 
 import com.tuoguan.backend.admin.web.InstitutionSettingsResponse;
+import com.tuoguan.backend.admin.web.InvalidFeatureFlagsException;
 import com.tuoguan.backend.admin.web.InvalidLogoException;
 import com.tuoguan.backend.auth.dao.InstitutionDao;
 import com.tuoguan.backend.auth.domain.Institution;
@@ -33,6 +34,16 @@ public class AdminInstitutionService {
         return toResponse(requireInstitution(institutionId));
     }
 
+    public InstitutionSettingsResponse updateFeatureFlags(Long institutionId, boolean custodyEnabled,
+                                                            boolean offCampusEnabled) {
+        if (!custodyEnabled && !offCampusEnabled) {
+            throw new InvalidFeatureFlagsException("At least one of custody or off-campus must remain enabled");
+        }
+        requireInstitution(institutionId);
+        institutionDao.updateFeatureFlags(institutionId, custodyEnabled, offCampusEnabled);
+        return toResponse(requireInstitution(institutionId));
+    }
+
     public InstitutionSettingsResponse updateLogo(Long institutionId, String contentType, byte[] content) {
         if (!ALLOWED_LOGO_CONTENT_TYPES.contains(contentType)) {
             throw new InvalidLogoException("Unsupported logo content type: " + contentType);
@@ -54,6 +65,7 @@ public class AdminInstitutionService {
 
     private InstitutionSettingsResponse toResponse(Institution institution) {
         return new InstitutionSettingsResponse(institution.id(), institution.name(),
-                storageService.avatarUrl(institution.logoObjectKey()));
+                storageService.avatarUrl(institution.logoObjectKey()), institution.custodyEnabled(),
+                institution.offCampusEnabled());
     }
 }

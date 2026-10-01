@@ -36,7 +36,8 @@ public class AdminKanbanController {
     public List<StudentResponse> students(@AuthenticationPrincipal TeacherPrincipal principal,
                                            @PathVariable Long classId) {
         return adminKanbanService.listStudents(principal.institutionId(), classId).stream()
-                .map(s -> StudentResponse.from(s, studentService.avatarUrl(s)))
+                .map(s -> StudentResponse.from(s, studentService.avatarUrl(s),
+                        studentService.enrolledCourseNames(s.id())))
                 .toList();
     }
 

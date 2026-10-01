@@ -34,7 +34,7 @@ public class AdminTeacherController {
                                    @Valid @RequestBody CreateTeacherRequest request) {
         return TeacherResponse.from(
                 adminTeacherService.createTeacher(principal.institutionId(), request.phone(), request.name(),
-                        request.initialPassword()));
+                        request.initialPassword(), request.role()));
     }
 
     @GetMapping("/api/admin/teachers")

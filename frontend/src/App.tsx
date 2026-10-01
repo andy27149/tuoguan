@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import { LoginPage } from './pages/LoginPage'
 import { ChangePasswordPage } from './pages/ChangePasswordPage'
@@ -7,10 +7,39 @@ import { RosterPage } from './pages/RosterPage'
 import { CourseConsumptionPage } from './pages/CourseConsumptionPage'
 import { AdminDashboardPage } from './pages/AdminDashboardPage'
 import { PlatformAdminPage } from './pages/PlatformAdminPage'
+import { EmptyTeacherState } from './components/EmptyTeacherState'
+import * as classesApi from './api/classes'
+import * as courseApi from './api/course'
 
 function AuthenticatedApp() {
+  const { logout, state } = useAuth()
+  const isAdmin = state.status === 'authenticated' && state.teacher.role === 'ADMIN'
   const [view, setView] = useState<'kanban' | 'roster' | 'consumption' | 'admin'>('kanban')
   const [jumpToClassId, setJumpToClassId] = useState<number | null>(null)
+  const [resourcesLoading, setResourcesLoading] = useState(!isAdmin)
+  const [hasClasses, setHasClasses] = useState(true)
+  const [hasCourses, setHasCourses] = useState(true)
+
+  useEffect(() => {
+    if (isAdmin) {
+      setResourcesLoading(false)
+      return
+    }
+    let cancelled = false
+    Promise.all([classesApi.fetchClasses(), courseApi.fetchMyCourses()])
+      .then(([classList, courseList]) => {
+        if (cancelled) return
+        setHasClasses(classList.length > 0)
+        setHasCourses(courseList.length > 0)
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setResourcesLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isAdmin])
 
   function handleOpenClassKanban(classId: number) {
     setJumpToClassId(classId)
@@ -26,12 +55,17 @@ function AuthenticatedApp() {
   if (view === 'admin') {
     return <AdminDashboardPage onBack={() => setView('kanban')} onOpenClassKanban={handleOpenClassKanban} />
   }
+  if (!isAdmin && !resourcesLoading && !hasClasses && !hasCourses) {
+    return <EmptyTeacherState onOpenRoster={() => setView('roster')} onLogout={logout} />
+  }
   return (
     <KanbanPage
       onOpenRoster={() => setView('roster')}
       onOpenConsumption={() => setView('consumption')}
       onOpenAdmin={() => setView('admin')}
       initialClassId={jumpToClassId ?? undefined}
+      hasClasses={isAdmin || hasClasses}
+      hasCourses={isAdmin || hasCourses}
     />
   )
 }

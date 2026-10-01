@@ -1,5 +1,9 @@
 package com.tuoguan.backend.roster.service;
 
+import com.tuoguan.backend.course.dao.CourseDao;
+import com.tuoguan.backend.course.dao.StudentCourseEnrollmentDao;
+import com.tuoguan.backend.course.domain.Course;
+import com.tuoguan.backend.course.domain.StudentCourseEnrollment;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.ClassRoom;
 import com.tuoguan.backend.roster.domain.Student;
@@ -9,6 +13,7 @@ import com.tuoguan.backend.storage.StorageService;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 @Service
@@ -19,11 +24,16 @@ public class StudentService {
     private final StudentDao studentDao;
     private final ClassRoomService classRoomService;
     private final StorageService storageService;
+    private final StudentCourseEnrollmentDao enrollmentDao;
+    private final CourseDao courseDao;
 
-    public StudentService(StudentDao studentDao, ClassRoomService classRoomService, StorageService storageService) {
+    public StudentService(StudentDao studentDao, ClassRoomService classRoomService, StorageService storageService,
+                           StudentCourseEnrollmentDao enrollmentDao, CourseDao courseDao) {
         this.studentDao = studentDao;
         this.classRoomService = classRoomService;
         this.storageService = storageService;
+        this.enrollmentDao = enrollmentDao;
+        this.courseDao = courseDao;
     }
 
     public Student create(Long teacherId, Long classRoomId, String name, String schoolClassName) {
@@ -66,6 +76,14 @@ public class StudentService {
 
     public String avatarUrl(Student student) {
         return storageService.avatarUrl(student.avatarObjectKey());
+    }
+
+    public List<String> enrolledCourseNames(Long studentId) {
+        return enrollmentDao.findAllByStudentId(studentId).stream()
+                .filter(StudentCourseEnrollment::active)
+                .map(e -> courseDao.findById(e.courseId()).map(Course::name).orElse(null))
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     public String shareToken(Long teacherId, Long studentId) {

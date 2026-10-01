@@ -16,4 +16,6 @@ public interface InstitutionDao {
     void updateName(Long id, String name);
 
     void updateLogoObjectKey(Long id, String logoObjectKey);
+
+    void updateFeatureFlags(Long id, boolean custodyEnabled, boolean offCampusEnabled);
 }

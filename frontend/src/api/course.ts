@@ -67,6 +67,7 @@ export interface AdminStudent {
   classRoomId: number | null
   classRoomName: string | null
   offCampusOnly: boolean
+  enrolledCourseNames: string[]
 }
 
 export interface CourseConsumptionSummaryRow {
@@ -125,6 +126,17 @@ export function recordConsumption(
   return apiFetch<ConsumptionRecord>(`/courses/${courseId}/consumption`, {
     method: 'POST',
     body: JSON.stringify({ studentId, date, confirm }),
+  })
+}
+
+export function recordBatchConsumption(
+  courseId: number,
+  date: string,
+  presentStudentIds: number[],
+): Promise<ConsumptionRecord[]> {
+  return apiFetch<ConsumptionRecord[]>(`/courses/${courseId}/consumption/batch`, {
+    method: 'POST',
+    body: JSON.stringify({ date, presentStudentIds }),
   })
 }
 

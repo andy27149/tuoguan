@@ -11,7 +11,6 @@ export function AdminCoursesModule() {
   const [loadingTeachers, setLoadingTeachers] = useState(true)
 
   const [editingCourseId, setEditingCourseId] = useState<number | null>(null)
-  const [editingPrice, setEditingPrice] = useState('')
   const [editingTeacherId, setEditingTeacherId] = useState<number | null>(null)
   const [editSubmitting, setEditSubmitting] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
@@ -38,7 +37,6 @@ export function AdminCoursesModule() {
 
   function startEdit(course: courseApi.AdminCourse) {
     setEditingCourseId(course.id)
-    setEditingPrice(course.pricePerLesson !== null ? String(course.pricePerLesson) : '')
     setEditingTeacherId(course.teacherId)
     setEditError(null)
   }
@@ -50,16 +48,10 @@ export function AdminCoursesModule() {
 
   async function handleSaveEdit() {
     if (editingCourseId === null || editingTeacherId === null) return
-    const price = Number(editingPrice)
-    if (!Number.isFinite(price) || price < 0) {
-      setEditError('请输入有效的单价')
-      return
-    }
     setEditSubmitting(true)
     setEditError(null)
     try {
       await courseApi.updateAdminCourse(editingCourseId, {
-        pricePerLesson: price,
         teacherId: editingTeacherId,
       })
       setEditingCourseId(null)
@@ -135,18 +127,10 @@ export function AdminCoursesModule() {
                       <span className="text-[#7c7391]">{course.lessonDurationMinutes}分钟</span>
                     </td>
                     <td className="px-4 py-3">
-                      {isEditing ? (
-                        <input
-                          aria-label={`课程单价${course.id}`}
-                          value={editingPrice}
-                          onChange={(e) => setEditingPrice(e.target.value)}
-                          className="w-20 rounded-lg border border-[#ece7de] px-2 py-1 text-sm"
-                        />
-                      ) : (
-                        <span className="text-[#241f3d]">
-                          {course.pricePerLesson !== null ? `¥${course.pricePerLesson.toFixed(2)}` : '未配置'}
-                        </span>
-                      )}
+                      <span className="text-[#241f3d]">
+                        {course.pricePerLesson !== null ? `¥${course.pricePerLesson.toFixed(2)}` : '未配置'}
+                      </span>
+                      <span className="block text-[10px] text-[#7c7391]">请到定价中心修改</span>
                     </td>
                     <td className="px-4 py-3">
                       <span
@@ -183,11 +167,11 @@ export function AdminCoursesModule() {
                         <span className="flex gap-1.5">
                           <button
                             type="button"
-                            aria-label={`设置单价${course.name}`}
+                            aria-label={`改派${course.name}`}
                             onClick={() => startEdit(course)}
                             className="rounded-full border border-[#ece7de] px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]"
                           >
-                            设置单价/改派
+                            改派负责教师
                           </button>
                           <button
                             type="button"

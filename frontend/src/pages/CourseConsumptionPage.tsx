@@ -4,7 +4,6 @@ import * as classesApi from '../api/classes'
 import * as studentsApi from '../api/students'
 import { ApiError } from '../api/client'
 import { BrandMark } from '../brand/BrandMark'
-import { ConfirmDialog } from '../components/ConfirmDialog'
 
 interface CourseConsumptionPageProps {
   onBack: () => void
@@ -38,11 +37,10 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
   const [enrolling, setEnrolling] = useState(false)
   const [enrollError, setEnrollError] = useState<string | null>(null)
 
-  const [consumingStudentId, setConsumingStudentId] = useState<number | null>(null)
-  const [consumeDate, setConsumeDate] = useState(todayDateString())
-  const [consumeSubmitting, setConsumeSubmitting] = useState(false)
-  const [consumeError, setConsumeError] = useState<string | null>(null)
-  const [pendingDuplicate, setPendingDuplicate] = useState<{ studentId: number; date: string } | null>(null)
+  const [rollCallDate, setRollCallDate] = useState(todayDateString())
+  const [presentStudentIds, setPresentStudentIds] = useState<Set<number>>(new Set())
+  const [rollCallSubmitting, setRollCallSubmitting] = useState(false)
+  const [rollCallError, setRollCallError] = useState<string | null>(null)
 
   useEffect(() => {
     loadCourses()
@@ -72,15 +70,20 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
     setLoadError(null)
     courseApi
       .fetchCourseRoster(activeCourseId)
-      .then(setRoster)
+      .then(applyRoster)
       .catch(() => setLoadError('加载花名册失败，请刷新重试'))
       .finally(() => setLoading(false))
   }, [activeCourseId])
 
+  function applyRoster(list: courseApi.CourseRosterEntry[]) {
+    setRoster(list)
+    setPresentStudentIds(new Set(list.map((r) => r.studentId)))
+  }
+
   async function refreshRoster() {
     if (activeCourseId === null) return
     const list = await courseApi.fetchCourseRoster(activeCourseId)
-    setRoster(list)
+    applyRoster(list)
   }
 
   async function handleCreateCourse(e: FormEvent) {
@@ -149,37 +152,43 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
     if (activeCourseId === null) return
     const previous = roster
     setRoster((prev) => prev.filter((r) => r.studentId !== studentId))
+    setPresentStudentIds((prev) => {
+      const next = new Set(prev)
+      next.delete(studentId)
+      return next
+    })
     try {
       await courseApi.unenrollStudent(activeCourseId, studentId)
     } catch {
       setRoster(previous)
+      setPresentStudentIds((prev) => new Set(prev).add(studentId))
     }
   }
 
-  function startConsume(studentId: number) {
-    setConsumingStudentId(studentId)
-    setConsumeDate(todayDateString())
-    setConsumeError(null)
+  function togglePresent(studentId: number) {
+    setPresentStudentIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(studentId)) {
+        next.delete(studentId)
+      } else {
+        next.add(studentId)
+      }
+      return next
+    })
   }
 
-  async function submitConsumption(studentId: number, date: string, confirm: boolean) {
+  async function submitRollCall() {
     if (activeCourseId === null) return
-    setConsumeSubmitting(true)
-    setConsumeError(null)
+    setRollCallSubmitting(true)
+    setRollCallError(null)
     try {
-      await courseApi.recordConsumption(activeCourseId, studentId, date, confirm)
-      setPendingDuplicate(null)
-      setConsumingStudentId(null)
+      await courseApi.recordBatchConsumption(activeCourseId, rollCallDate, Array.from(presentStudentIds))
     } catch (err) {
-      if (err instanceof ApiError && err.status === 409) {
-        setPendingDuplicate({ studentId, date })
-      } else if (err instanceof ApiError && err.status === 400) {
-        setConsumeError('该课程尚未配置单价，请联系管理员配置')
-      } else {
-        setConsumeError('消课失败，请重试')
-      }
+      setRollCallError(
+        err instanceof ApiError && err.status === 400 ? '该课程尚未配置单价，请联系管理员配置' : '消课失败，请重试',
+      )
     } finally {
-      setConsumeSubmitting(false)
+      setRollCallSubmitting(false)
     }
   }
 
@@ -267,69 +276,61 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
               {roster.map((entry) => (
                 <li key={entry.studentId} className="rounded border border-gray-100 p-2 text-sm">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span>
-                      {entry.name}
-                      {entry.schoolClassName && <span className="text-gray-500"> · {entry.schoolClassName}</span>}
-                      <span
-                        className={
-                          entry.offCampusOnly
-                            ? 'ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700'
-                            : 'ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700'
-                        }
-                      >
-                        {entry.offCampusOnly ? '纯课外' : '托管'}
-                      </span>
-                    </span>
-                    <span className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => startConsume(entry.studentId)}
-                        disabled={unpriced}
-                        className="rounded border px-2 py-1 text-xs text-gray-600 disabled:opacity-50"
-                      >
-                        消课
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleUnenroll(entry.studentId)}
-                        className="rounded border px-2 py-1 text-xs text-gray-600"
-                      >
-                        移出
-                      </button>
-                    </span>
-                  </div>
-                  {consumingStudentId === entry.studentId && (
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <label className="flex items-center gap-2">
                       <input
-                        type="date"
-                        value={consumeDate}
-                        onChange={(e) => setConsumeDate(e.target.value)}
-                        className="rounded border px-2 py-1 text-xs"
+                        type="checkbox"
+                        checked={presentStudentIds.has(entry.studentId)}
+                        onChange={() => togglePresent(entry.studentId)}
+                        disabled={unpriced}
                       />
-                      <button
-                        type="button"
-                        onClick={() => submitConsumption(entry.studentId, consumeDate, false)}
-                        disabled={consumeSubmitting}
-                        className="rounded bg-blue-600 px-2 py-1 text-xs text-white disabled:opacity-50"
-                      >
-                        确认消课
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setConsumingStudentId(null)}
-                        className="rounded border px-2 py-1 text-xs text-gray-600"
-                      >
-                        取消
-                      </button>
-                    </div>
-                  )}
+                      <span>
+                        {entry.name}
+                        {entry.schoolClassName && <span className="text-gray-500"> · {entry.schoolClassName}</span>}
+                        <span
+                          className={
+                            entry.offCampusOnly
+                              ? 'ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700'
+                              : 'ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700'
+                          }
+                        >
+                          {entry.offCampusOnly ? '纯课外' : '托管'}
+                        </span>
+                      </span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => handleUnenroll(entry.studentId)}
+                      className="rounded border px-2 py-1 text-xs text-gray-600"
+                    >
+                      移出
+                    </button>
+                  </div>
                 </li>
               ))}
               {roster.length === 0 && <li className="text-xs text-gray-400">该课程暂无学生</li>}
             </ul>
-            {consumeError && (
+
+            {roster.length > 0 && (
+              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
+                <input
+                  type="date"
+                  value={rollCallDate}
+                  onChange={(e) => setRollCallDate(e.target.value)}
+                  className="rounded border px-2 py-1 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={submitRollCall}
+                  disabled={unpriced || rollCallSubmitting || presentStudentIds.size === 0}
+                  className="rounded bg-blue-600 px-3 py-1 text-sm text-white disabled:opacity-50"
+                >
+                  确认消课（{presentStudentIds.size}人）
+                </button>
+              </div>
+            )}
+            {rollCallError && (
               <p role="alert" className="mt-1 text-xs text-red-600">
-                {consumeError}
+                {rollCallError}
               </p>
             )}
 
@@ -413,16 +414,6 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
           </div>
         )}
       </main>
-
-      {pendingDuplicate && (
-        <ConfirmDialog
-          title="重复消课确认"
-          message="该学生今日已有消课记录，是否继续再记一次消课？"
-          confirming={consumeSubmitting}
-          onCancel={() => setPendingDuplicate(null)}
-          onConfirm={() => submitConsumption(pendingDuplicate.studentId, pendingDuplicate.date, true)}
-        />
-      )}
     </div>
   )
 }

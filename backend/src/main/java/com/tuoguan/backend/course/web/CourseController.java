@@ -83,4 +83,16 @@ public class CourseController {
         return ConsumptionRecordResponse.from(courseConsumptionService.recordConsumption(principal.teacherId(), id,
                 request.studentId(), request.date(), request.confirm()));
     }
+
+    @PostMapping("/api/courses/{id}/consumption/batch")
+    @ResponseStatus(HttpStatus.CREATED)
+    public List<ConsumptionRecordResponse> recordBatchConsumption(@AuthenticationPrincipal TeacherPrincipal principal,
+                                                                    @PathVariable Long id,
+                                                                    @Valid @RequestBody BatchRecordConsumptionRequest request) {
+        return courseConsumptionService
+                .recordBatchConsumption(principal.teacherId(), id, request.date(), request.presentStudentIds())
+                .stream()
+                .map(ConsumptionRecordResponse::from)
+                .toList();
+    }
 }

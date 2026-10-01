@@ -7,6 +7,7 @@ export interface Student {
   schoolClassName: string
   enrolled: boolean
   avatarUrl: string | null
+  enrolledCourseNames: string[]
 }
 
 export function fetchStudents(classId: number): Promise<Student[]> {

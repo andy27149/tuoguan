@@ -10,8 +10,8 @@ vi.mock('../api/students')
 
 const CLASSES = [{ id: 1, name: '一班' }]
 const STUDENTS = [
-  { id: 10, name: '小明', schoolClassName: '三年一班', enrolled: true, avatarUrl: null },
-  { id: 11, name: '小红', schoolClassName: '三年二班', enrolled: false, avatarUrl: null },
+  { id: 10, name: '小明', schoolClassName: '三年一班', enrolled: true, avatarUrl: null, enrolledCourseNames: [] },
+  { id: 11, name: '小红', schoolClassName: '三年二班', enrolled: false, avatarUrl: null, enrolledCourseNames: ['书法课'] },
 ]
 
 describe('RosterPage', () => {
@@ -28,6 +28,13 @@ describe('RosterPage', () => {
     expect(screen.getByText(/小红/)).toBeInTheDocument()
     expect(screen.getByText('（已停用）')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /删除/ })).not.toBeInTheDocument()
+  })
+
+  it('shows an inline badge for students also enrolled in off-campus courses', async () => {
+    render(<RosterPage onBack={vi.fn()} />)
+
+    expect(await screen.findByText(/另报名：书法课/)).toBeInTheDocument()
+    expect(screen.getByText(/小明/).textContent).not.toMatch(/另报名/)
   })
 
   it('creates a new class and switches to it', async () => {

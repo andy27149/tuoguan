@@ -72,6 +72,7 @@ public class StudentController {
     }
 
     private StudentResponse toResponse(Student student) {
-        return StudentResponse.from(student, studentService.avatarUrl(student));
+        return StudentResponse.from(student, studentService.avatarUrl(student),
+                studentService.enrolledCourseNames(student.id()));
     }
 }

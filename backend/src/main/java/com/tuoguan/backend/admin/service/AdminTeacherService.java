@@ -1,6 +1,7 @@
 package com.tuoguan.backend.admin.service;
 
 import com.tuoguan.backend.admin.web.DuplicatePhoneException;
+import com.tuoguan.backend.admin.web.InvalidTeacherRoleException;
 import com.tuoguan.backend.admin.web.InvalidTransferTargetException;
 import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
@@ -82,12 +83,15 @@ public class AdminTeacherService {
         this.monthlyBillDao = monthlyBillDao;
     }
 
-    public Teacher createTeacher(Long institutionId, String phone, String name, String initialPassword) {
+    public Teacher createTeacher(Long institutionId, String phone, String name, String initialPassword, Role role) {
+        if (role == Role.PLATFORM_ADMIN) {
+            throw new InvalidTeacherRoleException("Cannot create a teacher with role: " + role);
+        }
         if (teacherDao.findByPhone(phone).isPresent()) {
             throw new DuplicatePhoneException("Phone already registered: " + phone);
         }
         Long id = teacherDao.insert(new Teacher(null, institutionId, phone, name,
-                passwordEncoder.encode(initialPassword), Role.TEACHER, true, null));
+                passwordEncoder.encode(initialPassword), role != null ? role : Role.TEACHER, true, null));
         return teacherDao.findById(id)
                 .orElseThrow(() -> new IllegalStateException("Teacher not found after insert: " + id));
     }

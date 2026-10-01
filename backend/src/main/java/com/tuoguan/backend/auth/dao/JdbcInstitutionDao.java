@@ -36,11 +36,14 @@ public class JdbcInstitutionDao implements InstitutionDao {
     @Override
     public Optional<Institution> findById(Long id) {
         List<Institution> results = jdbcTemplate.query(
-                "SELECT id, name, logo_object_key, created_at FROM institution WHERE id = ?",
+                "SELECT id, name, logo_object_key, custody_enabled, off_campus_enabled, created_at "
+                        + "FROM institution WHERE id = ?",
                 (rs, rowNum) -> new Institution(
                         rs.getLong("id"),
                         rs.getString("name"),
                         rs.getString("logo_object_key"),
+                        rs.getBoolean("custody_enabled"),
+                        rs.getBoolean("off_campus_enabled"),
                         rs.getTimestamp("created_at").toInstant()),
                 id);
         return results.stream().findFirst();
@@ -49,11 +52,14 @@ public class JdbcInstitutionDao implements InstitutionDao {
     @Override
     public List<Institution> findAll() {
         return jdbcTemplate.query(
-                "SELECT id, name, logo_object_key, created_at FROM institution ORDER BY created_at",
+                "SELECT id, name, logo_object_key, custody_enabled, off_campus_enabled, created_at "
+                        + "FROM institution ORDER BY created_at",
                 (rs, rowNum) -> new Institution(
                         rs.getLong("id"),
                         rs.getString("name"),
                         rs.getString("logo_object_key"),
+                        rs.getBoolean("custody_enabled"),
+                        rs.getBoolean("off_campus_enabled"),
                         rs.getTimestamp("created_at").toInstant()));
     }
 
@@ -65,5 +71,11 @@ public class JdbcInstitutionDao implements InstitutionDao {
     @Override
     public void updateLogoObjectKey(Long id, String logoObjectKey) {
         jdbcTemplate.update("UPDATE institution SET logo_object_key = ? WHERE id = ?", logoObjectKey, id);
+    }
+
+    @Override
+    public void updateFeatureFlags(Long id, boolean custodyEnabled, boolean offCampusEnabled) {
+        jdbcTemplate.update("UPDATE institution SET custody_enabled = ?, off_campus_enabled = ? WHERE id = ?",
+                custodyEnabled, offCampusEnabled, id);
     }
 }

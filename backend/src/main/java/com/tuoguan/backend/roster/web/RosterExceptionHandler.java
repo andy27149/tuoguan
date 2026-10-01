@@ -3,7 +3,9 @@ package com.tuoguan.backend.roster.web;
 import com.tuoguan.backend.admin.web.BillingRateNotConfiguredException;
 import com.tuoguan.backend.admin.web.DuplicatePhoneException;
 import com.tuoguan.backend.admin.web.InvalidLeaveDateException;
+import com.tuoguan.backend.admin.web.InvalidFeatureFlagsException;
 import com.tuoguan.backend.admin.web.InvalidLogoException;
+import com.tuoguan.backend.admin.web.InvalidTeacherRoleException;
 import com.tuoguan.backend.admin.web.InvalidTransferTargetException;
 import com.tuoguan.backend.course.web.CourseNotEnrolledException;
 import com.tuoguan.backend.course.web.CoursePriceNotConfiguredException;
@@ -49,6 +51,11 @@ public class RosterExceptionHandler {
     public void handleInvalidTransferTarget() {
     }
 
+    @ExceptionHandler(InvalidTeacherRoleException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public void handleInvalidTeacherRole() {
+    }
+
     @ExceptionHandler(BillingRateNotConfiguredException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public void handleBillingRateNotConfigured() {
@@ -62,6 +69,11 @@ public class RosterExceptionHandler {
     @ExceptionHandler(InvalidLogoException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public void handleInvalidLogo() {
+    }
+
+    @ExceptionHandler(InvalidFeatureFlagsException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public void handleInvalidFeatureFlags() {
     }
 
     @ExceptionHandler(DuplicateCourseNameException.class)

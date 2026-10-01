@@ -33,10 +33,15 @@ export function fetchTeachers(): Promise<Teacher[]> {
   return apiFetch<Teacher[]>('/admin/teachers')
 }
 
-export function createTeacher(phone: string, name: string, initialPassword: string): Promise<Teacher> {
+export function createTeacher(
+  phone: string,
+  name: string,
+  initialPassword: string,
+  role?: 'ADMIN' | 'TEACHER',
+): Promise<Teacher> {
   return apiFetch<Teacher>('/admin/teachers', {
     method: 'POST',
-    body: JSON.stringify({ phone, name, initialPassword }),
+    body: JSON.stringify({ phone, name, initialPassword, role }),
   })
 }
 

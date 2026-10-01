@@ -71,6 +71,35 @@ class AdminTeacherControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void adminCreatesAnotherAdminAccountWhenRoleIsSpecified() throws Exception {
+        Long institutionId = institutionDao.insert("管理员教师测试机构F");
+        teacherDao.insert(new Teacher(null, institutionId, "13700001010",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        String token = login("13700001010", "admin-password");
+
+        mockMvc.perform(post("/api/admin/teachers")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"phone\":\"13700001011\",\"name\":\"第二管理员\",\"initialPassword\":\"initial123\",\"role\":\"ADMIN\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.role").value("ADMIN"));
+    }
+
+    @Test
+    void rejectsCreatingTeacherWithPlatformAdminRole() throws Exception {
+        Long institutionId = institutionDao.insert("管理员教师测试机构G");
+        teacherDao.insert(new Teacher(null, institutionId, "13700001012",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        String token = login("13700001012", "admin-password");
+
+        mockMvc.perform(post("/api/admin/teachers")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"phone\":\"13700001013\",\"name\":\"越权账号\",\"initialPassword\":\"initial123\",\"role\":\"PLATFORM_ADMIN\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void rejectsDuplicatePhoneWhenCreatingTeacher() throws Exception {
         Long institutionId = institutionDao.insert("管理员教师测试机构B");
         teacherDao.insert(new Teacher(null, institutionId, "13700001003",

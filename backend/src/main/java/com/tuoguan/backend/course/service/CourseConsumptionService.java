@@ -70,4 +70,32 @@ public class CourseConsumptionService {
                 .findFirst()
                 .orElseThrow(() -> new NotFoundException("Consumption record not found: " + id));
     }
+
+    public List<CourseConsumptionRecord> recordBatchConsumption(Long teacherId, Long courseId, LocalDate date,
+                                                                  List<Long> presentStudentIds) {
+        Course course = courseService.getOwnedByTeacher(teacherId, courseId);
+        if (course.pricePerLesson() == null) {
+            throw new CoursePriceNotConfiguredException("Course price not configured: " + courseId);
+        }
+
+        List<Long> enrolledStudentIds = enrollmentDao.findAllByCourseId(course.id()).stream()
+                .filter(StudentCourseEnrollment::active)
+                .map(StudentCourseEnrollment::studentId)
+                .toList();
+
+        return presentStudentIds.stream()
+                .filter(enrolledStudentIds::contains)
+                .filter(studentId -> consumptionRecordDao
+                        .findAllByStudentIdAndCourseIdAndDate(studentId, course.id(), date).isEmpty())
+                .map(studentId -> {
+                    Long id = consumptionRecordDao.insert(new CourseConsumptionRecord(null, course.institutionId(),
+                            studentId, course.id(), date, course.pricePerLesson(), teacherId, null));
+                    return consumptionRecordDao.findAllByStudentIdAndCourseIdAndDate(studentId, course.id(), date)
+                            .stream()
+                            .filter(r -> r.id().equals(id))
+                            .findFirst()
+                            .orElseThrow(() -> new NotFoundException("Consumption record not found: " + id));
+                })
+                .toList();
+    }
 }

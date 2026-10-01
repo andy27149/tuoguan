@@ -13,6 +13,7 @@ const STUDENTS: courseApi.AdminStudent[] = [
     classRoomId: 20,
     classRoomName: '托管一班',
     offCampusOnly: false,
+    enrolledCourseNames: ['书法课'],
   },
   {
     id: 2,
@@ -21,6 +22,7 @@ const STUDENTS: courseApi.AdminStudent[] = [
     classRoomId: null,
     classRoomName: null,
     offCampusOnly: true,
+    enrolledCourseNames: [],
   },
 ]
 
@@ -46,6 +48,15 @@ describe('AdminStudentsModule', () => {
     expect(screen.getByText('纯课外')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '创建' })).not.toBeInTheDocument()
     expect(screen.queryByPlaceholderText('学生姓名')).not.toBeInTheDocument()
+  })
+
+  it('shows enrolled course names, or a dash when none', async () => {
+    render(<AdminStudentsModule />)
+
+    expect(await screen.findByText('书法课')).toBeInTheDocument()
+    const rows = screen.getAllByRole('row')
+    const rowFor小红 = rows.find((r) => r.textContent?.includes('小红'))
+    expect(rowFor小红?.textContent).toContain('—')
   })
 
   it('only shows the 对账单/充值 action for pure off-campus students', async () => {

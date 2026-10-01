@@ -25,6 +25,9 @@ vi.mock('./AdminBillingModule', () => ({
 vi.mock('./AdminSettingsModule', () => ({
   AdminSettingsModule: () => <div>SettingsModuleStub</div>,
 }))
+vi.mock('./AdminPricingModule', () => ({
+  AdminPricingModule: () => <div>PricingModuleStub</div>,
+}))
 
 describe('AdminDashboardPage', () => {
   beforeEach(() => {
@@ -33,6 +36,8 @@ describe('AdminDashboardPage', () => {
       id: 1,
       name: '阳光托管班',
       logoUrl: null,
+      custodyEnabled: true,
+      offCampusEnabled: true,
     })
   })
 
@@ -103,5 +108,31 @@ describe('AdminDashboardPage', () => {
 
     expect(screen.getByText('BillingModuleStub')).toBeInTheDocument()
     expect(screen.queryByText('TeachersModuleStub')).not.toBeInTheDocument()
+  })
+
+  it('switches to the pricing module when its sidebar item is clicked', () => {
+    render(<AdminDashboardPage onBack={vi.fn()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: '定价中心' }))
+
+    expect(screen.getByText('PricingModuleStub')).toBeInTheDocument()
+    expect(screen.queryByText('TeachersModuleStub')).not.toBeInTheDocument()
+  })
+
+  it('hides custody-only nav items when the institution has custody disabled', async () => {
+    vi.mocked(institutionApi.fetchInstitutionSettings).mockResolvedValue({
+      id: 1,
+      name: '阳光托管班',
+      logoUrl: null,
+      custodyEnabled: false,
+      offCampusEnabled: true,
+    })
+    render(<AdminDashboardPage onBack={vi.fn()} />)
+
+    await screen.findByText('阳光托管班')
+    expect(screen.queryByRole('button', { name: '托管班级' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '任务完成情况' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '账单管理' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '定价中心' })).toBeInTheDocument()
   })
 })

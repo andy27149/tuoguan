@@ -5,6 +5,8 @@ export interface InstitutionSettings {
   id: number
   name: string
   logoUrl: string | null
+  custodyEnabled: boolean
+  offCampusEnabled: boolean
 }
 
 export function fetchInstitutionSettings(): Promise<InstitutionSettings> {
@@ -15,6 +17,13 @@ export function updateInstitutionName(name: string): Promise<InstitutionSettings
   return apiFetch<InstitutionSettings>('/admin/institution/name', {
     method: 'PUT',
     body: JSON.stringify({ name }),
+  })
+}
+
+export function updateFeatureFlags(custodyEnabled: boolean, offCampusEnabled: boolean): Promise<InstitutionSettings> {
+  return apiFetch<InstitutionSettings>('/admin/institution/feature-flags', {
+    method: 'PUT',
+    body: JSON.stringify({ custodyEnabled, offCampusEnabled }),
   })
 }
 

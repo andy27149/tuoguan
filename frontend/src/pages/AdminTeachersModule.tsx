@@ -17,6 +17,7 @@ export function AdminTeachersModule({ onOpenClassKanban }: AdminTeachersModulePr
   const [newPhone, setNewPhone] = useState('')
   const [newName, setNewName] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  const [newRole, setNewRole] = useState<'TEACHER' | 'ADMIN'>('TEACHER')
   const [creatingTeacher, setCreatingTeacher] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [createdNotice, setCreatedNotice] = useState<{ phone: string; password: string } | null>(null)
@@ -55,11 +56,12 @@ export function AdminTeachersModule({ onOpenClassKanban }: AdminTeachersModulePr
     setCreatingTeacher(true)
     setCreateError(null)
     try {
-      await adminApi.createTeacher(phone, name, password)
+      await adminApi.createTeacher(phone, name, password, newRole)
       setCreatedNotice({ phone, password })
       setNewPhone('')
       setNewName('')
       setNewPassword('')
+      setNewRole('TEACHER')
       loadTeachers()
     } catch (err) {
       setCreateError(err instanceof ApiError && err.status === 409 ? '该手机号已注册' : '创建失败，请重试')
@@ -148,6 +150,26 @@ export function AdminTeachersModule({ onOpenClassKanban }: AdminTeachersModulePr
             onChange={(e) => setNewPassword(e.target.value)}
             className="w-32 rounded-lg border border-[#ece7de] px-2 py-1 text-sm"
           />
+          <label className="flex items-center gap-1 text-sm text-[#5d5480]">
+            <input
+              type="radio"
+              name="newTeacherRole"
+              value="TEACHER"
+              checked={newRole === 'TEACHER'}
+              onChange={() => setNewRole('TEACHER')}
+            />
+            教师
+          </label>
+          <label className="flex items-center gap-1 text-sm text-[#5d5480]">
+            <input
+              type="radio"
+              name="newTeacherRole"
+              value="ADMIN"
+              checked={newRole === 'ADMIN'}
+              onChange={() => setNewRole('ADMIN')}
+            />
+            管理员
+          </label>
           <button
             type="submit"
             disabled={creatingTeacher || !newPhone.trim() || !newName.trim() || !newPassword.trim()}
