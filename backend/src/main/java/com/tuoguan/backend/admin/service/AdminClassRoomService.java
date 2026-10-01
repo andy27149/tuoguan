@@ -5,8 +5,10 @@ import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.billing.dao.ClassBillingRateDao;
 import com.tuoguan.backend.billing.dao.MonthlyBillDao;
-import com.tuoguan.backend.billing.dao.StudentExtraFeeDao;
 import com.tuoguan.backend.billing.dao.StudentLeaveRecordDao;
+import com.tuoguan.backend.course.dao.CourseConsumptionRecordDao;
+import com.tuoguan.backend.course.dao.CourseRechargeRecordDao;
+import com.tuoguan.backend.course.dao.StudentCourseEnrollmentDao;
 import com.tuoguan.backend.kanban.dao.ClassDismissalDao;
 import com.tuoguan.backend.kanban.dao.DailyTaskDao;
 import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
@@ -37,7 +39,9 @@ public class AdminClassRoomService {
     private final StudentArrivalCheckinDao studentArrivalCheckinDao;
     private final ClassDismissalDao classDismissalDao;
     private final ClassBillingRateDao classBillingRateDao;
-    private final StudentExtraFeeDao studentExtraFeeDao;
+    private final StudentCourseEnrollmentDao studentCourseEnrollmentDao;
+    private final CourseConsumptionRecordDao courseConsumptionRecordDao;
+    private final CourseRechargeRecordDao courseRechargeRecordDao;
     private final StudentLeaveRecordDao studentLeaveRecordDao;
     private final MonthlyBillDao monthlyBillDao;
 
@@ -45,7 +49,10 @@ public class AdminClassRoomService {
                                   DailyTaskDao dailyTaskDao, StudentDailyNoteDao studentDailyNoteDao,
                                   StudentArrivalCheckinDao studentArrivalCheckinDao,
                                   ClassDismissalDao classDismissalDao, ClassBillingRateDao classBillingRateDao,
-                                  StudentExtraFeeDao studentExtraFeeDao, StudentLeaveRecordDao studentLeaveRecordDao,
+                                  StudentCourseEnrollmentDao studentCourseEnrollmentDao,
+                                  CourseConsumptionRecordDao courseConsumptionRecordDao,
+                                  CourseRechargeRecordDao courseRechargeRecordDao,
+                                  StudentLeaveRecordDao studentLeaveRecordDao,
                                   MonthlyBillDao monthlyBillDao) {
         this.classRoomDao = classRoomDao;
         this.teacherDao = teacherDao;
@@ -55,7 +62,9 @@ public class AdminClassRoomService {
         this.studentArrivalCheckinDao = studentArrivalCheckinDao;
         this.classDismissalDao = classDismissalDao;
         this.classBillingRateDao = classBillingRateDao;
-        this.studentExtraFeeDao = studentExtraFeeDao;
+        this.studentCourseEnrollmentDao = studentCourseEnrollmentDao;
+        this.courseConsumptionRecordDao = courseConsumptionRecordDao;
+        this.courseRechargeRecordDao = courseRechargeRecordDao;
         this.studentLeaveRecordDao = studentLeaveRecordDao;
         this.monthlyBillDao = monthlyBillDao;
     }
@@ -100,7 +109,9 @@ public class AdminClassRoomService {
         monthlyBillDao.deleteAllByClassRoomId(classRoom.id());
         studentLeaveRecordDao.deleteAllByClassRoomId(classRoom.id());
         for (var student : studentDao.findAllByClassRoomId(classRoom.id())) {
-            studentExtraFeeDao.deleteAllByStudentId(student.id());
+            studentCourseEnrollmentDao.deleteAllByStudentId(student.id());
+            courseConsumptionRecordDao.deleteAllByStudentId(student.id());
+            courseRechargeRecordDao.deleteAllByStudentId(student.id());
         }
         studentDao.deleteAllByClassRoomId(classRoom.id());
         classRoomDao.deleteById(classRoom.id());

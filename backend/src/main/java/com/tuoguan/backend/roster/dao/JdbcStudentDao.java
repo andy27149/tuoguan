@@ -19,7 +19,7 @@ public class JdbcStudentDao implements StudentDao {
     private static final RowMapper<Student> ROW_MAPPER = (rs, rowNum) -> new Student(
             rs.getLong("id"),
             rs.getLong("institution_id"),
-            rs.getLong("class_room_id"),
+            rs.getObject("class_room_id", Long.class),
             rs.getString("name"),
             rs.getString("school_class_name"),
             rs.getBoolean("enrolled"),
@@ -42,7 +42,7 @@ public class JdbcStudentDao implements StudentDao {
                             + "VALUES (?, ?, ?, ?, ?, ?)",
                     Statement.RETURN_GENERATED_KEYS);
             ps.setLong(1, student.institutionId());
-            ps.setLong(2, student.classRoomId());
+            ps.setObject(2, student.classRoomId());
             ps.setString(3, student.name());
             ps.setString(4, student.schoolClassName());
             ps.setBoolean(5, student.enrolled());
@@ -67,6 +67,14 @@ public class JdbcStudentDao implements StudentDao {
                 "SELECT id, institution_id, class_room_id, name, school_class_name, enrolled, avatar_object_key, created_at "
                         + "FROM student WHERE class_room_id = ? ORDER BY id",
                 ROW_MAPPER, classRoomId);
+    }
+
+    @Override
+    public List<Student> findAllByInstitutionId(Long institutionId) {
+        return jdbcTemplate.query(
+                "SELECT id, institution_id, class_room_id, name, school_class_name, enrolled, avatar_object_key, created_at "
+                        + "FROM student WHERE institution_id = ? ORDER BY id",
+                ROW_MAPPER, institutionId);
     }
 
     @Override
@@ -98,5 +106,10 @@ public class JdbcStudentDao implements StudentDao {
     @Override
     public void deleteAllByClassRoomId(Long classRoomId) {
         jdbcTemplate.update("DELETE FROM student WHERE class_room_id = ?", classRoomId);
+    }
+
+    @Override
+    public void deleteAllByStudentId(Long studentId) {
+        jdbcTemplate.update("DELETE FROM student WHERE id = ?", studentId);
     }
 }

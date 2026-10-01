@@ -2,9 +2,11 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { FeeManagementModal } from './FeeManagementModal'
 import * as billingApi from '../api/billing'
+import * as courseApi from '../api/course'
 import { ApiError } from '../api/client'
 
 vi.mock('../api/billing')
+vi.mock('../api/course')
 
 const RATE: billingApi.ClassBillingRate = {
   id: 1,
@@ -27,10 +29,10 @@ const LEAVE_RECORDS: billingApi.StudentLeaveRecord[] = [
   },
 ]
 
-const EXTRA_FEES: billingApi.StudentExtraFeeRow[] = [
+const COURSE_CONSUMPTION: courseApi.CourseConsumptionSummaryRow[] = [
   {
-    id: 1,
-    name: '数学课',
+    courseId: 1,
+    courseName: '数学课',
     pricePerLesson: 50,
     lessonCount: 4,
     amount: 200,
@@ -59,7 +61,7 @@ describe('FeeManagementModal', () => {
     vi.resetAllMocks()
     vi.mocked(billingApi.fetchClassBillingRate).mockResolvedValue(RATE)
     vi.mocked(billingApi.fetchStudentLeaveRecords).mockResolvedValue(LEAVE_RECORDS)
-    vi.mocked(billingApi.fetchStudentExtraFees).mockResolvedValue(EXTRA_FEES)
+    vi.mocked(courseApi.fetchStudentCourseConsumption).mockResolvedValue(COURSE_CONSUMPTION)
   })
 
   it('prefills the tuition amount from the class billing rate', async () => {
@@ -67,7 +69,7 @@ describe('FeeManagementModal', () => {
 
     expect(await screen.findByLabelText('本月托管费金额')).toHaveValue('300')
     expect(billingApi.fetchStudentLeaveRecords).toHaveBeenCalledWith(100, '2026-09')
-    expect(billingApi.fetchStudentExtraFees).toHaveBeenCalledWith(100, '2026-09')
+    expect(courseApi.fetchStudentCourseConsumption).toHaveBeenCalledWith(100, '2026-09')
   })
 
   it('shows existing leave records and adds a new one', async () => {
@@ -127,94 +129,39 @@ describe('FeeManagementModal', () => {
     await waitFor(() => expect(screen.queryByText('2026-09-05')).not.toBeInTheDocument())
   })
 
-  it('shows existing extra fees with computed amount and adds a new one', async () => {
-    const created: billingApi.StudentExtraFee = {
-      id: 2,
-      institutionId: 1,
-      studentId: 100,
-      name: '英语课',
-      pricePerLesson: 40,
-      createdAt: '2026-09-01T00:00:00Z',
-    }
-    const newRow: billingApi.StudentExtraFeeRow = {
-      id: 2,
-      name: '英语课',
-      pricePerLesson: 40,
-      lessonCount: 0,
-      amount: 0,
-    }
-    vi.mocked(billingApi.addStudentExtraFee).mockResolvedValue(created)
-    vi.mocked(billingApi.fetchStudentExtraFees)
-      .mockResolvedValueOnce(EXTRA_FEES)
-      .mockResolvedValueOnce([...EXTRA_FEES, newRow])
+  it('shows read-only course consumption for the month with computed amount', async () => {
     setup()
+
     expect(await screen.findByText('数学课')).toBeInTheDocument()
     expect(screen.getByText('¥50.00')).toBeInTheDocument()
+    expect(screen.getByText('4')).toBeInTheDocument()
     expect(screen.getByText('¥200.00')).toBeInTheDocument()
-
-    fireEvent.change(screen.getByPlaceholderText('课程名称'), { target: { value: '英语课' } })
-    fireEvent.change(screen.getByPlaceholderText('每节课价格'), { target: { value: '40' } })
-    fireEvent.click(screen.getByRole('button', { name: '添加' }))
-
-    await waitFor(() => expect(billingApi.addStudentExtraFee).toHaveBeenCalledWith(100, '英语课', 40))
-    expect(await screen.findByText('英语课')).toBeInTheDocument()
   })
 
-  it('shows a duplicate-name error for extra fees on 409', async () => {
-    vi.mocked(billingApi.addStudentExtraFee).mockRejectedValue(new ApiError(409, '冲突'))
+  it('shows an unconfigured-price placeholder when a course has no price set', async () => {
+    vi.mocked(courseApi.fetchStudentCourseConsumption).mockResolvedValue([
+      { courseId: 2, courseName: '未定价课', pricePerLesson: null, lessonCount: 2, amount: 0 },
+    ])
+    setup()
+
+    expect(await screen.findByText('未定价课')).toBeInTheDocument()
+    expect(screen.getByText('未配置')).toBeInTheDocument()
+  })
+
+  it('shows an empty-state message when there is no course consumption this month', async () => {
+    vi.mocked(courseApi.fetchStudentCourseConsumption).mockResolvedValue([])
+    setup()
+
+    expect(await screen.findByText('本月暂无课外课消课记录')).toBeInTheDocument()
+  })
+
+  it('has no add/edit controls for course consumption (read-only)', async () => {
     setup()
     await screen.findByText('数学课')
 
-    fireEvent.change(screen.getByPlaceholderText('课程名称'), { target: { value: '数学课' } })
-    fireEvent.change(screen.getByPlaceholderText('每节课价格'), { target: { value: '50' } })
-    fireEvent.click(screen.getByRole('button', { name: '添加' }))
-
-    expect(await screen.findByText('该课外费项目已存在')).toBeInTheDocument()
-  })
-
-  it('deletes an extra fee', async () => {
-    vi.mocked(billingApi.deleteStudentExtraFee).mockResolvedValue(undefined)
-    setup()
-    await screen.findByText('数学课')
-
-    fireEvent.click(screen.getByRole('button', { name: '删除课外费数学课' }))
-
-    await waitFor(() => expect(billingApi.deleteStudentExtraFee).toHaveBeenCalledWith(100, 1))
-    await waitFor(() => expect(screen.queryByText('数学课')).not.toBeInTheDocument())
-  })
-
-  it('edits and saves the lesson count for an extra fee, recomputing the amount live', async () => {
-    const updated: billingApi.StudentExtraFeeRow = {
-      id: 1,
-      name: '数学课',
-      pricePerLesson: 50,
-      lessonCount: 6,
-      amount: 300,
-    }
-    vi.mocked(billingApi.setExtraFeeLessonCount).mockResolvedValue(updated)
-    setup()
-    await screen.findByText('数学课')
-
-    const countInput = screen.getByLabelText('数学课上课数')
-    fireEvent.change(countInput, { target: { value: '6' } })
-    expect(screen.getByText('¥300.00')).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: '保存' }))
-
-    await waitFor(() =>
-      expect(billingApi.setExtraFeeLessonCount).toHaveBeenCalledWith(100, 1, '2026-09', 6),
-    )
-  })
-
-  it('shows a validation error for an invalid lesson count', async () => {
-    setup()
-    await screen.findByText('数学课')
-
-    fireEvent.change(screen.getByLabelText('数学课上课数'), { target: { value: 'abc' } })
-    fireEvent.click(screen.getByRole('button', { name: '保存' }))
-
-    expect(await screen.findByText('请输入有效的上课数')).toBeInTheDocument()
-    expect(billingApi.setExtraFeeLessonCount).not.toHaveBeenCalled()
+    expect(screen.queryByPlaceholderText('课程名称')).not.toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('每节课价格')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '删除课外费数学课' })).not.toBeInTheDocument()
   })
 
   it('closes without saving when cancel is clicked', async () => {

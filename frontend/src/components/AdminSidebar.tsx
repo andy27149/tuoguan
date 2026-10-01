@@ -1,4 +1,4 @@
-export type AdminModule = 'teachers' | 'classes' | 'taskStats' | 'billing' | 'settings'
+export type AdminModule = 'teachers' | 'classes' | 'courses' | 'students' | 'taskStats' | 'billing' | 'settings'
 
 interface AdminSidebarProps {
   active: AdminModule
@@ -8,6 +8,8 @@ interface AdminSidebarProps {
 const NAV_ITEMS: { key: AdminModule; label: string }[] = [
   { key: 'teachers', label: '教师列表' },
   { key: 'classes', label: '托管班级' },
+  { key: 'courses', label: '课外课程' },
+  { key: 'students', label: '学生总览' },
   { key: 'taskStats', label: '任务完成情况' },
   { key: 'billing', label: '账单管理' },
   { key: 'settings', label: '基础配置' },

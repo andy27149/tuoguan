@@ -1,11 +1,15 @@
 package com.tuoguan.backend.roster.web;
 
 import com.tuoguan.backend.admin.web.BillingRateNotConfiguredException;
-import com.tuoguan.backend.admin.web.DuplicateExtraFeeException;
 import com.tuoguan.backend.admin.web.DuplicatePhoneException;
 import com.tuoguan.backend.admin.web.InvalidLeaveDateException;
 import com.tuoguan.backend.admin.web.InvalidLogoException;
 import com.tuoguan.backend.admin.web.InvalidTransferTargetException;
+import com.tuoguan.backend.course.web.CourseNotEnrolledException;
+import com.tuoguan.backend.course.web.CoursePriceNotConfiguredException;
+import com.tuoguan.backend.course.web.DuplicateConsumptionException;
+import com.tuoguan.backend.course.web.DuplicateCourseNameException;
+import com.tuoguan.backend.course.web.RechargeNotAllowedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -55,13 +59,33 @@ public class RosterExceptionHandler {
     public void handleInvalidLeaveDate() {
     }
 
-    @ExceptionHandler(DuplicateExtraFeeException.class)
-    @ResponseStatus(HttpStatus.CONFLICT)
-    public void handleDuplicateExtraFee() {
-    }
-
     @ExceptionHandler(InvalidLogoException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public void handleInvalidLogo() {
+    }
+
+    @ExceptionHandler(DuplicateCourseNameException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public void handleDuplicateCourseName() {
+    }
+
+    @ExceptionHandler(DuplicateConsumptionException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public void handleDuplicateConsumption() {
+    }
+
+    @ExceptionHandler(CourseNotEnrolledException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public void handleCourseNotEnrolled() {
+    }
+
+    @ExceptionHandler(CoursePriceNotConfiguredException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public void handleCoursePriceNotConfigured() {
+    }
+
+    @ExceptionHandler(RechargeNotAllowedException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public void handleRechargeNotAllowed() {
     }
 }

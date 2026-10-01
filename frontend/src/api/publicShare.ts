@@ -1,11 +1,13 @@
 import { apiFetch } from './client'
 import type { MonthlyStats } from './monthlyStats'
+import type { StudentCourseStatement } from './course'
 
 export interface PublicShare {
   studentName: string
-  schoolClassName: string
+  schoolClassName: string | null
   avatarUrl: string | null
-  stats: MonthlyStats
+  stats: MonthlyStats | null
+  courseStatement: StudentCourseStatement | null
 }
 
 export function fetchPublicShare(token: string, month?: string): Promise<PublicShare> {

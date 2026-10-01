@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import * as billingApi from '../api/billing'
+import * as courseApi from '../api/course'
 import { ApiError } from '../api/client'
 
 interface FeeManagementModalProps {
@@ -33,16 +34,8 @@ export function FeeManagementModal({
   const [leaveSubmitting, setLeaveSubmitting] = useState(false)
   const [leaveError, setLeaveError] = useState<string | null>(null)
 
-  const [extraFees, setExtraFees] = useState<billingApi.StudentExtraFeeRow[]>([])
-  const [loadingExtraFees, setLoadingExtraFees] = useState(true)
-  const [extraFeeName, setExtraFeeName] = useState('')
-  const [extraFeePricePerLesson, setExtraFeePricePerLesson] = useState('')
-  const [extraFeeSubmitting, setExtraFeeSubmitting] = useState(false)
-  const [extraFeeError, setExtraFeeError] = useState<string | null>(null)
-
-  const [lessonCountInputs, setLessonCountInputs] = useState<Record<number, string>>({})
-  const [savingLessonCountId, setSavingLessonCountId] = useState<number | null>(null)
-  const [lessonCountError, setLessonCountError] = useState<string | null>(null)
+  const [courseConsumption, setCourseConsumption] = useState<courseApi.CourseConsumptionSummaryRow[]>([])
+  const [loadingCourseConsumption, setLoadingCourseConsumption] = useState(true)
 
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -56,13 +49,10 @@ export function FeeManagementModal({
       .fetchStudentLeaveRecords(studentId, month)
       .then(setLeaveRecords)
       .finally(() => setLoadingLeave(false))
-    billingApi
-      .fetchStudentExtraFees(studentId, month)
-      .then((fees) => {
-        setExtraFees(fees)
-        setLessonCountInputs(Object.fromEntries(fees.map((f) => [f.id, String(f.lessonCount)])))
-      })
-      .finally(() => setLoadingExtraFees(false))
+    courseApi
+      .fetchStudentCourseConsumption(studentId, month)
+      .then(setCourseConsumption)
+      .finally(() => setLoadingCourseConsumption(false))
   }, [studentId, classRoomId, month])
 
   async function handleAddLeave() {
@@ -86,50 +76,6 @@ export function FeeManagementModal({
   async function handleCancelLeave(date: string) {
     await billingApi.cancelStudentLeave(studentId, date)
     setLeaveRecords((prev) => prev.filter((r) => r.leaveDate !== date))
-  }
-
-  async function handleAddExtraFee() {
-    const name = extraFeeName.trim()
-    const pricePerLesson = Number(extraFeePricePerLesson)
-    if (!name || !Number.isFinite(pricePerLesson) || pricePerLesson < 0) return
-    setExtraFeeSubmitting(true)
-    setExtraFeeError(null)
-    try {
-      await billingApi.addStudentExtraFee(studentId, name, pricePerLesson)
-      const fees = await billingApi.fetchStudentExtraFees(studentId, month)
-      setExtraFees(fees)
-      setLessonCountInputs(Object.fromEntries(fees.map((f) => [f.id, String(f.lessonCount)])))
-      setExtraFeeName('')
-      setExtraFeePricePerLesson('')
-    } catch (err) {
-      setExtraFeeError(err instanceof ApiError && err.status === 409 ? '该课外费项目已存在' : '添加失败，请重试')
-    } finally {
-      setExtraFeeSubmitting(false)
-    }
-  }
-
-  async function handleDeleteExtraFee(feeId: number) {
-    await billingApi.deleteStudentExtraFee(studentId, feeId)
-    setExtraFees((prev) => prev.filter((f) => f.id !== feeId))
-  }
-
-  async function handleSaveLessonCount(feeId: number) {
-    const input = lessonCountInputs[feeId] ?? ''
-    const lessonCount = Number(input)
-    if (!Number.isInteger(lessonCount) || lessonCount < 0) {
-      setLessonCountError('请输入有效的上课数')
-      return
-    }
-    setSavingLessonCountId(feeId)
-    setLessonCountError(null)
-    try {
-      const updated = await billingApi.setExtraFeeLessonCount(studentId, feeId, month, lessonCount)
-      setExtraFees((prev) => prev.map((f) => (f.id === feeId ? updated : f)))
-    } catch {
-      setLessonCountError('保存失败，请重试')
-    } finally {
-      setSavingLessonCountId(null)
-    }
   }
 
   async function handleSave() {
@@ -249,97 +195,40 @@ export function FeeManagementModal({
           </section>
 
           <section>
-            <h3 className="text-sm font-semibold text-[#241f3d]">课外费管理</h3>
-            {loadingExtraFees ? (
+            <h3 className="text-sm font-semibold text-[#241f3d]">课外课消课（本月，只读）</h3>
+            {loadingCourseConsumption ? (
               <p className="mt-1 text-xs text-[#7c7391]">加载中...</p>
             ) : (
               <table className="mt-2 w-full text-left text-xs">
                 <thead>
                   <tr className="text-[#7c7391]">
                     <th className="py-1 font-normal">课程名称</th>
-                    <th className="py-1 font-normal">每节课价格</th>
-                    <th className="py-1 font-normal">本月上课数</th>
+                    <th className="py-1 font-normal">当前单价</th>
+                    <th className="py-1 font-normal">本月消课数</th>
                     <th className="py-1 font-normal">金额</th>
-                    <th className="py-1 font-normal">操作</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {extraFees.map((f) => {
-                    const input = lessonCountInputs[f.id] ?? ''
-                    const count = Number(input)
-                    const amount = f.pricePerLesson * (Number.isFinite(count) ? count : 0)
-                    return (
-                      <tr key={f.id} className="border-t border-[#ece7de]">
-                        <td className="py-1.5">{f.name}</td>
-                        <td className="py-1.5">¥{f.pricePerLesson.toFixed(2)}</td>
-                        <td className="py-1.5">
-                          <input
-                            aria-label={`${f.name}上课数`}
-                            value={input}
-                            onChange={(e) =>
-                              setLessonCountInputs((prev) => ({ ...prev, [f.id]: e.target.value }))
-                            }
-                            className="w-14 rounded-lg border border-[#ece7de] px-1.5 py-0.5"
-                          />
-                        </td>
-                        <td className="py-1.5">¥{amount.toFixed(2)}</td>
-                        <td className="py-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleSaveLessonCount(f.id)}
-                              disabled={savingLessonCountId === f.id}
-                              className="rounded-full bg-[#6d5bd0] px-2 py-0.5 text-white disabled:opacity-50"
-                            >
-                              保存
-                            </button>
-                            <button
-                              type="button"
-                              aria-label={`删除课外费${f.name}`}
-                              onClick={() => handleDeleteExtraFee(f.id)}
-                              className="text-[#b7591f]"
-                            >
-                              删除
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                  {extraFees.length === 0 && (
+                  {courseConsumption.map((row) => (
+                    <tr key={row.courseId} className="border-t border-[#ece7de]">
+                      <td className="py-1.5">{row.courseName}</td>
+                      <td className="py-1.5">
+                        {row.pricePerLesson !== null ? `¥${row.pricePerLesson.toFixed(2)}` : '未配置'}
+                      </td>
+                      <td className="py-1.5">{row.lessonCount}</td>
+                      <td className="py-1.5">¥{row.amount.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                  {courseConsumption.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="py-1.5 text-[#7c7391]">
-                        暂无课外费项目
+                      <td colSpan={4} className="py-1.5 text-[#7c7391]">
+                        本月暂无课外课消课记录
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
             )}
-            {lessonCountError && <p className="mt-1 text-xs text-[#b7591f]">{lessonCountError}</p>}
-            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
-              <input
-                placeholder="课程名称"
-                value={extraFeeName}
-                onChange={(e) => setExtraFeeName(e.target.value)}
-                className="w-24 rounded-lg border border-[#ece7de] px-1.5 py-1"
-              />
-              <input
-                placeholder="每节课价格"
-                value={extraFeePricePerLesson}
-                onChange={(e) => setExtraFeePricePerLesson(e.target.value)}
-                className="w-24 rounded-lg border border-[#ece7de] px-1.5 py-1"
-              />
-              <button
-                type="button"
-                onClick={handleAddExtraFee}
-                disabled={extraFeeSubmitting || !extraFeeName.trim() || !extraFeePricePerLesson.trim()}
-                className="rounded-full bg-[#6d5bd0] px-2.5 py-1 text-white disabled:opacity-50"
-              >
-                添加
-              </button>
-            </div>
-            {extraFeeError && <p className="mt-1 text-xs text-[#b7591f]">{extraFeeError}</p>}
           </section>
 
           {saveError && <p className="text-sm text-[#b7591f]">{saveError}</p>}

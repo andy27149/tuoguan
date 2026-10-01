@@ -4,11 +4,12 @@ import { LoginPage } from './pages/LoginPage'
 import { ChangePasswordPage } from './pages/ChangePasswordPage'
 import { KanbanPage } from './pages/KanbanPage'
 import { RosterPage } from './pages/RosterPage'
+import { CourseConsumptionPage } from './pages/CourseConsumptionPage'
 import { AdminDashboardPage } from './pages/AdminDashboardPage'
 import { PlatformAdminPage } from './pages/PlatformAdminPage'
 
 function AuthenticatedApp() {
-  const [view, setView] = useState<'kanban' | 'roster' | 'admin'>('kanban')
+  const [view, setView] = useState<'kanban' | 'roster' | 'consumption' | 'admin'>('kanban')
   const [jumpToClassId, setJumpToClassId] = useState<number | null>(null)
 
   function handleOpenClassKanban(classId: number) {
@@ -19,12 +20,16 @@ function AuthenticatedApp() {
   if (view === 'roster') {
     return <RosterPage onBack={() => setView('kanban')} />
   }
+  if (view === 'consumption') {
+    return <CourseConsumptionPage onBack={() => setView('kanban')} />
+  }
   if (view === 'admin') {
     return <AdminDashboardPage onBack={() => setView('kanban')} onOpenClassKanban={handleOpenClassKanban} />
   }
   return (
     <KanbanPage
       onOpenRoster={() => setView('roster')}
+      onOpenConsumption={() => setView('consumption')}
       onOpenAdmin={() => setView('admin')}
       initialClassId={jumpToClassId ?? undefined}
     />

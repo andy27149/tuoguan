@@ -3,21 +3,21 @@ package com.tuoguan.backend.billing.service;
 import com.tuoguan.backend.admin.web.BillOverviewRow;
 import com.tuoguan.backend.admin.web.BillingRateNotConfiguredException;
 import com.tuoguan.backend.admin.web.ClassBillingRateRow;
-import com.tuoguan.backend.admin.web.DuplicateExtraFeeException;
+import com.tuoguan.backend.admin.web.CourseConsumptionSummaryRow;
 import com.tuoguan.backend.admin.web.InvalidLeaveDateException;
 import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.billing.dao.ClassBillingRateDao;
 import com.tuoguan.backend.billing.dao.MonthlyBillDao;
 import com.tuoguan.backend.billing.dao.MonthlyBillExtraFeeLineDao;
-import com.tuoguan.backend.billing.dao.StudentExtraFeeDao;
-import com.tuoguan.backend.billing.dao.StudentExtraFeeLessonCountDao;
 import com.tuoguan.backend.billing.dao.StudentLeaveRecordDao;
 import com.tuoguan.backend.billing.domain.ClassBillingRate;
 import com.tuoguan.backend.billing.domain.MonthlyBill;
-import com.tuoguan.backend.billing.domain.StudentExtraFee;
-import com.tuoguan.backend.admin.web.StudentExtraFeeRow;
 import com.tuoguan.backend.billing.domain.StudentLeaveRecord;
+import com.tuoguan.backend.course.dao.CourseConsumptionRecordDao;
+import com.tuoguan.backend.course.dao.CourseDao;
+import com.tuoguan.backend.course.domain.Course;
+import com.tuoguan.backend.course.domain.CourseConsumptionRecord;
 import com.tuoguan.backend.roster.dao.ClassRoomDao;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.ClassRoom;
@@ -40,8 +40,8 @@ import java.util.stream.Collectors;
 public class BillGenerationService {
 
     private final ClassBillingRateDao classBillingRateDao;
-    private final StudentExtraFeeDao studentExtraFeeDao;
-    private final StudentExtraFeeLessonCountDao studentExtraFeeLessonCountDao;
+    private final CourseConsumptionRecordDao courseConsumptionRecordDao;
+    private final CourseDao courseDao;
     private final StudentLeaveRecordDao studentLeaveRecordDao;
     private final MonthlyBillDao monthlyBillDao;
     private final MonthlyBillExtraFeeLineDao monthlyBillExtraFeeLineDao;
@@ -49,14 +49,14 @@ public class BillGenerationService {
     private final ClassRoomDao classRoomDao;
     private final TeacherDao teacherDao;
 
-    public BillGenerationService(ClassBillingRateDao classBillingRateDao, StudentExtraFeeDao studentExtraFeeDao,
-                                  StudentExtraFeeLessonCountDao studentExtraFeeLessonCountDao,
+    public BillGenerationService(ClassBillingRateDao classBillingRateDao,
+                                  CourseConsumptionRecordDao courseConsumptionRecordDao, CourseDao courseDao,
                                   StudentLeaveRecordDao studentLeaveRecordDao, MonthlyBillDao monthlyBillDao,
                                   MonthlyBillExtraFeeLineDao monthlyBillExtraFeeLineDao, StudentDao studentDao,
                                   ClassRoomDao classRoomDao, TeacherDao teacherDao) {
         this.classBillingRateDao = classBillingRateDao;
-        this.studentExtraFeeDao = studentExtraFeeDao;
-        this.studentExtraFeeLessonCountDao = studentExtraFeeLessonCountDao;
+        this.courseConsumptionRecordDao = courseConsumptionRecordDao;
+        this.courseDao = courseDao;
         this.studentLeaveRecordDao = studentLeaveRecordDao;
         this.monthlyBillDao = monthlyBillDao;
         this.monthlyBillExtraFeeLineDao = monthlyBillExtraFeeLineDao;
@@ -96,51 +96,27 @@ public class BillGenerationService {
         }
     }
 
-    public List<StudentExtraFeeRow> listExtraFeesForMonth(Long institutionId, Long studentId, YearMonth month) {
+    public List<CourseConsumptionSummaryRow> listCourseConsumptionForMonth(Long institutionId, Long studentId,
+                                                                            YearMonth month) {
         requireStudentInInstitution(institutionId, studentId);
-        return studentExtraFeeDao.findAllByStudentId(studentId).stream()
-                .map(fee -> toRow(fee, month))
-                .toList();
+        return computeCourseConsumptionRows(studentId, month);
     }
 
-    public StudentExtraFee addExtraFee(Long institutionId, Long studentId, String name, BigDecimal pricePerLesson) {
-        requireStudentInInstitution(institutionId, studentId);
-        boolean duplicate = studentExtraFeeDao.findAllByStudentId(studentId).stream()
-                .anyMatch(f -> f.name().equals(name));
-        if (duplicate) {
-            throw new DuplicateExtraFeeException("Extra fee already exists: " + name);
+    private List<CourseConsumptionSummaryRow> computeCourseConsumptionRows(Long studentId, YearMonth month) {
+        List<CourseConsumptionRecord> records = courseConsumptionRecordDao
+                .findAllByStudentIdAndDateRange(studentId, month.atDay(1), month.atEndOfMonth());
+        Map<Long, List<CourseConsumptionRecord>> byCourse = records.stream()
+                .collect(Collectors.groupingBy(CourseConsumptionRecord::courseId));
+        List<CourseConsumptionSummaryRow> rows = new ArrayList<>();
+        for (Map.Entry<Long, List<CourseConsumptionRecord>> entry : byCourse.entrySet()) {
+            List<CourseConsumptionRecord> courseRecords = entry.getValue();
+            Course course = courseDao.findById(entry.getKey()).orElse(null);
+            BigDecimal amount = courseRecords.stream().map(CourseConsumptionRecord::priceSnapshot)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            rows.add(new CourseConsumptionSummaryRow(entry.getKey(), course != null ? course.name() : "-",
+                    course != null ? course.pricePerLesson() : null, courseRecords.size(), amount));
         }
-        Long id = studentExtraFeeDao.insert(institutionId, studentId, name, pricePerLesson);
-        return studentExtraFeeDao.findById(id)
-                .orElseThrow(() -> new IllegalStateException("Extra fee not found after insert: " + id));
-    }
-
-    public void deleteExtraFee(Long institutionId, Long studentId, Long feeId) {
-        requireStudentInInstitution(institutionId, studentId);
-        StudentExtraFee fee = studentExtraFeeDao.findById(feeId)
-                .orElseThrow(() -> new NotFoundException("Extra fee not found: " + feeId));
-        if (!fee.studentId().equals(studentId)) {
-            throw new NotFoundException("Extra fee not found: " + feeId);
-        }
-        studentExtraFeeDao.deleteById(feeId);
-    }
-
-    public StudentExtraFeeRow setExtraFeeLessonCount(Long institutionId, Long studentId, Long feeId, YearMonth month,
-                                                       int lessonCount) {
-        requireStudentInInstitution(institutionId, studentId);
-        StudentExtraFee fee = studentExtraFeeDao.findById(feeId)
-                .orElseThrow(() -> new NotFoundException("Extra fee not found: " + feeId));
-        if (!fee.studentId().equals(studentId)) {
-            throw new NotFoundException("Extra fee not found: " + feeId);
-        }
-        studentExtraFeeLessonCountDao.upsert(institutionId, feeId, month.toString(), lessonCount);
-        return toRow(fee, month);
-    }
-
-    private StudentExtraFeeRow toRow(StudentExtraFee fee, YearMonth month) {
-        int lessonCount = studentExtraFeeLessonCountDao.findLessonCount(fee.id(), month.toString()).orElse(0);
-        BigDecimal amount = fee.pricePerLesson().multiply(BigDecimal.valueOf(lessonCount));
-        return new StudentExtraFeeRow(fee.id(), fee.name(), fee.pricePerLesson(), lessonCount, amount);
+        return rows;
     }
 
     public List<StudentLeaveRecord> listLeaveRecords(Long institutionId, Long studentId, YearMonth month) {
@@ -177,6 +153,9 @@ public class BillGenerationService {
     @Transactional
     public MonthlyBill generateBill(Long institutionId, Long studentId, YearMonth month, BigDecimal tuitionOverride) {
         Student student = requireStudentInInstitution(institutionId, studentId);
+        if (student.classRoomId() == null) {
+            throw new NotFoundException("Student not found: " + studentId);
+        }
         ClassBillingRate rate = classBillingRateDao.findByClassRoomId(student.classRoomId())
                 .orElseThrow(() -> new BillingRateNotConfiguredException("班级未配置计费单价"));
 
@@ -188,17 +167,15 @@ public class BillGenerationService {
 
         BigDecimal tuitionAmount = tuitionOverride != null ? tuitionOverride : rate.tuitionRatePerMonth();
         BigDecimal mealAmount = rate.mealRatePerDay().multiply(BigDecimal.valueOf(attendanceDays));
-        List<StudentExtraFeeRow> extraFeeRows = studentExtraFeeDao.findAllByStudentId(studentId).stream()
-                .map(fee -> toRow(fee, month))
-                .toList();
-        BigDecimal extraFeeTotal = extraFeeRows.stream().map(StudentExtraFeeRow::amount)
+        List<CourseConsumptionSummaryRow> extraFeeRows = computeCourseConsumptionRows(studentId, month);
+        BigDecimal extraFeeTotal = extraFeeRows.stream().map(CourseConsumptionSummaryRow::amount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalAmount = tuitionAmount.add(mealAmount).add(extraFeeTotal);
 
         Long billId = monthlyBillDao.upsert(institutionId, studentId, student.classRoomId(), month, totalWeekdays,
                 leaveDays, attendanceDays, tuitionAmount, mealAmount, extraFeeTotal, totalAmount);
         monthlyBillExtraFeeLineDao.deleteAllByBillId(billId);
-        extraFeeRows.forEach(row -> monthlyBillExtraFeeLineDao.insert(billId, row.name(), row.pricePerLesson(),
+        extraFeeRows.forEach(row -> monthlyBillExtraFeeLineDao.insert(billId, row.courseName(), row.pricePerLesson(),
                 row.lessonCount(), row.amount()));
 
         return monthlyBillDao.findById(billId)

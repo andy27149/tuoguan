@@ -52,6 +52,22 @@ class JdbcStudentDaoTest extends IntegrationTestBase {
     }
 
     @Test
+    void insertAndFindByIdRoundTripsWithNullClassRoomId() {
+        Long institutionId = institutionDao.insert("学生测试机构F");
+        Student student = new Student(null, institutionId, null, "小外", "七年级1班", true, null, null);
+
+        Long id = studentDao.insert(student);
+
+        Optional<Student> found = studentDao.findById(id);
+        assertThat(found).isPresent();
+        assertThat(found.get().classRoomId()).isNull();
+        assertThat(found.get().name()).isEqualTo("小外");
+
+        List<Student> byInstitution = studentDao.findAllByInstitutionId(institutionId);
+        assertThat(byInstitution).extracting(Student::id).contains(id);
+    }
+
+    @Test
     void findAllByClassRoomIdOnlyReturnsOwnStudents() {
         Long classRoomAId = createClassRoom("学生测试机构B", "13900002002");
         Long classRoomBId = createClassRoom("学生测试机构C", "13900002003");

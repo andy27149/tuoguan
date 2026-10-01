@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { fetchPublicShare, type PublicShare } from '../api/publicShare'
 import { currentMonthString, todayDateString } from '../kanban/date'
 import { MonthlyStatsView } from '../components/MonthlyStatsView'
+import { CourseStatementView } from '../components/CourseStatementView'
 import { BrandMark } from '../brand/BrandMark'
 
 interface ParentSharePageProps {
@@ -24,12 +25,14 @@ export function ParentSharePage({ token }: ParentSharePageProps) {
         if (cancelled) return
         setShare(result)
         const today = todayDateString()
-        if (today.startsWith(month)) {
-          setSelectedDate(today)
-        } else if (result.stats.days.length > 0) {
-          setSelectedDate(result.stats.days[result.stats.days.length - 1].date)
-        } else {
-          setSelectedDate(null)
+        if (result.stats) {
+          if (today.startsWith(month)) {
+            setSelectedDate(today)
+          } else if (result.stats.days.length > 0) {
+            setSelectedDate(result.stats.days[result.stats.days.length - 1].date)
+          } else {
+            setSelectedDate(null)
+          }
         }
       })
       .catch(() => {
@@ -65,13 +68,17 @@ export function ParentSharePage({ token }: ParentSharePageProps) {
               </div>
             </div>
 
-            <MonthlyStatsView
-              stats={share.stats}
-              month={month}
-              onMonthChange={setMonth}
-              selectedDate={selectedDate}
-              onSelectDate={setSelectedDate}
-            />
+            {share.stats && (
+              <MonthlyStatsView
+                stats={share.stats}
+                month={month}
+                onMonthChange={setMonth}
+                selectedDate={selectedDate}
+                onSelectDate={setSelectedDate}
+              />
+            )}
+
+            {share.courseStatement && <CourseStatementView statement={share.courseStatement} />}
 
             <p className="parent-share-page__brand">
               <BrandMark size={14} />

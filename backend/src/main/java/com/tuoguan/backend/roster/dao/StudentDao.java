@@ -13,6 +13,8 @@ public interface StudentDao {
 
     List<Student> findAllByClassRoomId(Long classRoomId);
 
+    List<Student> findAllByInstitutionId(Long institutionId);
+
     void update(Student student);
 
     void updateAvatarObjectKey(Long id, String avatarObjectKey);
@@ -22,4 +24,6 @@ public interface StudentDao {
     String findShareToken(Long studentId);
 
     void deleteAllByClassRoomId(Long classRoomId);
+
+    void deleteAllByStudentId(Long studentId);
 }

@@ -18,6 +18,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MvcResult;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -59,10 +60,29 @@ class AdminBillOverviewControllerTest extends IntegrationTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"tuitionRatePerMonth\":50.00,\"mealRatePerDay\":10.00}"))
                 .andExpect(status().isOk());
-        mockMvc.perform(post("/api/admin/students/" + studentId + "/extra-fees")
+
+        String teacherToken = login("13900014002", "teacher-password");
+        MvcResult courseResult = mockMvc.perform(post("/api/courses")
+                        .header("Authorization", "Bearer " + teacherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"数学课\",\"lessonDurationMinutes\":60}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        Long courseId = objectMapper.readTree(courseResult.getResponse().getContentAsString()).get("id").asLong();
+        mockMvc.perform(patch("/api/admin/courses/" + courseId)
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"数学课\",\"pricePerLesson\":50.00}"))
+                        .content("{\"pricePerLesson\":50.00}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/courses/" + courseId + "/enrollments")
+                        .header("Authorization", "Bearer " + teacherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"studentId\":" + studentId + "}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/api/courses/" + courseId + "/consumption")
+                        .header("Authorization", "Bearer " + teacherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"studentId\":" + studentId + ",\"date\":\"2024-01-02\",\"confirm\":false}"))
                 .andExpect(status().isCreated());
 
         MvcResult generateResult = mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=2024-01")

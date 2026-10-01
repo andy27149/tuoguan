@@ -1180,6 +1180,89 @@
     font-size: 12.5px;
     color: var(--ink-soft);
   }
+  .course-statement {
+    margin-top: 4px;
+  }
+  .course-statement__balances {
+    list-style: none;
+    margin: 0 0 14px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .course-statement__balance-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: rgba(0, 0, 0, 0.03);
+  }
+  .course-statement__balance-name {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .course-statement__balance-value {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .course-statement__balance-value--negative {
+    color: #e0503c;
+  }
+  .course-statement__section-title {
+    margin: 0 0 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink-soft);
+  }
+  .course-statement__log {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 320px;
+    overflow-y: auto;
+  }
+  .course-statement__log-row {
+    display: grid;
+    grid-template-columns: 72px 1fr auto;
+    align-items: baseline;
+    gap: 8px;
+    padding: 7px 2px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  }
+  .course-statement__log-date {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+  }
+  .course-statement__log-label {
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+  .course-statement__log-detail {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    color: #e0503c;
+    white-space: nowrap;
+  }
+  .course-statement__log-detail--recharge {
+    color: #2f9e6e;
+  }
+  .course-statement__empty {
+    font-size: 13px;
+    color: var(--ink-soft);
+    text-align: center;
+    padding: 12px 0;
+  }
+
   .parent-share-page__brand {
     display: flex;
     align-items: center;

@@ -23,7 +23,8 @@ public class PublicShareController {
                                          @RequestParam(required = false) String month) {
         YearMonth yearMonth = month != null ? YearMonth.parse(month) : YearMonth.now();
         PublicShareService.PublicShareResult result = publicShareService.getShare(token, yearMonth);
-        return new PublicShareResponse(result.studentName(), result.schoolClassName(), result.avatarUrl(),
-                MonthlyStatsResponse.from(result.stats()));
+        MonthlyStatsResponse stats = result.stats() != null ? MonthlyStatsResponse.from(result.stats()) : null;
+        return new PublicShareResponse(result.studentName(), result.schoolClassName(), result.avatarUrl(), stats,
+                result.courseStatement());
     }
 }

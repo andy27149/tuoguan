@@ -32,11 +32,12 @@ const EMPTY_ARRIVAL = ''
 
 interface KanbanPageProps {
   onOpenRoster: () => void
+  onOpenConsumption: () => void
   onOpenAdmin?: () => void
   initialClassId?: number
 }
 
-export function KanbanPage({ onOpenRoster, onOpenAdmin, initialClassId }: KanbanPageProps) {
+export function KanbanPage({ onOpenRoster, onOpenConsumption, onOpenAdmin, initialClassId }: KanbanPageProps) {
   const { logout, state } = useAuth()
   const isAdmin = state.status === 'authenticated' && state.teacher.role === 'ADMIN'
   const [classes, setClasses] = useState<classesApi.ClassRoom[]>([])
@@ -345,6 +346,11 @@ export function KanbanPage({ onOpenRoster, onOpenAdmin, initialClassId }: Kanban
             {!isAdmin && (
               <button type="button" onClick={onOpenRoster} className="logout-btn">
                 学生管理
+              </button>
+            )}
+            {!isAdmin && (
+              <button type="button" onClick={onOpenConsumption} className="logout-btn">
+                消课
               </button>
             )}
             {isAdmin && onOpenAdmin && (

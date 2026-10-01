@@ -4,6 +4,10 @@ import com.tuoguan.backend.auth.dao.InstitutionDao;
 import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
+import com.tuoguan.backend.course.dao.CourseDao;
+import com.tuoguan.backend.course.dao.CourseRechargeRecordDao;
+import com.tuoguan.backend.course.domain.Course;
+import com.tuoguan.backend.course.domain.CourseRechargeRecord;
 import com.tuoguan.backend.kanban.dao.DailyTaskDao;
 import com.tuoguan.backend.kanban.dao.StudentDailyNoteDao;
 import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
@@ -17,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -47,6 +52,12 @@ class PublicShareControllerTest extends IntegrationTestBase {
     private StudentArrivalCheckinDao studentArrivalCheckinDao;
 
     @Autowired
+    private CourseDao courseDao;
+
+    @Autowired
+    private CourseRechargeRecordDao rechargeRecordDao;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Test
@@ -73,6 +84,28 @@ class PublicShareControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.stats.completedDays").value(1))
                 .andExpect(jsonPath("$.stats.averageRating").value(5.0))
                 .andExpect(jsonPath("$.stats.days[0].arrivedAt").value("17:45"));
+    }
+
+    @Test
+    void pureOffCampusStudentSeesCourseStatementInsteadOfStats() throws Exception {
+        Long institutionId = institutionDao.insert("公开分享测试机构B");
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900009002",
+                passwordEncoder.encode("password"), Role.TEACHER, false, null));
+        Long courseId = courseDao.insert(new Course(null, institutionId, teacherId, "书法课",
+                new BigDecimal("50.00"), 60, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, null, "小外", null, true, null, null));
+        rechargeRecordDao.insert(new CourseRechargeRecord(null, institutionId, studentId, courseId, 10,
+                "微信转账", teacherId, null));
+
+        String shareToken = studentDao.findShareToken(studentId);
+
+        mockMvc.perform(get("/api/public/share/" + shareToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.studentName").value("小外"))
+                .andExpect(jsonPath("$.stats").doesNotExist())
+                .andExpect(jsonPath("$.courseStatement.balances[0].courseName").value("书法课"))
+                .andExpect(jsonPath("$.courseStatement.balances[0].lessonsRecharged").value(10))
+                .andExpect(jsonPath("$.courseStatement.recharges.length()").value(1));
     }
 
     @Test

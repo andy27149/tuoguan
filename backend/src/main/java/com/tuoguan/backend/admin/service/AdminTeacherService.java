@@ -7,8 +7,12 @@ import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.billing.dao.ClassBillingRateDao;
 import com.tuoguan.backend.billing.dao.MonthlyBillDao;
-import com.tuoguan.backend.billing.dao.StudentExtraFeeDao;
 import com.tuoguan.backend.billing.dao.StudentLeaveRecordDao;
+import com.tuoguan.backend.course.dao.CourseConsumptionRecordDao;
+import com.tuoguan.backend.course.dao.CourseDao;
+import com.tuoguan.backend.course.dao.CourseRechargeRecordDao;
+import com.tuoguan.backend.course.dao.StudentCourseEnrollmentDao;
+import com.tuoguan.backend.course.domain.Course;
 import com.tuoguan.backend.kanban.dao.ClassDismissalDao;
 import com.tuoguan.backend.kanban.dao.DailyTaskDao;
 import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
@@ -29,7 +33,8 @@ public class AdminTeacherService {
 
     public enum DeleteMode { DELETE_ALL, TRANSFER }
 
-    public record TeacherDeletionImpact(int classCount, int studentCount, int templateCount, boolean hasStudents) {
+    public record TeacherDeletionImpact(int classCount, int studentCount, int templateCount, int courseCount,
+                                         boolean hasStudents) {
     }
 
     private final TeacherDao teacherDao;
@@ -42,7 +47,10 @@ public class AdminTeacherService {
     private final ClassDismissalDao classDismissalDao;
     private final TaskTemplateDao taskTemplateDao;
     private final ClassBillingRateDao classBillingRateDao;
-    private final StudentExtraFeeDao studentExtraFeeDao;
+    private final CourseDao courseDao;
+    private final StudentCourseEnrollmentDao studentCourseEnrollmentDao;
+    private final CourseConsumptionRecordDao courseConsumptionRecordDao;
+    private final CourseRechargeRecordDao courseRechargeRecordDao;
     private final StudentLeaveRecordDao studentLeaveRecordDao;
     private final MonthlyBillDao monthlyBillDao;
 
@@ -51,7 +59,10 @@ public class AdminTeacherService {
                                 StudentDailyNoteDao studentDailyNoteDao,
                                 StudentArrivalCheckinDao studentArrivalCheckinDao,
                                 ClassDismissalDao classDismissalDao, TaskTemplateDao taskTemplateDao,
-                                ClassBillingRateDao classBillingRateDao, StudentExtraFeeDao studentExtraFeeDao,
+                                ClassBillingRateDao classBillingRateDao, CourseDao courseDao,
+                                StudentCourseEnrollmentDao studentCourseEnrollmentDao,
+                                CourseConsumptionRecordDao courseConsumptionRecordDao,
+                                CourseRechargeRecordDao courseRechargeRecordDao,
                                 StudentLeaveRecordDao studentLeaveRecordDao, MonthlyBillDao monthlyBillDao) {
         this.teacherDao = teacherDao;
         this.passwordEncoder = passwordEncoder;
@@ -63,7 +74,10 @@ public class AdminTeacherService {
         this.classDismissalDao = classDismissalDao;
         this.taskTemplateDao = taskTemplateDao;
         this.classBillingRateDao = classBillingRateDao;
-        this.studentExtraFeeDao = studentExtraFeeDao;
+        this.courseDao = courseDao;
+        this.studentCourseEnrollmentDao = studentCourseEnrollmentDao;
+        this.courseConsumptionRecordDao = courseConsumptionRecordDao;
+        this.courseRechargeRecordDao = courseRechargeRecordDao;
         this.studentLeaveRecordDao = studentLeaveRecordDao;
         this.monthlyBillDao = monthlyBillDao;
     }
@@ -94,7 +108,9 @@ public class AdminTeacherService {
         List<ClassRoom> classRooms = classRoomDao.findAllByTeacherId(teacherId);
         int studentCount = classRooms.stream().mapToInt(cr -> studentDao.findAllByClassRoomId(cr.id()).size()).sum();
         int templateCount = taskTemplateDao.findAllByInstitutionIdAndTeacherId(institutionId, teacherId).size();
-        return new TeacherDeletionImpact(classRooms.size(), studentCount, templateCount, studentCount > 0);
+        int courseCount = courseDao.findAllByTeacherId(teacherId).size();
+        return new TeacherDeletionImpact(classRooms.size(), studentCount, templateCount, courseCount,
+                studentCount > 0);
     }
 
     @Transactional
@@ -110,6 +126,7 @@ public class AdminTeacherService {
             }
             classRoomDao.reassignTeacher(teacherId, targetTeacherId);
             taskTemplateDao.reassignTeacher(teacherId, targetTeacherId);
+            courseDao.reassignAllTeacher(teacherId, targetTeacherId);
         } else {
             for (ClassRoom classRoom : classRooms) {
                 dailyTaskDao.deleteAllByClassRoomId(classRoom.id());
@@ -120,12 +137,30 @@ public class AdminTeacherService {
                 monthlyBillDao.deleteAllByClassRoomId(classRoom.id());
                 studentLeaveRecordDao.deleteAllByClassRoomId(classRoom.id());
                 for (var student : studentDao.findAllByClassRoomId(classRoom.id())) {
-                    studentExtraFeeDao.deleteAllByStudentId(student.id());
+                    studentCourseEnrollmentDao.deleteAllByStudentId(student.id());
+                    courseConsumptionRecordDao.deleteAllByStudentId(student.id());
+                    courseRechargeRecordDao.deleteAllByStudentId(student.id());
                 }
                 studentDao.deleteAllByClassRoomId(classRoom.id());
                 classRoomDao.deleteById(classRoom.id());
             }
             taskTemplateDao.deleteAllByTeacherId(teacherId);
+
+            for (Course course : courseDao.findAllByTeacherId(teacherId)) {
+                for (var enrollment : studentCourseEnrollmentDao.findAllByCourseId(course.id())) {
+                    studentDao.findById(enrollment.studentId())
+                            .filter(s -> s.classRoomId() == null)
+                            .ifPresent(s -> {
+                                courseConsumptionRecordDao.deleteAllByStudentId(s.id());
+                                courseRechargeRecordDao.deleteAllByStudentId(s.id());
+                                studentCourseEnrollmentDao.deleteAllByStudentId(s.id());
+                                studentDao.deleteAllByStudentId(s.id());
+                            });
+                }
+                studentCourseEnrollmentDao.deleteAllByCourseId(course.id());
+                courseConsumptionRecordDao.deleteAllByCourseId(course.id());
+                courseDao.deleteById(course.id());
+            }
         }
         teacherDao.deleteById(teacherId);
     }

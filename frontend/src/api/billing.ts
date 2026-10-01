@@ -9,23 +9,6 @@ export interface ClassBillingRate {
   updatedAt: string
 }
 
-export interface StudentExtraFee {
-  id: number
-  institutionId: number
-  studentId: number
-  name: string
-  pricePerLesson: number
-  createdAt: string
-}
-
-export interface StudentExtraFeeRow {
-  id: number
-  name: string
-  pricePerLesson: number
-  lessonCount: number
-  amount: number
-}
-
 export interface ClassBillingRateRow {
   classRoomId: number
   className: string
@@ -128,37 +111,6 @@ export function generateStudentBill(
     method: 'POST',
     ...(tuitionOverride !== undefined ? { body: JSON.stringify({ tuitionOverride }) } : {}),
   })
-}
-
-export function fetchStudentExtraFees(studentId: number, month: string): Promise<StudentExtraFeeRow[]> {
-  return apiFetch<StudentExtraFeeRow[]>(`/admin/students/${studentId}/extra-fees?month=${month}`)
-}
-
-export function addStudentExtraFee(
-  studentId: number,
-  name: string,
-  pricePerLesson: number,
-): Promise<StudentExtraFee> {
-  return apiFetch<StudentExtraFee>(`/admin/students/${studentId}/extra-fees`, {
-    method: 'POST',
-    body: JSON.stringify({ name, pricePerLesson }),
-  })
-}
-
-export function setExtraFeeLessonCount(
-  studentId: number,
-  feeId: number,
-  month: string,
-  lessonCount: number,
-): Promise<StudentExtraFeeRow> {
-  return apiFetch<StudentExtraFeeRow>(`/admin/students/${studentId}/extra-fees/${feeId}/lesson-count?month=${month}`, {
-    method: 'PUT',
-    body: JSON.stringify({ lessonCount }),
-  })
-}
-
-export function deleteStudentExtraFee(studentId: number, feeId: number): Promise<void> {
-  return apiFetch<void>(`/admin/students/${studentId}/extra-fees/${feeId}`, { method: 'DELETE' })
 }
 
 export function fetchStudentLeaveRecords(studentId: number, month: string): Promise<StudentLeaveRecord[]> {

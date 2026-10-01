@@ -21,9 +21,11 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -150,19 +152,31 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                         .content("{\"tuitionRatePerMonth\":50.00,\"mealRatePerDay\":10.00}"))
                 .andExpect(status().isOk());
 
-        MvcResult feeResult = mockMvc.perform(post("/api/admin/students/" + studentId + "/extra-fees")
-                        .header("Authorization", "Bearer " + adminToken)
+        String teacherToken = login("13900013008", "teacher-password");
+        MvcResult courseResult = mockMvc.perform(post("/api/courses")
+                        .header("Authorization", "Bearer " + teacherToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"数学课\",\"pricePerLesson\":50.00}"))
+                        .content("{\"name\":\"数学课\",\"lessonDurationMinutes\":60}"))
                 .andExpect(status().isCreated())
                 .andReturn();
-        Long feeId = objectMapper.readTree(feeResult.getResponse().getContentAsString()).get("id").asLong();
-        mockMvc.perform(put("/api/admin/students/" + studentId + "/extra-fees/" + feeId
-                        + "/lesson-count?month=2024-01")
+        Long courseId = objectMapper.readTree(courseResult.getResponse().getContentAsString()).get("id").asLong();
+        mockMvc.perform(patch("/api/admin/courses/" + courseId)
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"lessonCount\":4}"))
+                        .content("{\"pricePerLesson\":50.00}"))
                 .andExpect(status().isOk());
+        mockMvc.perform(post("/api/courses/" + courseId + "/enrollments")
+                        .header("Authorization", "Bearer " + teacherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"studentId\":" + studentId + "}"))
+                .andExpect(status().isCreated());
+        for (String date : List.of("2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05")) {
+            mockMvc.perform(post("/api/courses/" + courseId + "/consumption")
+                            .header("Authorization", "Bearer " + teacherToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"studentId\":" + studentId + ",\"date\":\"" + date + "\",\"confirm\":false}"))
+                    .andExpect(status().isCreated());
+        }
 
         int weekdays = countWeekdays(YearMonth.of(2024, 1));
         double baseAmount = 50.00 + weekdays * 10.00;
@@ -177,6 +191,80 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.extraFeeLines[0].pricePerLesson").value(50.00))
                 .andExpect(jsonPath("$.extraFeeLines[0].lessonCount").value(4))
                 .andExpect(jsonPath("$.extraFeeLines[0].amount").value(200.00));
+    }
+
+    @Test
+    void billAmountUsesPriceSnapshotImmuneToLaterPriceChanges() throws Exception {
+        Long institutionId = institutionDao.insert("账单测试机构J");
+        teacherDao.insert(new Teacher(null, institutionId, "13900013017",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900013018",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "账单九班", null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "学生壬", "一班", true, null, null));
+        String adminToken = login("13900013017", "admin-password");
+
+        mockMvc.perform(put("/api/admin/classes/" + classRoomId + "/billing-rate")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tuitionRatePerMonth\":50.00,\"mealRatePerDay\":10.00}"))
+                .andExpect(status().isOk());
+
+        String teacherToken = login("13900013018", "teacher-password");
+        MvcResult courseResult = mockMvc.perform(post("/api/courses")
+                        .header("Authorization", "Bearer " + teacherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"数学课\",\"lessonDurationMinutes\":60}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        Long courseId = objectMapper.readTree(courseResult.getResponse().getContentAsString()).get("id").asLong();
+        mockMvc.perform(patch("/api/admin/courses/" + courseId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"pricePerLesson\":50.00}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/courses/" + courseId + "/enrollments")
+                        .header("Authorization", "Bearer " + teacherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"studentId\":" + studentId + "}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/api/courses/" + courseId + "/consumption")
+                        .header("Authorization", "Bearer " + teacherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"studentId\":" + studentId + ",\"date\":\"2024-01-02\",\"confirm\":false}"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=2024-01")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.extraFeeLines[0].amount").value(50.00));
+
+        mockMvc.perform(patch("/api/admin/courses/" + courseId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"pricePerLesson\":999.00}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=2024-01")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.extraFeeLines[0].amount").value(50.00))
+                .andExpect(jsonPath("$.extraFeeLines[0].pricePerLesson").value(999.00));
+    }
+
+    @Test
+    void generatingBillForPureOffCampusStudentReturnsNotFound() throws Exception {
+        Long institutionId = institutionDao.insert("账单测试机构K");
+        teacherDao.insert(new Teacher(null, institutionId, "13900013019",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900013020",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, null, "学生癸", null, true, null, null));
+        String adminToken = login("13900013019", "admin-password");
+
+        mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=2024-01")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -242,11 +330,7 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"tuitionRatePerMonth\":50.00,\"mealRatePerDay\":10.00}"))
                 .andExpect(status().isOk());
-        mockMvc.perform(post("/api/admin/students/" + studentId + "/extra-fees")
-                        .header("Authorization", "Bearer " + adminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"数学课\",\"pricePerLesson\":50.00}"))
-                .andExpect(status().isCreated());
+        createCourseWithConsumption(adminToken, login("13900013014", "teacher-password"), studentId);
         mockMvc.perform(post("/api/admin/students/" + studentId + "/leave-records")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -279,11 +363,7 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"tuitionRatePerMonth\":50.00,\"mealRatePerDay\":10.00}"))
                 .andExpect(status().isOk());
-        mockMvc.perform(post("/api/admin/students/" + studentId + "/extra-fees")
-                        .header("Authorization", "Bearer " + adminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"数学课\",\"pricePerLesson\":50.00}"))
-                .andExpect(status().isCreated());
+        createCourseWithConsumption(adminToken, login("13900013016", "teacher-password"), studentId);
         mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=2024-01")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk());
@@ -299,8 +379,8 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
     private void assertBillingDataCleared(Long classRoomId, Long studentId) {
         Integer rateCount = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM class_billing_rate WHERE class_room_id = ?", Integer.class, classRoomId);
-        Integer feeCount = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM student_extra_fee WHERE student_id = ?", Integer.class, studentId);
+        Integer consumptionCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM course_consumption_record WHERE student_id = ?", Integer.class, studentId);
         Integer leaveCount = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM student_leave_record WHERE class_room_id = ?", Integer.class, classRoomId);
         Integer billCount = jdbcTemplate.queryForObject(
@@ -310,10 +390,35 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                         + "JOIN monthly_bill b ON l.monthly_bill_id = b.id WHERE b.class_room_id = ?",
                 Integer.class, classRoomId);
         assertThat(rateCount).isZero();
-        assertThat(feeCount).isZero();
+        assertThat(consumptionCount).isZero();
         assertThat(leaveCount).isZero();
         assertThat(billCount).isZero();
         assertThat(billLineCount).isZero();
+    }
+
+    private void createCourseWithConsumption(String adminToken, String teacherToken, Long studentId) throws Exception {
+        MvcResult courseResult = mockMvc.perform(post("/api/courses")
+                        .header("Authorization", "Bearer " + teacherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"数学课\",\"lessonDurationMinutes\":60}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        Long courseId = objectMapper.readTree(courseResult.getResponse().getContentAsString()).get("id").asLong();
+        mockMvc.perform(patch("/api/admin/courses/" + courseId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"pricePerLesson\":50.00}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/courses/" + courseId + "/enrollments")
+                        .header("Authorization", "Bearer " + teacherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"studentId\":" + studentId + "}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/api/courses/" + courseId + "/consumption")
+                        .header("Authorization", "Bearer " + teacherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"studentId\":" + studentId + ",\"date\":\"2024-01-02\",\"confirm\":false}"))
+                .andExpect(status().isCreated());
     }
 
     private int countWeekdays(YearMonth month) {

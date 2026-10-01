@@ -29,6 +29,23 @@ const SHARE: PublicShare = {
       },
     ],
   },
+  courseStatement: null,
+}
+
+const PURE_OFF_CAMPUS_SHARE: PublicShare = {
+  studentName: '小外',
+  schoolClassName: null,
+  avatarUrl: null,
+  stats: null,
+  courseStatement: {
+    balances: [{ courseId: 1, courseName: '书法课', lessonsRecharged: 10, lessonsConsumed: 3, balance: 7 }],
+    recharges: [
+      { id: 1, studentId: 1, courseId: 1, courseName: '书法课', lessonCount: 10, note: '微信转账', createdAt: '2026-09-01T10:00:00Z' },
+    ],
+    consumptions: [
+      { id: 1, studentId: 1, courseId: 1, courseName: '书法课', consumptionDate: '2026-09-05', priceSnapshot: 80, teacherName: '王老师' },
+    ],
+  },
 }
 
 describe('ParentSharePage', () => {
@@ -80,5 +97,16 @@ describe('ParentSharePage', () => {
 
     expect(screen.queryByRole('button', { name: /添加任务/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+  })
+
+  it('shows the course statement instead of monthly stats for a pure off-campus student', async () => {
+    vi.mocked(publicShareApi.fetchPublicShare).mockResolvedValue(PURE_OFF_CAMPUS_SHARE)
+    render(<ParentSharePage token="course-token" />)
+
+    expect(await screen.findByText('小外')).toBeInTheDocument()
+    expect(screen.getByText('书法课')).toBeInTheDocument()
+    expect(screen.getByText('剩 7 课时')).toBeInTheDocument()
+    expect(screen.getByText(/王老师老师/)).toBeInTheDocument()
+    expect(screen.queryByText(/完成天数/)).not.toBeInTheDocument()
   })
 })
