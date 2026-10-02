@@ -32,7 +32,7 @@ public class PublicShareService {
                 .orElseThrow(() -> new NotFoundException("Share link not found: " + token));
         String avatarUrl = storageService.avatarUrl(student.avatarObjectKey());
 
-        if (student.classRoomId() == null) {
+        if (student.teachingUnitId() == null) {
             StudentCourseStatement courseStatement =
                     courseAccountService.getStatement(student.institutionId(), student.id());
             return new PublicShareResult(student.name(), student.schoolClassName(), avatarUrl, null,

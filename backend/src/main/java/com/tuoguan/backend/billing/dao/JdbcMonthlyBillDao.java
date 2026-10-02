@@ -17,7 +17,7 @@ public class JdbcMonthlyBillDao implements MonthlyBillDao {
             rs.getLong("id"),
             rs.getLong("institution_id"),
             rs.getLong("student_id"),
-            rs.getLong("class_room_id"),
+            rs.getLong("teaching_unit_id"),
             YearMonth.parse(rs.getString("bill_month")),
             rs.getInt("total_weekdays"),
             rs.getInt("leave_days"),
@@ -30,7 +30,7 @@ public class JdbcMonthlyBillDao implements MonthlyBillDao {
             rs.getTimestamp("generated_at").toInstant(),
             List.of());
 
-    private static final String SELECT_COLUMNS = "SELECT id, institution_id, student_id, class_room_id, bill_month, "
+    private static final String SELECT_COLUMNS = "SELECT id, institution_id, student_id, teaching_unit_id, bill_month, "
             + "total_weekdays, leave_days, attendance_days, tuition_amount, meal_amount, extra_fee_total, "
             + "total_amount, is_paid, generated_at FROM monthly_bill";
 
@@ -54,26 +54,28 @@ public class JdbcMonthlyBillDao implements MonthlyBillDao {
     }
 
     @Override
-    public List<MonthlyBill> findAllByClassRoomIdAndYearMonth(Long classRoomId, YearMonth yearMonth) {
-        return jdbcTemplate.query(SELECT_COLUMNS + " WHERE class_room_id = ? AND bill_month = ? ORDER BY student_id",
-                ROW_MAPPER, classRoomId, yearMonth.toString());
+    public List<MonthlyBill> findAllByTeachingUnitIdAndYearMonth(Long teachingUnitId, YearMonth yearMonth) {
+        return jdbcTemplate.query(
+                SELECT_COLUMNS + " WHERE teaching_unit_id = ? AND bill_month = ? ORDER BY student_id",
+                ROW_MAPPER, teachingUnitId, yearMonth.toString());
     }
 
     @Override
-    public List<MonthlyBill> findAllByClassRoomId(Long classRoomId) {
-        return jdbcTemplate.query(SELECT_COLUMNS + " WHERE class_room_id = ? ORDER BY bill_month DESC, student_id",
-                ROW_MAPPER, classRoomId);
+    public List<MonthlyBill> findAllByTeachingUnitId(Long teachingUnitId) {
+        return jdbcTemplate.query(
+                SELECT_COLUMNS + " WHERE teaching_unit_id = ? ORDER BY bill_month DESC, student_id",
+                ROW_MAPPER, teachingUnitId);
     }
 
     @Override
-    public Long upsert(Long institutionId, Long studentId, Long classRoomId, YearMonth yearMonth, int totalWeekdays,
-                        int leaveDays, int attendanceDays, BigDecimal tuitionAmount, BigDecimal mealAmount,
-                        BigDecimal extraFeeTotal, BigDecimal totalAmount) {
+    public Long upsert(Long institutionId, Long studentId, Long teachingUnitId, YearMonth yearMonth,
+                        int totalWeekdays, int leaveDays, int attendanceDays, BigDecimal tuitionAmount,
+                        BigDecimal mealAmount, BigDecimal extraFeeTotal, BigDecimal totalAmount) {
         // MySQL 驱动在 ON DUPLICATE KEY UPDATE 命中更新分支时，Statement.RETURN_GENERATED_KEYS
         // 可能返回 2 条 key 记录，导致 KeyHolder.getKey() 抛 InvalidDataAccessApiUsageException，
         // 因此改为 upsert 后按唯一键 (student_id, bill_month) 查回 id，不依赖生成的主键。
         jdbcTemplate.update(
-                "INSERT INTO monthly_bill (institution_id, student_id, class_room_id, bill_month, "
+                "INSERT INTO monthly_bill (institution_id, student_id, teaching_unit_id, bill_month, "
                         + "total_weekdays, leave_days, attendance_days, tuition_amount, meal_amount, "
                         + "extra_fee_total, total_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
                         + "ON DUPLICATE KEY UPDATE total_weekdays = VALUES(total_weekdays), "
@@ -81,7 +83,7 @@ public class JdbcMonthlyBillDao implements MonthlyBillDao {
                         + "tuition_amount = VALUES(tuition_amount), meal_amount = VALUES(meal_amount), "
                         + "extra_fee_total = VALUES(extra_fee_total), total_amount = VALUES(total_amount), "
                         + "generated_at = CURRENT_TIMESTAMP",
-                institutionId, studentId, classRoomId, yearMonth.toString(), totalWeekdays, leaveDays,
+                institutionId, studentId, teachingUnitId, yearMonth.toString(), totalWeekdays, leaveDays,
                 attendanceDays, tuitionAmount, mealAmount, extraFeeTotal, totalAmount);
         return findByStudentIdAndYearMonth(studentId, yearMonth)
                 .orElseThrow(() -> new IllegalStateException(
@@ -90,8 +92,8 @@ public class JdbcMonthlyBillDao implements MonthlyBillDao {
     }
 
     @Override
-    public void deleteAllByClassRoomId(Long classRoomId) {
-        jdbcTemplate.update("DELETE FROM monthly_bill WHERE class_room_id = ?", classRoomId);
+    public void deleteAllByTeachingUnitId(Long teachingUnitId) {
+        jdbcTemplate.update("DELETE FROM monthly_bill WHERE teaching_unit_id = ?", teachingUnitId);
     }
 
     @Override

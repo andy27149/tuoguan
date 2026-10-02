@@ -7,9 +7,9 @@ import java.util.Optional;
 
 public interface ClassBillingRateDao {
 
-    Optional<ClassBillingRate> findByClassRoomId(Long classRoomId);
+    Optional<ClassBillingRate> findByTeachingUnitId(Long teachingUnitId);
 
-    void upsert(Long institutionId, Long classRoomId, BigDecimal tuitionRatePerMonth, BigDecimal mealRatePerDay);
+    void upsert(Long institutionId, Long teachingUnitId, BigDecimal tuitionRatePerMonth, BigDecimal mealRatePerDay);
 
-    void deleteAllByClassRoomId(Long classRoomId);
+    void deleteAllByTeachingUnitId(Long teachingUnitId);
 }

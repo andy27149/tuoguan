@@ -70,9 +70,7 @@ export function AdminDashboardPage({ onBack, onOpenClassKanban }: AdminDashboard
             {activeModule === 'courses' && <AdminCoursesModule />}
             {activeModule === 'students' && <AdminStudentsModule />}
             {activeModule === 'taskStats' && <AdminTaskStatsModule />}
-            {activeModule === 'pricing' && (
-              <AdminPricingModule custodyEnabled={custodyEnabled} offCampusEnabled={offCampusEnabled} />
-            )}
+            {activeModule === 'pricing' && <AdminPricingModule custodyEnabled={custodyEnabled} />}
             {activeModule === 'billing' && <AdminBillingModule />}
             {activeModule === 'settings' && <AdminSettingsModule onInstitutionUpdated={setInstitution} />}
           </main>

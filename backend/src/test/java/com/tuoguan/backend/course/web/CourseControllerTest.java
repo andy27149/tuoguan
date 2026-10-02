@@ -6,9 +6,10 @@ import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.auth.web.LoginResponse;
-import com.tuoguan.backend.course.dao.CourseDao;
-import com.tuoguan.backend.course.domain.Course;
 import com.tuoguan.backend.support.IntegrationTestBase;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
+import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -29,7 +30,7 @@ class CourseControllerTest extends IntegrationTestBase {
     private TeacherDao teacherDao;
 
     @Autowired
-    private CourseDao courseDao;
+    private TeachingUnitDao courseDao;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -38,64 +39,24 @@ class CourseControllerTest extends IntegrationTestBase {
     private ObjectMapper objectMapper;
 
     @Test
-    void createsCourseAndListsItForOwningTeacher() throws Exception {
+    void listsOnlyCoursesOwnedByTheRequestingTeacher() throws Exception {
         Long institutionId = institutionDao.insert("课程控制器测试机构A");
-        teacherDao.insert(new Teacher(null, institutionId, "13900030001",
-                passwordEncoder.encode("password"), Role.TEACHER, false, null));
-        String token = login("13900030001", "password");
-
-        mockMvc.perform(post("/api/courses")
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"数学课\",\"lessonDurationMinutes\":60}"))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.name").value("数学课"))
-                .andExpect(jsonPath("$.lessonDurationMinutes").value(60))
-                .andExpect(jsonPath("$.pricePerLesson").doesNotExist())
-                .andExpect(jsonPath("$.active").value(true));
+        Long teacherAId = teacherDao.insert(new Teacher(null, institutionId, "13900030001",
+                passwordEncoder.encode("password-a"), Role.TEACHER, false, null));
+        Long teacherBId = teacherDao.insert(new Teacher(null, institutionId, "13900030002",
+                passwordEncoder.encode("password-b"), Role.TEACHER, false, null));
+        courseDao.insert(new TeachingUnit(null, institutionId, teacherAId, "数学课", BillingMode.LESSON_COUNT, 60, null, true, null));
+        courseDao.insert(new TeachingUnit(null, institutionId, teacherBId, "英语课", BillingMode.LESSON_COUNT, 45, null, true, null));
+        String tokenA = login("13900030001", "password-a");
 
         mockMvc.perform(get("/api/courses")
-                        .header("Authorization", "Bearer " + token))
+                        .header("Authorization", "Bearer " + tokenA))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].name").value("数学课"));
-    }
-
-    @Test
-    void rejectsDuplicateCourseNameForSameTeacher() throws Exception {
-        Long institutionId = institutionDao.insert("课程控制器测试机构B");
-        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900030002",
-                passwordEncoder.encode("password"), Role.TEACHER, false, null));
-        courseDao.insert(new Course(null, institutionId, teacherId, "重名课", null, 45, true, null));
-        String token = login("13900030002", "password");
-
-        mockMvc.perform(post("/api/courses")
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"重名课\",\"lessonDurationMinutes\":45}"))
-                .andExpect(status().isConflict());
-    }
-
-    @Test
-    void teacherOnlySeesOwnCoursesNotAnotherTeachersNewCourse() throws Exception {
-        Long institutionId = institutionDao.insert("课程控制器测试机构C");
-        teacherDao.insert(new Teacher(null, institutionId, "13900030003",
-                passwordEncoder.encode("password-a"), Role.TEACHER, false, null));
-        teacherDao.insert(new Teacher(null, institutionId, "13900030004",
-                passwordEncoder.encode("password-b"), Role.TEACHER, false, null));
-        String tokenA = login("13900030003", "password-a");
-        String tokenB = login("13900030004", "password-b");
-
-        mockMvc.perform(post("/api/courses")
-                        .header("Authorization", "Bearer " + tokenA)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"A老师的课\",\"lessonDurationMinutes\":45}"))
-                .andExpect(status().isCreated());
-
-        mockMvc.perform(get("/api/courses")
-                        .header("Authorization", "Bearer " + tokenB))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(0));
+                .andExpect(jsonPath("$[0].name").value("数学课"))
+                .andExpect(jsonPath("$[0].lessonDurationMinutes").value(60))
+                .andExpect(jsonPath("$[0].pricePerLesson").doesNotExist())
+                .andExpect(jsonPath("$[0].active").value(true));
     }
 
     private String login(String phone, String password) throws Exception {

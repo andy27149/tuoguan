@@ -6,9 +6,10 @@ import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.auth.web.LoginResponse;
-import com.tuoguan.backend.course.dao.CourseDao;
-import com.tuoguan.backend.course.domain.Course;
 import com.tuoguan.backend.support.IntegrationTestBase;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
+import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -30,7 +31,7 @@ class AdminCourseControllerTest extends IntegrationTestBase {
     private TeacherDao teacherDao;
 
     @Autowired
-    private CourseDao courseDao;
+    private TeachingUnitDao courseDao;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -45,9 +46,9 @@ class AdminCourseControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("password"), Role.ADMIN, false, null));
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800011002",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        courseDao.insert(new Course(null, institutionId, teacherId, "未定价课", null, 45, true, null));
-        Long inactiveCourseId = courseDao.insert(new Course(null, institutionId, teacherId, "已停用课",
-                new java.math.BigDecimal("30.00"), 45, true, null));
+        courseDao.insert(new TeachingUnit(null, institutionId, teacherId, "未定价课", BillingMode.LESSON_COUNT, 45, null, true, null));
+        Long inactiveCourseId = courseDao.insert(new TeachingUnit(null, institutionId, teacherId, "已停用课",
+                BillingMode.LESSON_COUNT, 45, new java.math.BigDecimal("30.00"), true, null));
         courseDao.setActive(inactiveCourseId, false);
         String token = login("13800011001", "password");
 
@@ -66,7 +67,7 @@ class AdminCourseControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("teacher-a"), Role.TEACHER, false, null));
         Long teacherBId = teacherDao.insert(new Teacher(null, institutionId, "13800011005",
                 passwordEncoder.encode("teacher-b"), Role.TEACHER, false, null));
-        Long courseId = courseDao.insert(new Course(null, institutionId, teacherAId, "数学课", null, 45, true, null));
+        Long courseId = courseDao.insert(new TeachingUnit(null, institutionId, teacherAId, "数学课", BillingMode.LESSON_COUNT, 45, null, true, null));
         String token = login("13800011003", "password");
 
         mockMvc.perform(patch("/api/admin/courses/" + courseId)
@@ -82,14 +83,14 @@ class AdminCourseControllerTest extends IntegrationTestBase {
                         .content("{\"teacherId\":" + teacherBId + ",\"active\":false}"))
                 .andExpect(status().isOk());
 
-        Course updated = courseDao.findById(courseId).orElseThrow();
+        TeachingUnit updated = courseDao.findById(courseId).orElseThrow();
         org.assertj.core.api.Assertions.assertThat(updated.teacherId()).isEqualTo(teacherBId);
         org.assertj.core.api.Assertions.assertThat(updated.active()).isFalse();
         org.assertj.core.api.Assertions.assertThat(updated.pricePerLesson()).isEqualByComparingTo("50.00");
     }
 
     private void assertPriceIs(Long courseId, String expected) {
-        Course course = courseDao.findById(courseId).orElseThrow();
+        TeachingUnit course = courseDao.findById(courseId).orElseThrow();
         org.assertj.core.api.Assertions.assertThat(course.pricePerLesson()).isEqualByComparingTo(expected);
     }
 
@@ -101,7 +102,7 @@ class AdminCourseControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("password"), Role.ADMIN, false, null));
         Long teacherBId = teacherDao.insert(new Teacher(null, institutionBId, "13800011007",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long courseInB = courseDao.insert(new Course(null, institutionBId, teacherBId, "别人机构的课", null, 45, true, null));
+        Long courseInB = courseDao.insert(new TeachingUnit(null, institutionBId, teacherBId, "别人机构的课", BillingMode.LESSON_COUNT, 45, null, true, null));
         String tokenA = login("13800011006", "password");
 
         mockMvc.perform(patch("/api/admin/courses/" + courseInB)
@@ -116,7 +117,7 @@ class AdminCourseControllerTest extends IntegrationTestBase {
         Long institutionId = institutionDao.insert("管理端课程测试机构D");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800011008",
                 passwordEncoder.encode("password"), Role.TEACHER, false, null));
-        Long courseId = courseDao.insert(new Course(null, institutionId, teacherId, "美术课", null, 45, true, null));
+        Long courseId = courseDao.insert(new TeachingUnit(null, institutionId, teacherId, "美术课", BillingMode.LESSON_COUNT, 45, null, true, null));
         String token = login("13800011008", "password");
 
         mockMvc.perform(get("/api/admin/courses")
@@ -131,17 +132,72 @@ class AdminCourseControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    void adminCourseEndpointsHaveNoCreateOperation() throws Exception {
+    void adminCreatesCourseAndAssignsTeacher() throws Exception {
         Long institutionId = institutionDao.insert("管理端课程测试机构E");
         teacherDao.insert(new Teacher(null, institutionId, "13800011009",
                 passwordEncoder.encode("password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800011010",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
         String token = login("13800011009", "password");
 
         mockMvc.perform(post("/api/admin/courses")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"新课\",\"lessonDurationMinutes\":45}"))
-                .andExpect(status().is4xxClientError());
+                        .content("{\"name\":\"新课\",\"lessonDurationMinutes\":45,\"teacherId\":" + teacherId
+                                + ",\"pricePerLesson\":60.00}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.name").value("新课"))
+                .andExpect(jsonPath("$.teacherId").value(teacherId))
+                .andExpect(jsonPath("$.pricePerLesson").value(60.00))
+                .andExpect(jsonPath("$.active").value(true));
+    }
+
+    @Test
+    void adminCreateCourseRejectsDuplicateNameWithinInstitution() throws Exception {
+        Long institutionId = institutionDao.insert("管理端课程测试机构F");
+        teacherDao.insert(new Teacher(null, institutionId, "13800011011",
+                passwordEncoder.encode("password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800011012",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        courseDao.insert(new TeachingUnit(null, institutionId, teacherId, "重名课", BillingMode.LESSON_COUNT, 45, null, true, null));
+        String token = login("13800011011", "password");
+
+        mockMvc.perform(post("/api/admin/courses")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"重名课\",\"lessonDurationMinutes\":45,\"teacherId\":" + teacherId + "}"))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void adminCreateCourseRejectsTeacherFromAnotherInstitution() throws Exception {
+        Long institutionAId = institutionDao.insert("管理端课程测试机构G1");
+        Long institutionBId = institutionDao.insert("管理端课程测试机构G2");
+        teacherDao.insert(new Teacher(null, institutionAId, "13800011013",
+                passwordEncoder.encode("password"), Role.ADMIN, false, null));
+        Long teacherInB = teacherDao.insert(new Teacher(null, institutionBId, "13800011014",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        String token = login("13800011013", "password");
+
+        mockMvc.perform(post("/api/admin/courses")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"新课\",\"lessonDurationMinutes\":45,\"teacherId\":" + teacherInB + "}"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void teacherRoleCannotCallAdminCreateCourseEndpoint() throws Exception {
+        Long institutionId = institutionDao.insert("管理端课程测试机构H");
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800011015",
+                passwordEncoder.encode("password"), Role.TEACHER, false, null));
+        String token = login("13800011015", "password");
+
+        mockMvc.perform(post("/api/admin/courses")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"新课\",\"lessonDurationMinutes\":45,\"teacherId\":" + teacherId + "}"))
+                .andExpect(status().isForbidden());
     }
 
     private String login(String phone, String password) throws Exception {

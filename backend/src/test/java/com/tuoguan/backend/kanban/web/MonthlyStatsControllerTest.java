@@ -10,11 +10,12 @@ import com.tuoguan.backend.kanban.dao.DailyTaskDao;
 import com.tuoguan.backend.kanban.dao.StudentDailyNoteDao;
 import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
 import com.tuoguan.backend.kanban.domain.DailyTask;
-import com.tuoguan.backend.roster.dao.ClassRoomDao;
 import com.tuoguan.backend.roster.dao.StudentDao;
-import com.tuoguan.backend.roster.domain.ClassRoom;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.support.IntegrationTestBase;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
+import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -40,7 +41,7 @@ class MonthlyStatsControllerTest extends IntegrationTestBase {
     private TeacherDao teacherDao;
 
     @Autowired
-    private ClassRoomDao classRoomDao;
+    private TeachingUnitDao teachingUnitDao;
 
     @Autowired
     private StudentDao studentDao;
@@ -65,14 +66,14 @@ class MonthlyStatsControllerTest extends IntegrationTestBase {
         Long institutionId = institutionDao.insert("月度统计控制器测试机构A");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900008001",
                 passwordEncoder.encode("password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管班",
+                BillingMode.MONTHLY, null, null, true, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小明", "三年级2班",
                 true, null, null));
 
-        LocalDate today = LocalDate.now();
-        YearMonth currentMonth = YearMonth.from(today);
-        LocalDate day1 = currentMonth.atDay(1);
-        LocalDate day2 = today.isAfter(day1) ? today : currentMonth.atDay(Math.min(currentMonth.lengthOfMonth(), 2));
+        YearMonth statsMonth = YearMonth.from(LocalDate.now()).minusMonths(1);
+        LocalDate day1 = statsMonth.atDay(1);
+        LocalDate day2 = statsMonth.atDay(2);
 
         // day1: fully completed (2/2)
         dailyTaskDao.insert(new DailyTask(null, institutionId, classRoomId, studentId, day1, null,
@@ -93,6 +94,7 @@ class MonthlyStatsControllerTest extends IntegrationTestBase {
         String token = login("13900008001", "password");
 
         mockMvc.perform(get("/api/students/" + studentId + "/monthly-stats")
+                        .param("month", statsMonth.toString())
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.completedDays").value(1))
@@ -124,7 +126,8 @@ class MonthlyStatsControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("password-a"), Role.TEACHER, false, null));
         Long teacherBId = teacherDao.insert(new Teacher(null, institutionId, "13900008003",
                 passwordEncoder.encode("password-b"), Role.TEACHER, false, null));
-        Long classRoomAId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherAId, "A班", null));
+        Long classRoomAId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherAId, "A班",
+                BillingMode.MONTHLY, null, null, true, null));
         Long studentAId = studentDao.insert(new Student(null, institutionId, classRoomAId, "小明", "三年级2班",
                 true, null, null));
 

@@ -37,7 +37,7 @@ describe('AdminSidebar', () => {
     expect(screen.getByText('运营产出')).toBeInTheDocument()
     expect(screen.getByText('财务')).toBeInTheDocument()
 
-    for (const label of ['基础配置', '教师列表', '托管班级', '课外课程', '学生总览', '任务完成情况', '定价中心', '账单管理']) {
+    for (const label of ['基础配置', '教师列表', '托管班级', '课程管理', '学生总览', '任务完成情况', '定价中心', '账单管理']) {
       expect(screen.getByRole('button', { name: label })).toBeInTheDocument()
     }
   })
@@ -50,7 +50,7 @@ describe('AdminSidebar', () => {
     expect(screen.queryByRole('button', { name: '任务完成情况' })).not.toBeInTheDocument()
     expect(screen.queryByText('运营产出')).not.toBeInTheDocument()
 
-    expect(screen.getByRole('button', { name: '课外课程' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '课程管理' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '定价中心' })).toBeInTheDocument()
     expect(screen.getByText('财务')).toBeInTheDocument()
   })
@@ -58,7 +58,7 @@ describe('AdminSidebar', () => {
   it('hides the off-campus item when off-campus is disabled, keeping custody items', () => {
     render(<AdminSidebar active="teachers" onSelect={vi.fn()} custodyEnabled offCampusEnabled={false} />)
 
-    expect(screen.queryByRole('button', { name: '课外课程' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '课程管理' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '托管班级' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '账单管理' })).toBeInTheDocument()
   })

@@ -6,9 +6,10 @@ import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.auth.web.LoginResponse;
-import com.tuoguan.backend.roster.dao.ClassRoomDao;
-import com.tuoguan.backend.roster.domain.ClassRoom;
 import com.tuoguan.backend.support.IntegrationTestBase;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
+import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -29,7 +30,7 @@ class ClassRoomControllerTest extends IntegrationTestBase {
     private TeacherDao teacherDao;
 
     @Autowired
-    private ClassRoomDao classRoomDao;
+    private TeachingUnitDao teachingUnitDao;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -63,7 +64,8 @@ class ClassRoomControllerTest extends IntegrationTestBase {
         Long institutionId = institutionDao.insert("班级控制器测试机构B");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800007002",
                 passwordEncoder.encode("password"), Role.TEACHER, false, null));
-        classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "重名班", null));
+        teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "重名班", BillingMode.MONTHLY,
+                null, null, true, null));
         String token = login("13800007002", "password");
 
         mockMvc.perform(post("/api/classes")

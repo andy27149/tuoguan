@@ -3,9 +3,9 @@ package com.tuoguan.backend.auth.service;
 import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
-import com.tuoguan.backend.roster.dao.ClassRoomDao;
-import com.tuoguan.backend.roster.domain.ClassRoom;
 import com.tuoguan.backend.support.IntegrationTestBase;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -24,7 +24,7 @@ class SeedServiceTest extends IntegrationTestBase {
     private TeacherDao teacherDao;
 
     @Autowired
-    private ClassRoomDao classRoomDao;
+    private TeachingUnitDao teachingUnitDao;
 
     @Test
     void seedCreatesAdminTeacherWithMustChangePassword() {
@@ -51,7 +51,7 @@ class SeedServiceTest extends IntegrationTestBase {
 
         seedService.seedClass("13800005003", "三年级托管班");
 
-        List<ClassRoom> classRooms = classRoomDao.findAllByTeacherId(teacher.id());
+        List<TeachingUnit> classRooms = teachingUnitDao.findAllByTeacherId(teacher.id());
         assertThat(classRooms).hasSize(1);
         assertThat(classRooms.get(0).name()).isEqualTo("三年级托管班");
         assertThat(classRooms.get(0).institutionId()).isEqualTo(teacher.institutionId());

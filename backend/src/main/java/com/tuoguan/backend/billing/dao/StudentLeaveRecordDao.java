@@ -11,9 +11,9 @@ public interface StudentLeaveRecordDao {
 
     int countByStudentIdAndDateRange(Long studentId, LocalDate start, LocalDate end);
 
-    void upsert(Long institutionId, Long studentId, Long classRoomId, LocalDate leaveDate, String reason);
+    void upsert(Long institutionId, Long studentId, Long teachingUnitId, LocalDate leaveDate, String reason);
 
     void deleteByStudentIdAndDate(Long studentId, LocalDate leaveDate);
 
-    void deleteAllByClassRoomId(Long classRoomId);
+    void deleteAllByTeachingUnitId(Long teachingUnitId);
 }

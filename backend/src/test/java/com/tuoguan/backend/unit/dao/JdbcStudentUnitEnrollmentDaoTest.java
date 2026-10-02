@@ -1,14 +1,15 @@
-package com.tuoguan.backend.course.dao;
+package com.tuoguan.backend.unit.dao;
 
 import com.tuoguan.backend.auth.dao.InstitutionDao;
 import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
-import com.tuoguan.backend.course.domain.Course;
-import com.tuoguan.backend.course.domain.StudentCourseEnrollment;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.support.IntegrationTestBase;
+import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.StudentUnitEnrollment;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -17,7 +18,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class JdbcStudentCourseEnrollmentDaoTest extends IntegrationTestBase {
+class JdbcStudentUnitEnrollmentDaoTest extends IntegrationTestBase {
 
     @Autowired
     private InstitutionDao institutionDao;
@@ -26,16 +27,17 @@ class JdbcStudentCourseEnrollmentDaoTest extends IntegrationTestBase {
     private TeacherDao teacherDao;
 
     @Autowired
-    private CourseDao courseDao;
+    private TeachingUnitDao teachingUnitDao;
 
     @Autowired
     private StudentDao studentDao;
 
     @Autowired
-    private StudentCourseEnrollmentDao enrollmentDao;
+    private StudentUnitEnrollmentDao enrollmentDao;
 
-    private Long createCourse(Long institutionId, Long teacherId, String name) {
-        return courseDao.insert(new Course(null, institutionId, teacherId, name, null, 45, true, null));
+    private Long createCourseUnit(Long institutionId, Long teacherId, String name) {
+        return teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, name,
+                BillingMode.LESSON_COUNT, 45, null, true, null));
     }
 
     private Long createStudent(Long institutionId) {
@@ -43,32 +45,32 @@ class JdbcStudentCourseEnrollmentDaoTest extends IntegrationTestBase {
     }
 
     @Test
-    void insertAndFindByStudentIdAndCourseIdRoundTrips() {
+    void insertAndFindByStudentIdAndTeachingUnitIdRoundTrips() {
         Long institutionId = institutionDao.insert("报名测试机构A");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900021001", "hash",
                 Role.TEACHER, false, null));
-        Long courseId = createCourse(institutionId, teacherId, "数学课");
+        Long unitId = createCourseUnit(institutionId, teacherId, "数学课");
         Long studentId = createStudent(institutionId);
 
-        enrollmentDao.insert(new StudentCourseEnrollment(null, institutionId, studentId, courseId, true, null));
+        enrollmentDao.insert(new StudentUnitEnrollment(null, institutionId, studentId, unitId, true, null));
 
-        Optional<StudentCourseEnrollment> found = enrollmentDao.findByStudentIdAndCourseId(studentId, courseId);
+        Optional<StudentUnitEnrollment> found = enrollmentDao.findByStudentIdAndTeachingUnitId(studentId, unitId);
         assertThat(found).isPresent();
         assertThat(found.get().active()).isTrue();
     }
 
     @Test
-    void findAllByCourseIdReturnsAllEnrollments() {
+    void findAllByTeachingUnitIdReturnsAllEnrollments() {
         Long institutionId = institutionDao.insert("报名测试机构B");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900021002", "hash",
                 Role.TEACHER, false, null));
-        Long courseId = createCourse(institutionId, teacherId, "英语课");
+        Long unitId = createCourseUnit(institutionId, teacherId, "英语课");
         Long studentAId = createStudent(institutionId);
         Long studentBId = createStudent(institutionId);
-        enrollmentDao.insert(new StudentCourseEnrollment(null, institutionId, studentAId, courseId, true, null));
-        enrollmentDao.insert(new StudentCourseEnrollment(null, institutionId, studentBId, courseId, true, null));
+        enrollmentDao.insert(new StudentUnitEnrollment(null, institutionId, studentAId, unitId, true, null));
+        enrollmentDao.insert(new StudentUnitEnrollment(null, institutionId, studentBId, unitId, true, null));
 
-        List<StudentCourseEnrollment> found = enrollmentDao.findAllByCourseId(courseId);
+        List<StudentUnitEnrollment> found = enrollmentDao.findAllByTeachingUnitId(unitId);
 
         assertThat(found).hasSize(2);
     }
@@ -78,13 +80,13 @@ class JdbcStudentCourseEnrollmentDaoTest extends IntegrationTestBase {
         Long institutionId = institutionDao.insert("报名测试机构C");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900021003", "hash",
                 Role.TEACHER, false, null));
-        Long courseAId = createCourse(institutionId, teacherId, "语文课");
-        Long courseBId = createCourse(institutionId, teacherId, "科学课");
+        Long unitAId = createCourseUnit(institutionId, teacherId, "语文课");
+        Long unitBId = createCourseUnit(institutionId, teacherId, "科学课");
         Long studentId = createStudent(institutionId);
-        enrollmentDao.insert(new StudentCourseEnrollment(null, institutionId, studentId, courseAId, true, null));
-        enrollmentDao.insert(new StudentCourseEnrollment(null, institutionId, studentId, courseBId, true, null));
+        enrollmentDao.insert(new StudentUnitEnrollment(null, institutionId, studentId, unitAId, true, null));
+        enrollmentDao.insert(new StudentUnitEnrollment(null, institutionId, studentId, unitBId, true, null));
 
-        List<StudentCourseEnrollment> found = enrollmentDao.findAllByStudentId(studentId);
+        List<StudentUnitEnrollment> found = enrollmentDao.findAllByStudentId(studentId);
 
         assertThat(found).hasSize(2);
     }
@@ -94,14 +96,14 @@ class JdbcStudentCourseEnrollmentDaoTest extends IntegrationTestBase {
         Long institutionId = institutionDao.insert("报名测试机构D");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900021004", "hash",
                 Role.TEACHER, false, null));
-        Long courseId = createCourse(institutionId, teacherId, "美术课");
+        Long unitId = createCourseUnit(institutionId, teacherId, "美术课");
         Long studentId = createStudent(institutionId);
         Long enrollmentId = enrollmentDao.insert(
-                new StudentCourseEnrollment(null, institutionId, studentId, courseId, true, null));
+                new StudentUnitEnrollment(null, institutionId, studentId, unitId, true, null));
 
         enrollmentDao.setActive(enrollmentId, false);
 
-        Optional<StudentCourseEnrollment> found = enrollmentDao.findByStudentIdAndCourseId(studentId, courseId);
+        Optional<StudentUnitEnrollment> found = enrollmentDao.findByStudentIdAndTeachingUnitId(studentId, unitId);
         assertThat(found).isPresent();
         assertThat(found.get().active()).isFalse();
     }
@@ -111,9 +113,9 @@ class JdbcStudentCourseEnrollmentDaoTest extends IntegrationTestBase {
         Long institutionId = institutionDao.insert("报名测试机构E");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900021005", "hash",
                 Role.TEACHER, false, null));
-        Long courseId = createCourse(institutionId, teacherId, "体育课");
+        Long unitId = createCourseUnit(institutionId, teacherId, "体育课");
         Long studentId = createStudent(institutionId);
-        enrollmentDao.insert(new StudentCourseEnrollment(null, institutionId, studentId, courseId, true, null));
+        enrollmentDao.insert(new StudentUnitEnrollment(null, institutionId, studentId, unitId, true, null));
 
         enrollmentDao.deleteAllByStudentId(studentId);
 
@@ -121,16 +123,16 @@ class JdbcStudentCourseEnrollmentDaoTest extends IntegrationTestBase {
     }
 
     @Test
-    void deleteAllByCourseIdRemovesEnrollments() {
+    void deleteAllByTeachingUnitIdRemovesEnrollments() {
         Long institutionId = institutionDao.insert("报名测试机构F");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900021006", "hash",
                 Role.TEACHER, false, null));
-        Long courseId = createCourse(institutionId, teacherId, "音乐课");
+        Long unitId = createCourseUnit(institutionId, teacherId, "音乐课");
         Long studentId = createStudent(institutionId);
-        enrollmentDao.insert(new StudentCourseEnrollment(null, institutionId, studentId, courseId, true, null));
+        enrollmentDao.insert(new StudentUnitEnrollment(null, institutionId, studentId, unitId, true, null));
 
-        enrollmentDao.deleteAllByCourseId(courseId);
+        enrollmentDao.deleteAllByTeachingUnitId(unitId);
 
-        assertThat(enrollmentDao.findAllByCourseId(courseId)).isEmpty();
+        assertThat(enrollmentDao.findAllByStudentId(studentId)).isEmpty();
     }
 }

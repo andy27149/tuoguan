@@ -4,19 +4,18 @@ import com.tuoguan.backend.auth.dao.InstitutionDao;
 import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
-import com.tuoguan.backend.course.dao.CourseDao;
 import com.tuoguan.backend.course.dao.CourseRechargeRecordDao;
-import com.tuoguan.backend.course.domain.Course;
 import com.tuoguan.backend.course.domain.CourseRechargeRecord;
 import com.tuoguan.backend.kanban.dao.DailyTaskDao;
 import com.tuoguan.backend.kanban.dao.StudentDailyNoteDao;
 import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
 import com.tuoguan.backend.kanban.domain.DailyTask;
-import com.tuoguan.backend.roster.dao.ClassRoomDao;
 import com.tuoguan.backend.roster.dao.StudentDao;
-import com.tuoguan.backend.roster.domain.ClassRoom;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.support.IntegrationTestBase;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
+import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -37,7 +36,7 @@ class PublicShareControllerTest extends IntegrationTestBase {
     private TeacherDao teacherDao;
 
     @Autowired
-    private ClassRoomDao classRoomDao;
+    private TeachingUnitDao teachingUnitDao;
 
     @Autowired
     private StudentDao studentDao;
@@ -52,9 +51,6 @@ class PublicShareControllerTest extends IntegrationTestBase {
     private StudentArrivalCheckinDao studentArrivalCheckinDao;
 
     @Autowired
-    private CourseDao courseDao;
-
-    @Autowired
     private CourseRechargeRecordDao rechargeRecordDao;
 
     @Autowired
@@ -65,7 +61,8 @@ class PublicShareControllerTest extends IntegrationTestBase {
         Long institutionId = institutionDao.insert("公开分享测试机构A");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900009001",
                 passwordEncoder.encode("password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管班",
+                BillingMode.MONTHLY, null, null, true, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小美", "三年级1班",
                 true, null, null));
 
@@ -91,8 +88,8 @@ class PublicShareControllerTest extends IntegrationTestBase {
         Long institutionId = institutionDao.insert("公开分享测试机构B");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900009002",
                 passwordEncoder.encode("password"), Role.TEACHER, false, null));
-        Long courseId = courseDao.insert(new Course(null, institutionId, teacherId, "书法课",
-                new BigDecimal("50.00"), 60, true, null));
+        Long courseId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "书法课",
+                BillingMode.LESSON_COUNT, 60, new BigDecimal("50.00"), true, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, null, "小外", null, true, null, null));
         rechargeRecordDao.insert(new CourseRechargeRecord(null, institutionId, studentId, courseId, 10,
                 "微信转账", teacherId, null));

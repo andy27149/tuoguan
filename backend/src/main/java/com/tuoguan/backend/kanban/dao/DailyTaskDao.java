@@ -12,7 +12,7 @@ public interface DailyTaskDao {
 
     Optional<DailyTask> findById(Long id);
 
-    List<DailyTask> findAllByClassRoomIdAndDate(Long classRoomId, LocalDate date);
+    List<DailyTask> findAllByTeachingUnitIdAndDate(Long teachingUnitId, LocalDate date);
 
     List<DailyTask> findAllByStudentIdAndDateRange(Long studentId, LocalDate start, LocalDate end);
 
@@ -20,5 +20,5 @@ public interface DailyTaskDao {
 
     void deleteById(Long id);
 
-    void deleteAllByClassRoomId(Long classRoomId);
+    void deleteAllByTeachingUnitId(Long teachingUnitId);
 }

@@ -4,8 +4,9 @@ import com.tuoguan.backend.auth.dao.InstitutionDao;
 import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
-import com.tuoguan.backend.roster.dao.ClassRoomDao;
-import com.tuoguan.backend.roster.domain.ClassRoom;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
+import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -14,14 +15,14 @@ public class SeedService {
 
     private final InstitutionDao institutionDao;
     private final TeacherDao teacherDao;
-    private final ClassRoomDao classRoomDao;
+    private final TeachingUnitDao teachingUnitDao;
     private final PasswordEncoder passwordEncoder;
 
-    public SeedService(InstitutionDao institutionDao, TeacherDao teacherDao, ClassRoomDao classRoomDao,
+    public SeedService(InstitutionDao institutionDao, TeacherDao teacherDao, TeachingUnitDao teachingUnitDao,
                         PasswordEncoder passwordEncoder) {
         this.institutionDao = institutionDao;
         this.teacherDao = teacherDao;
-        this.classRoomDao = classRoomDao;
+        this.teachingUnitDao = teachingUnitDao;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -38,8 +39,9 @@ public class SeedService {
     public void seedClass(String teacherPhone, String className) {
         Teacher teacher = teacherDao.findByPhone(teacherPhone)
                 .orElseThrow(() -> new IllegalStateException("Teacher with phone not found: " + teacherPhone));
-        ClassRoom classRoom = new ClassRoom(null, teacher.institutionId(), teacher.id(), className, null);
-        classRoomDao.insert(classRoom);
+        TeachingUnit teachingUnit = new TeachingUnit(null, teacher.institutionId(), teacher.id(), className,
+                BillingMode.MONTHLY, null, null, true, null);
+        teachingUnitDao.insert(teachingUnit);
     }
 
     public void seedPlatformAdmin(String phone, String password) {

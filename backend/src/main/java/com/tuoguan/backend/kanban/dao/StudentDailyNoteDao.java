@@ -7,13 +7,13 @@ import java.util.List;
 
 public interface StudentDailyNoteDao {
 
-    List<StudentDailyNote> findAllByClassRoomIdAndDate(Long classRoomId, LocalDate date);
+    List<StudentDailyNote> findAllByTeachingUnitIdAndDate(Long teachingUnitId, LocalDate date);
 
     List<StudentDailyNote> findAllByStudentIdAndDateRange(Long studentId, LocalDate start, LocalDate end);
 
-    void upsertRating(Long institutionId, Long classRoomId, Long studentId, LocalDate date, int rating);
+    void upsertRating(Long institutionId, Long teachingUnitId, Long studentId, LocalDate date, int rating);
 
-    void upsertComment(Long institutionId, Long classRoomId, Long studentId, LocalDate date, String comment);
+    void upsertComment(Long institutionId, Long teachingUnitId, Long studentId, LocalDate date, String comment);
 
-    void deleteAllByClassRoomId(Long classRoomId);
+    void deleteAllByTeachingUnitId(Long teachingUnitId);
 }

@@ -25,14 +25,14 @@ public class StudentArrivalCheckinService {
         this.classRoomService = classRoomService;
     }
 
-    public List<StudentArrivalCheckin> listForClass(Long teacherId, Long classRoomId, LocalDate date) {
-        classRoomService.getOwnedByTeacher(teacherId, classRoomId);
-        return studentArrivalCheckinDao.findAllByClassRoomIdAndDate(classRoomId, date);
+    public List<StudentArrivalCheckin> listForClass(Long teacherId, Long teachingUnitId, LocalDate date) {
+        classRoomService.getOwnedByTeacher(teacherId, teachingUnitId);
+        return studentArrivalCheckinDao.findAllByTeachingUnitIdAndDate(teachingUnitId, date);
     }
 
     public void setArrival(Long teacherId, Long studentId, LocalDate date, String arrivedAt) {
         Student student = findStudentOwnedByTeacher(teacherId, studentId);
-        studentArrivalCheckinDao.upsert(student.institutionId(), student.classRoomId(), studentId, date, arrivedAt);
+        studentArrivalCheckinDao.upsert(student.institutionId(), student.teachingUnitId(), studentId, date, arrivedAt);
     }
 
     public void clearArrival(Long teacherId, Long studentId, LocalDate date) {
@@ -43,7 +43,7 @@ public class StudentArrivalCheckinService {
     private Student findStudentOwnedByTeacher(Long teacherId, Long studentId) {
         Student student = studentDao.findById(studentId)
                 .orElseThrow(() -> new NotFoundException("Student not found: " + studentId));
-        classRoomService.getOwnedByTeacher(teacherId, student.classRoomId());
+        classRoomService.getOwnedByTeacher(teacherId, student.teachingUnitId());
         return student;
     }
 }

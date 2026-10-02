@@ -11,7 +11,7 @@ public interface StudentDao {
 
     Optional<Student> findById(Long id);
 
-    List<Student> findAllByClassRoomId(Long classRoomId);
+    List<Student> findAllByTeachingUnitId(Long teachingUnitId);
 
     List<Student> findAllByInstitutionId(Long institutionId);
 
@@ -23,7 +23,7 @@ public interface StudentDao {
 
     String findShareToken(Long studentId);
 
-    void deleteAllByClassRoomId(Long classRoomId);
+    void deleteAllByTeachingUnitId(Long teachingUnitId);
 
     void deleteAllByStudentId(Long studentId);
 }

@@ -14,7 +14,7 @@ public class JdbcStudentArrivalCheckinDao implements StudentArrivalCheckinDao {
     private static final RowMapper<StudentArrivalCheckin> ROW_MAPPER = (rs, rowNum) -> new StudentArrivalCheckin(
             rs.getLong("id"),
             rs.getLong("institution_id"),
-            rs.getLong("class_room_id"),
+            rs.getLong("teaching_unit_id"),
             rs.getLong("student_id"),
             rs.getDate("checkin_date").toLocalDate(),
             rs.getString("arrived_at"),
@@ -28,30 +28,30 @@ public class JdbcStudentArrivalCheckinDao implements StudentArrivalCheckinDao {
     }
 
     @Override
-    public List<StudentArrivalCheckin> findAllByClassRoomIdAndDate(Long classRoomId, LocalDate date) {
+    public List<StudentArrivalCheckin> findAllByTeachingUnitIdAndDate(Long teachingUnitId, LocalDate date) {
         return jdbcTemplate.query(
-                "SELECT id, institution_id, class_room_id, student_id, checkin_date, arrived_at, "
+                "SELECT id, institution_id, teaching_unit_id, student_id, checkin_date, arrived_at, "
                         + "created_at, updated_at FROM student_arrival_checkin "
-                        + "WHERE class_room_id = ? AND checkin_date = ? ORDER BY id",
-                ROW_MAPPER, classRoomId, java.sql.Date.valueOf(date));
+                        + "WHERE teaching_unit_id = ? AND checkin_date = ? ORDER BY id",
+                ROW_MAPPER, teachingUnitId, java.sql.Date.valueOf(date));
     }
 
     @Override
     public List<StudentArrivalCheckin> findAllByStudentIdAndDateRange(Long studentId, LocalDate start, LocalDate end) {
         return jdbcTemplate.query(
-                "SELECT id, institution_id, class_room_id, student_id, checkin_date, arrived_at, "
+                "SELECT id, institution_id, teaching_unit_id, student_id, checkin_date, arrived_at, "
                         + "created_at, updated_at FROM student_arrival_checkin "
                         + "WHERE student_id = ? AND checkin_date BETWEEN ? AND ? ORDER BY checkin_date",
                 ROW_MAPPER, studentId, java.sql.Date.valueOf(start), java.sql.Date.valueOf(end));
     }
 
     @Override
-    public void upsert(Long institutionId, Long classRoomId, Long studentId, LocalDate date, String arrivedAt) {
+    public void upsert(Long institutionId, Long teachingUnitId, Long studentId, LocalDate date, String arrivedAt) {
         jdbcTemplate.update(
-                "INSERT INTO student_arrival_checkin (institution_id, class_room_id, student_id, checkin_date, "
+                "INSERT INTO student_arrival_checkin (institution_id, teaching_unit_id, student_id, checkin_date, "
                         + "arrived_at) VALUES (?, ?, ?, ?, ?) "
                         + "ON DUPLICATE KEY UPDATE arrived_at = VALUES(arrived_at)",
-                institutionId, classRoomId, studentId, java.sql.Date.valueOf(date), arrivedAt);
+                institutionId, teachingUnitId, studentId, java.sql.Date.valueOf(date), arrivedAt);
     }
 
     @Override
@@ -62,7 +62,7 @@ public class JdbcStudentArrivalCheckinDao implements StudentArrivalCheckinDao {
     }
 
     @Override
-    public void deleteAllByClassRoomId(Long classRoomId) {
-        jdbcTemplate.update("DELETE FROM student_arrival_checkin WHERE class_room_id = ?", classRoomId);
+    public void deleteAllByTeachingUnitId(Long teachingUnitId) {
+        jdbcTemplate.update("DELETE FROM student_arrival_checkin WHERE teaching_unit_id = ?", teachingUnitId);
     }
 }

@@ -4,11 +4,13 @@ import com.tuoguan.backend.auth.dao.InstitutionDao;
 import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
-import com.tuoguan.backend.course.domain.Course;
 import com.tuoguan.backend.course.domain.CourseRechargeRecord;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.support.IntegrationTestBase;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
+import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -28,7 +30,7 @@ class JdbcCourseRechargeRecordDaoTest extends IntegrationTestBase {
     private StudentDao studentDao;
 
     @Autowired
-    private CourseDao courseDao;
+    private TeachingUnitDao teachingUnitDao;
 
     @Autowired
     private CourseRechargeRecordDao rechargeRecordDao;
@@ -42,7 +44,8 @@ class JdbcCourseRechargeRecordDaoTest extends IntegrationTestBase {
     }
 
     private Long createCourse(Long institutionId, Long teacherId) {
-        return courseDao.insert(new Course(null, institutionId, teacherId, "书法课", null, 60, true, null));
+        return teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "书法课",
+                BillingMode.LESSON_COUNT, 60, null, true, null));
     }
 
     @Test
@@ -57,7 +60,7 @@ class JdbcCourseRechargeRecordDaoTest extends IntegrationTestBase {
 
         List<CourseRechargeRecord> found = rechargeRecordDao.findAllByStudentId(studentId);
         assertThat(found).hasSize(1);
-        assertThat(found.get(0).courseId()).isEqualTo(courseId);
+        assertThat(found.get(0).teachingUnitId()).isEqualTo(courseId);
         assertThat(found.get(0).lessonCount()).isEqualTo(10);
         assertThat(found.get(0).note()).isEqualTo("微信转账");
     }

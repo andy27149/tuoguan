@@ -15,7 +15,7 @@ public class JdbcStudentLeaveRecordDao implements StudentLeaveRecordDao {
             rs.getLong("id"),
             rs.getLong("institution_id"),
             rs.getLong("student_id"),
-            rs.getLong("class_room_id"),
+            rs.getLong("teaching_unit_id"),
             rs.getDate("leave_date").toLocalDate(),
             rs.getString("reason"),
             rs.getTimestamp("created_at").toInstant());
@@ -29,7 +29,7 @@ public class JdbcStudentLeaveRecordDao implements StudentLeaveRecordDao {
     @Override
     public List<StudentLeaveRecord> findAllByStudentIdAndDateRange(Long studentId, LocalDate start, LocalDate end) {
         return jdbcTemplate.query(
-                "SELECT id, institution_id, student_id, class_room_id, leave_date, reason, created_at "
+                "SELECT id, institution_id, student_id, teaching_unit_id, leave_date, reason, created_at "
                         + "FROM student_leave_record WHERE student_id = ? AND leave_date BETWEEN ? AND ? "
                         + "ORDER BY leave_date",
                 ROW_MAPPER, studentId, java.sql.Date.valueOf(start), java.sql.Date.valueOf(end));
@@ -44,11 +44,11 @@ public class JdbcStudentLeaveRecordDao implements StudentLeaveRecordDao {
     }
 
     @Override
-    public void upsert(Long institutionId, Long studentId, Long classRoomId, LocalDate leaveDate, String reason) {
+    public void upsert(Long institutionId, Long studentId, Long teachingUnitId, LocalDate leaveDate, String reason) {
         jdbcTemplate.update(
-                "INSERT INTO student_leave_record (institution_id, student_id, class_room_id, leave_date, reason) "
+                "INSERT INTO student_leave_record (institution_id, student_id, teaching_unit_id, leave_date, reason) "
                         + "VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE reason = VALUES(reason)",
-                institutionId, studentId, classRoomId, java.sql.Date.valueOf(leaveDate), reason);
+                institutionId, studentId, teachingUnitId, java.sql.Date.valueOf(leaveDate), reason);
     }
 
     @Override
@@ -59,7 +59,7 @@ public class JdbcStudentLeaveRecordDao implements StudentLeaveRecordDao {
     }
 
     @Override
-    public void deleteAllByClassRoomId(Long classRoomId) {
-        jdbcTemplate.update("DELETE FROM student_leave_record WHERE class_room_id = ?", classRoomId);
+    public void deleteAllByTeachingUnitId(Long teachingUnitId) {
+        jdbcTemplate.update("DELETE FROM student_leave_record WHERE teaching_unit_id = ?", teachingUnitId);
     }
 }

@@ -20,7 +20,7 @@ public class JdbcCourseConsumptionRecordDao implements CourseConsumptionRecordDa
             rs.getLong("id"),
             rs.getLong("institution_id"),
             rs.getLong("student_id"),
-            rs.getLong("course_id"),
+            rs.getLong("teaching_unit_id"),
             rs.getDate("consumption_date").toLocalDate(),
             rs.getBigDecimal("price_snapshot"),
             rs.getLong("recorded_by_teacher_id"),
@@ -37,12 +37,12 @@ public class JdbcCourseConsumptionRecordDao implements CourseConsumptionRecordDa
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(connection -> {
             PreparedStatement ps = connection.prepareStatement(
-                    "INSERT INTO course_consumption_record (institution_id, student_id, course_id, "
+                    "INSERT INTO course_consumption_record (institution_id, student_id, teaching_unit_id, "
                             + "consumption_date, price_snapshot, recorded_by_teacher_id) VALUES (?, ?, ?, ?, ?, ?)",
                     Statement.RETURN_GENERATED_KEYS);
             ps.setLong(1, record.institutionId());
             ps.setLong(2, record.studentId());
-            ps.setLong(3, record.courseId());
+            ps.setLong(3, record.teachingUnitId());
             ps.setDate(4, java.sql.Date.valueOf(record.consumptionDate()));
             ps.setBigDecimal(5, record.priceSnapshot());
             ps.setLong(6, record.recordedByTeacherId());
@@ -52,20 +52,21 @@ public class JdbcCourseConsumptionRecordDao implements CourseConsumptionRecordDa
     }
 
     @Override
-    public List<CourseConsumptionRecord> findAllByStudentIdAndCourseIdAndDate(Long studentId, Long courseId,
-                                                                               LocalDate date) {
+    public List<CourseConsumptionRecord> findAllByStudentIdAndTeachingUnitIdAndDate(Long studentId,
+                                                                                     Long teachingUnitId,
+                                                                                     LocalDate date) {
         return jdbcTemplate.query(
-                "SELECT id, institution_id, student_id, course_id, consumption_date, price_snapshot, "
+                "SELECT id, institution_id, student_id, teaching_unit_id, consumption_date, price_snapshot, "
                         + "recorded_by_teacher_id, created_at FROM course_consumption_record "
-                        + "WHERE student_id = ? AND course_id = ? AND consumption_date = ? ORDER BY id",
-                ROW_MAPPER, studentId, courseId, date);
+                        + "WHERE student_id = ? AND teaching_unit_id = ? AND consumption_date = ? ORDER BY id",
+                ROW_MAPPER, studentId, teachingUnitId, date);
     }
 
     @Override
     public List<CourseConsumptionRecord> findAllByStudentIdAndDateRange(Long studentId, LocalDate start,
                                                                          LocalDate end) {
         return jdbcTemplate.query(
-                "SELECT id, institution_id, student_id, course_id, consumption_date, price_snapshot, "
+                "SELECT id, institution_id, student_id, teaching_unit_id, consumption_date, price_snapshot, "
                         + "recorded_by_teacher_id, created_at FROM course_consumption_record "
                         + "WHERE student_id = ? AND consumption_date BETWEEN ? AND ? ORDER BY consumption_date",
                 ROW_MAPPER, studentId, start, end);
@@ -74,7 +75,7 @@ public class JdbcCourseConsumptionRecordDao implements CourseConsumptionRecordDa
     @Override
     public List<CourseConsumptionRecord> findAllByStudentId(Long studentId) {
         return jdbcTemplate.query(
-                "SELECT id, institution_id, student_id, course_id, consumption_date, price_snapshot, "
+                "SELECT id, institution_id, student_id, teaching_unit_id, consumption_date, price_snapshot, "
                         + "recorded_by_teacher_id, created_at FROM course_consumption_record "
                         + "WHERE student_id = ? ORDER BY consumption_date DESC, id DESC",
                 ROW_MAPPER, studentId);
@@ -94,7 +95,7 @@ public class JdbcCourseConsumptionRecordDao implements CourseConsumptionRecordDa
     }
 
     @Override
-    public void deleteAllByCourseId(Long courseId) {
-        jdbcTemplate.update("DELETE FROM course_consumption_record WHERE course_id = ?", courseId);
+    public void deleteAllByTeachingUnitId(Long teachingUnitId) {
+        jdbcTemplate.update("DELETE FROM course_consumption_record WHERE teaching_unit_id = ?", teachingUnitId);
     }
 }

@@ -20,11 +20,6 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
 
-  const [newCourseName, setNewCourseName] = useState('')
-  const [newCourseDuration, setNewCourseDuration] = useState('45')
-  const [creatingCourse, setCreatingCourse] = useState(false)
-  const [courseError, setCourseError] = useState<string | null>(null)
-
   const [newStudentName, setNewStudentName] = useState('')
   const [newStudentSchoolClass, setNewStudentSchoolClass] = useState('')
   const [creatingStudent, setCreatingStudent] = useState(false)
@@ -41,6 +36,7 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
   const [presentStudentIds, setPresentStudentIds] = useState<Set<number>>(new Set())
   const [rollCallSubmitting, setRollCallSubmitting] = useState(false)
   const [rollCallError, setRollCallError] = useState<string | null>(null)
+  const [rollCallSuccess, setRollCallSuccess] = useState<string | null>(null)
 
   useEffect(() => {
     loadCourses()
@@ -68,6 +64,8 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
     if (activeCourseId === null) return
     setLoading(true)
     setLoadError(null)
+    setRollCallError(null)
+    setRollCallSuccess(null)
     courseApi
       .fetchCourseRoster(activeCourseId)
       .then(applyRoster)
@@ -84,25 +82,6 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
     if (activeCourseId === null) return
     const list = await courseApi.fetchCourseRoster(activeCourseId)
     applyRoster(list)
-  }
-
-  async function handleCreateCourse(e: FormEvent) {
-    e.preventDefault()
-    const name = newCourseName.trim()
-    const duration = Number(newCourseDuration)
-    if (!name || !Number.isFinite(duration) || duration <= 0) return
-    setCreatingCourse(true)
-    setCourseError(null)
-    try {
-      const created = await courseApi.createCourse(name, duration)
-      setCourses((prev) => [...prev, created])
-      setActiveCourseId(created.id)
-      setNewCourseName('')
-    } catch (err) {
-      setCourseError(err instanceof ApiError && err.status === 409 ? '该课程名称已存在' : '创建失败，请重试')
-    } finally {
-      setCreatingCourse(false)
-    }
   }
 
   async function handleCreateStudent(e: FormEvent) {
@@ -181,8 +160,10 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
     if (activeCourseId === null) return
     setRollCallSubmitting(true)
     setRollCallError(null)
+    setRollCallSuccess(null)
     try {
-      await courseApi.recordBatchConsumption(activeCourseId, rollCallDate, Array.from(presentStudentIds))
+      const created = await courseApi.recordBatchConsumption(activeCourseId, rollCallDate, Array.from(presentStudentIds))
+      setRollCallSuccess(created.length > 0 ? `已确认消课，新增 ${created.length} 条记录` : '该日期已全部确认过，无新增记录')
     } catch (err) {
       setRollCallError(
         err instanceof ApiError && err.status === 400 ? '该课程尚未配置单价，请联系管理员配置' : '消课失败，请重试',
@@ -227,43 +208,11 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
       </header>
 
       <main className="mx-auto max-w-2xl space-y-4 px-4 pt-4">
-        <div className="rounded-lg border border-gray-200 bg-white p-3">
-          <h2 className="text-sm font-medium text-gray-700">新建课外课</h2>
-          <form onSubmit={handleCreateCourse} className="mt-2 flex flex-wrap gap-2">
-            <input
-              placeholder="课程名称"
-              value={newCourseName}
-              onChange={(e) => setNewCourseName(e.target.value)}
-              className="flex-1 rounded border px-2 py-1 text-sm"
-            />
-            <input
-              type="number"
-              min={1}
-              placeholder="时长（分钟）"
-              value={newCourseDuration}
-              onChange={(e) => setNewCourseDuration(e.target.value)}
-              className="w-28 rounded border px-2 py-1 text-sm"
-            />
-            <button
-              type="submit"
-              disabled={creatingCourse || !newCourseName.trim()}
-              className="rounded bg-blue-600 px-3 py-1 text-sm text-white disabled:opacity-50"
-            >
-              创建
-            </button>
-          </form>
-          {courseError && (
-            <p role="alert" className="mt-1 text-xs text-red-600">
-              {courseError}
-            </p>
-          )}
-        </div>
-
         {loadError && <p className="text-sm text-red-600">{loadError}</p>}
         {loading && <p className="text-sm text-gray-400">加载中...</p>}
 
         {!loading && courses.length === 0 && (
-          <p className="text-sm text-gray-400">暂无课外课，先在上方创建一门吧</p>
+          <p className="text-sm text-gray-400">暂无课外课，请联系管理员分配</p>
         )}
 
         {!loading && activeCourseId !== null && courses.length > 0 && (
@@ -331,6 +280,11 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
             {rollCallError && (
               <p role="alert" className="mt-1 text-xs text-red-600">
                 {rollCallError}
+              </p>
+            )}
+            {rollCallSuccess && !rollCallError && (
+              <p role="status" className="mt-1 text-xs text-green-600">
+                {rollCallSuccess}
               </p>
             )}
 

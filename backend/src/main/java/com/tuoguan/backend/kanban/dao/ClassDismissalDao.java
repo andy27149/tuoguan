@@ -9,9 +9,9 @@ public interface ClassDismissalDao {
 
     Long insert(ClassDismissal classDismissal);
 
-    Optional<ClassDismissal> findByClassRoomIdAndDate(Long classRoomId, LocalDate date);
+    Optional<ClassDismissal> findByTeachingUnitIdAndDate(Long teachingUnitId, LocalDate date);
 
-    void deleteByClassRoomIdAndDate(Long classRoomId, LocalDate date);
+    void deleteByTeachingUnitIdAndDate(Long teachingUnitId, LocalDate date);
 
-    void deleteAllByClassRoomId(Long classRoomId);
+    void deleteAllByTeachingUnitId(Long teachingUnitId);
 }

@@ -6,11 +6,12 @@ import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.auth.web.LoginResponse;
-import com.tuoguan.backend.roster.dao.ClassRoomDao;
 import com.tuoguan.backend.roster.dao.StudentDao;
-import com.tuoguan.backend.roster.domain.ClassRoom;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.support.IntegrationTestBase;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
+import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,7 +32,7 @@ class AdminStudentControllerTest extends IntegrationTestBase {
     private TeacherDao teacherDao;
 
     @Autowired
-    private ClassRoomDao classRoomDao;
+    private TeachingUnitDao teachingUnitDao;
 
     @Autowired
     private StudentDao studentDao;
@@ -49,7 +50,8 @@ class AdminStudentControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("password"), Role.ADMIN, false, null));
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800012002",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "一年级1班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "一年级1班",
+                BillingMode.MONTHLY, null, null, true, null));
         studentDao.insert(new Student(null, institutionId, classRoomId, "小托", "一年级1班", true, null, null));
         studentDao.insert(new Student(null, institutionId, null, "小外", null, true, null, null));
         String token = login("13800012001", "password");

@@ -6,10 +6,11 @@ import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.auth.web.LoginResponse;
-import com.tuoguan.backend.roster.dao.ClassRoomDao;
 import com.tuoguan.backend.roster.dao.StudentDao;
-import com.tuoguan.backend.roster.domain.ClassRoom;
 import com.tuoguan.backend.roster.domain.Student;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
+import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import com.tuoguan.backend.support.IntegrationTestBase;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,7 +34,7 @@ class AdminBillOverviewControllerTest extends IntegrationTestBase {
     private TeacherDao teacherDao;
 
     @Autowired
-    private ClassRoomDao classRoomDao;
+    private TeachingUnitDao teachingUnitDao;
 
     @Autowired
     private StudentDao studentDao;
@@ -51,7 +52,8 @@ class AdminBillOverviewControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900014002",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "详情一班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "详情一班",
+                BillingMode.MONTHLY, null, null, true, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "学生甲", "一班", true, null, null));
         String adminToken = login("13900014001", "admin-password");
 
@@ -62,10 +64,10 @@ class AdminBillOverviewControllerTest extends IntegrationTestBase {
                 .andExpect(status().isOk());
 
         String teacherToken = login("13900014002", "teacher-password");
-        MvcResult courseResult = mockMvc.perform(post("/api/courses")
-                        .header("Authorization", "Bearer " + teacherToken)
+        MvcResult courseResult = mockMvc.perform(post("/api/admin/courses")
+                        .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"数学课\",\"lessonDurationMinutes\":60}"))
+                        .content("{\"name\":\"数学课\",\"lessonDurationMinutes\":60,\"teacherId\":" + teacherId + "}"))
                 .andExpect(status().isCreated())
                 .andReturn();
         Long courseId = objectMapper.readTree(courseResult.getResponse().getContentAsString()).get("id").asLong();
@@ -107,7 +109,8 @@ class AdminBillOverviewControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900014011",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "全月一班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "全月一班",
+                BillingMode.MONTHLY, null, null, true, null));
         Long billedStudentId = studentDao.insert(
                 new Student(null, institutionId, classRoomId, "已出账学生", "一班", true, null, null));
         Long unbilledStudentId = studentDao.insert(
@@ -155,7 +158,8 @@ class AdminBillOverviewControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherBId = teacherDao.insert(new Teacher(null, institutionBId, "13900014005",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomBId = classRoomDao.insert(new ClassRoom(null, institutionBId, teacherBId, "详情二班", null));
+        Long classRoomBId = teachingUnitDao.insert(new TeachingUnit(null, institutionBId, teacherBId, "详情二班",
+                BillingMode.MONTHLY, null, null, true, null));
         Long studentBId = studentDao.insert(new Student(null, institutionBId, classRoomBId, "学生乙", "一班", true, null, null));
 
         teacherDao.insert(new Teacher(null, institutionBId, "13900014006",

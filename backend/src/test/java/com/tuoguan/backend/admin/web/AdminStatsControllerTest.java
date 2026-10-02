@@ -9,10 +9,11 @@ import com.tuoguan.backend.auth.web.LoginResponse;
 import com.tuoguan.backend.kanban.dao.DailyTaskDao;
 import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
 import com.tuoguan.backend.kanban.domain.DailyTask;
-import com.tuoguan.backend.roster.dao.ClassRoomDao;
 import com.tuoguan.backend.roster.dao.StudentDao;
-import com.tuoguan.backend.roster.domain.ClassRoom;
 import com.tuoguan.backend.roster.domain.Student;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
+import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import com.tuoguan.backend.support.IntegrationTestBase;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,7 +37,7 @@ class AdminStatsControllerTest extends IntegrationTestBase {
     private TeacherDao teacherDao;
 
     @Autowired
-    private ClassRoomDao classRoomDao;
+    private TeachingUnitDao teachingUnitDao;
 
     @Autowired
     private StudentDao studentDao;
@@ -63,7 +64,8 @@ class AdminStatsControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
 
         // Class 1: two enrolled students; one fully done, one partially done.
-        Long classRoom1Id = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "一班", null));
+        Long classRoom1Id = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "一班",
+                BillingMode.MONTHLY, null, null, true, null));
         Long student1AId = studentDao.insert(new Student(null, institutionId, classRoom1Id, "小明", "三年级2班",
                 true, null, null));
         Long student1BId = studentDao.insert(new Student(null, institutionId, classRoom1Id, "小红", "三年级2班",
@@ -82,7 +84,8 @@ class AdminStatsControllerTest extends IntegrationTestBase {
         studentArrivalCheckinDao.upsert(institutionId, classRoom1Id, student1AId, date, "08:00");
 
         // Class 2: one enrolled student with no tasks that day.
-        Long classRoom2Id = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "二班", null));
+        Long classRoom2Id = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "二班",
+                BillingMode.MONTHLY, null, null, true, null));
         studentDao.insert(new Student(null, institutionId, classRoom2Id, "小丽", "三年级1班", true, null, null));
 
         String token = login("13600005001", "admin-password");

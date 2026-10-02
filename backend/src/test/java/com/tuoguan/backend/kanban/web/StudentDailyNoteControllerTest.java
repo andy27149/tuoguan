@@ -6,11 +6,12 @@ import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.auth.web.LoginResponse;
-import com.tuoguan.backend.roster.dao.ClassRoomDao;
 import com.tuoguan.backend.roster.dao.StudentDao;
-import com.tuoguan.backend.roster.domain.ClassRoom;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.support.IntegrationTestBase;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
+import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -36,7 +37,7 @@ class StudentDailyNoteControllerTest extends IntegrationTestBase {
     private TeacherDao teacherDao;
 
     @Autowired
-    private ClassRoomDao classRoomDao;
+    private TeachingUnitDao teachingUnitDao;
 
     @Autowired
     private StudentDao studentDao;
@@ -52,7 +53,8 @@ class StudentDailyNoteControllerTest extends IntegrationTestBase {
         Long institutionId = institutionDao.insert("每日评价控制器测试机构A");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900007001",
                 passwordEncoder.encode("password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管班",
+                BillingMode.MONTHLY, null, null, true, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小明", "三年级2班",
                 true, null, null));
         String token = login("13900007001", "password");
@@ -99,7 +101,8 @@ class StudentDailyNoteControllerTest extends IntegrationTestBase {
         Long institutionId = institutionDao.insert("每日评价控制器测试机构B");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900007002",
                 passwordEncoder.encode("password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管班",
+                BillingMode.MONTHLY, null, null, true, null));
         studentDao.insert(new Student(null, institutionId, classRoomId, "小明", "三年级2班", true, null, null));
         String token = login("13900007002", "password");
 
@@ -116,7 +119,8 @@ class StudentDailyNoteControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("password-a"), Role.TEACHER, false, null));
         Long teacherBId = teacherDao.insert(new Teacher(null, institutionId, "13900007004",
                 passwordEncoder.encode("password-b"), Role.TEACHER, false, null));
-        Long classRoomAId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherAId, "A班", null));
+        Long classRoomAId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherAId, "A班",
+                BillingMode.MONTHLY, null, null, true, null));
         Long studentAId = studentDao.insert(new Student(null, institutionId, classRoomAId, "小明", "三年级2班",
                 true, null, null));
 

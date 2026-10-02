@@ -14,7 +14,7 @@ public record ConsumptionRecordResponse(Long id, Long studentId, Long courseId, 
 
     public static ConsumptionRecordResponse from(CourseConsumptionRecord record, String courseName,
                                                   String teacherName) {
-        return new ConsumptionRecordResponse(record.id(), record.studentId(), record.courseId(), courseName,
+        return new ConsumptionRecordResponse(record.id(), record.studentId(), record.teachingUnitId(), courseName,
                 record.consumptionDate(), record.priceSnapshot(), teacherName);
     }
 }

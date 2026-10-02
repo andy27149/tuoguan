@@ -4,10 +4,11 @@ import com.tuoguan.backend.admin.web.AdminDashboardResponse.ClassSummary;
 import com.tuoguan.backend.kanban.dao.DailyTaskDao;
 import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
 import com.tuoguan.backend.kanban.domain.DailyTask;
-import com.tuoguan.backend.roster.dao.ClassRoomDao;
 import com.tuoguan.backend.roster.dao.StudentDao;
-import com.tuoguan.backend.roster.domain.ClassRoom;
 import com.tuoguan.backend.roster.domain.Student;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
+import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -18,30 +19,31 @@ import java.util.stream.Collectors;
 @Service
 public class AdminStatsService {
 
-    private final ClassRoomDao classRoomDao;
+    private final TeachingUnitDao teachingUnitDao;
     private final StudentDao studentDao;
     private final DailyTaskDao dailyTaskDao;
     private final StudentArrivalCheckinDao studentArrivalCheckinDao;
 
-    public AdminStatsService(ClassRoomDao classRoomDao, StudentDao studentDao, DailyTaskDao dailyTaskDao,
+    public AdminStatsService(TeachingUnitDao teachingUnitDao, StudentDao studentDao, DailyTaskDao dailyTaskDao,
                               StudentArrivalCheckinDao studentArrivalCheckinDao) {
-        this.classRoomDao = classRoomDao;
+        this.teachingUnitDao = teachingUnitDao;
         this.studentDao = studentDao;
         this.dailyTaskDao = dailyTaskDao;
         this.studentArrivalCheckinDao = studentArrivalCheckinDao;
     }
 
     public List<ClassSummary> getDashboard(Long institutionId, LocalDate date) {
-        return classRoomDao.findAllByInstitutionId(institutionId).stream()
-                .map(classRoom -> buildSummary(classRoom, date))
+        return teachingUnitDao.findAllByInstitutionId(institutionId).stream()
+                .filter(unit -> unit.billingMode() == BillingMode.MONTHLY)
+                .map(unit -> buildSummary(unit, date))
                 .toList();
     }
 
-    private ClassSummary buildSummary(ClassRoom classRoom, LocalDate date) {
-        List<Student> enrolledStudents = studentDao.findAllByClassRoomId(classRoom.id()).stream()
+    private ClassSummary buildSummary(TeachingUnit teachingUnit, LocalDate date) {
+        List<Student> enrolledStudents = studentDao.findAllByTeachingUnitId(teachingUnit.id()).stream()
                 .filter(Student::enrolled)
                 .toList();
-        List<DailyTask> tasks = dailyTaskDao.findAllByClassRoomIdAndDate(classRoom.id(), date);
+        List<DailyTask> tasks = dailyTaskDao.findAllByTeachingUnitIdAndDate(teachingUnit.id(), date);
         Map<Long, List<DailyTask>> tasksByStudent = tasks.stream()
                 .collect(Collectors.groupingBy(DailyTask::studentId));
 
@@ -53,9 +55,9 @@ public class AdminStatsService {
                 })
                 .count();
 
-        int checkinCount = studentArrivalCheckinDao.findAllByClassRoomIdAndDate(classRoom.id(), date).size();
+        int checkinCount = studentArrivalCheckinDao.findAllByTeachingUnitIdAndDate(teachingUnit.id(), date).size();
 
-        return new ClassSummary(classRoom.id(), classRoom.name(), enrolledStudents.size(), checkinCount,
+        return new ClassSummary(teachingUnit.id(), teachingUnit.name(), enrolledStudents.size(), checkinCount,
                 completedStudentCount);
     }
 }

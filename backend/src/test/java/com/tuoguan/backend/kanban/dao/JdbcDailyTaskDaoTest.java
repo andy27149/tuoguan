@@ -5,11 +5,12 @@ import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.kanban.domain.DailyTask;
-import com.tuoguan.backend.roster.dao.ClassRoomDao;
 import com.tuoguan.backend.roster.dao.StudentDao;
-import com.tuoguan.backend.roster.domain.ClassRoom;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.support.IntegrationTestBase;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
+import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -28,7 +29,7 @@ class JdbcDailyTaskDaoTest extends IntegrationTestBase {
     private TeacherDao teacherDao;
 
     @Autowired
-    private ClassRoomDao classRoomDao;
+    private TeachingUnitDao teachingUnitDao;
 
     @Autowired
     private StudentDao studentDao;
@@ -40,7 +41,8 @@ class JdbcDailyTaskDaoTest extends IntegrationTestBase {
         Long institutionId = institutionDao.insert(institutionName);
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, phone, "hash",
                 Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管班",
+                BillingMode.MONTHLY, null, null, true, null));
         return studentDao.insert(new Student(null, institutionId, classRoomId, "小明", "三年级2班", true, null, null));
     }
 
@@ -48,7 +50,7 @@ class JdbcDailyTaskDaoTest extends IntegrationTestBase {
     void insertAndFindByIdRoundTrips() {
         Long studentId = createStudent("每日任务测试机构A", "13900003001");
         Student student = studentDao.findById(studentId).orElseThrow();
-        DailyTask dailyTask = new DailyTask(null, student.institutionId(), student.classRoomId(), studentId,
+        DailyTask dailyTask = new DailyTask(null, student.institutionId(), student.teachingUnitId(), studentId,
                 LocalDate.of(2026, 8, 6), null, "数学", "口算练习", false, false, null);
 
         Long id = dailyTaskDao.insert(dailyTask);
@@ -62,16 +64,16 @@ class JdbcDailyTaskDaoTest extends IntegrationTestBase {
     }
 
     @Test
-    void findAllByClassRoomIdAndDateOnlyReturnsMatchingRows() {
+    void findAllByTeachingUnitIdAndDateOnlyReturnsMatchingRows() {
         Long studentId = createStudent("每日任务测试机构B", "13900003002");
         Student student = studentDao.findById(studentId).orElseThrow();
-        dailyTaskDao.insert(new DailyTask(null, student.institutionId(), student.classRoomId(), studentId,
+        dailyTaskDao.insert(new DailyTask(null, student.institutionId(), student.teachingUnitId(), studentId,
                 LocalDate.of(2026, 8, 6), null, "数学", "口算练习", false, false, null));
-        dailyTaskDao.insert(new DailyTask(null, student.institutionId(), student.classRoomId(), studentId,
+        dailyTaskDao.insert(new DailyTask(null, student.institutionId(), student.teachingUnitId(), studentId,
                 LocalDate.of(2026, 8, 5), null, "语文", "背诵古诗", false, false, null));
 
-        List<DailyTask> found = dailyTaskDao.findAllByClassRoomIdAndDate(
-                student.classRoomId(), LocalDate.of(2026, 8, 6));
+        List<DailyTask> found = dailyTaskDao.findAllByTeachingUnitIdAndDate(
+                student.teachingUnitId(), LocalDate.of(2026, 8, 6));
 
         assertThat(found).hasSize(1);
         assertThat(found.get(0).name()).isEqualTo("口算练习");
@@ -81,7 +83,7 @@ class JdbcDailyTaskDaoTest extends IntegrationTestBase {
     void updateCompletedChangesFlag() {
         Long studentId = createStudent("每日任务测试机构C", "13900003003");
         Student student = studentDao.findById(studentId).orElseThrow();
-        Long id = dailyTaskDao.insert(new DailyTask(null, student.institutionId(), student.classRoomId(), studentId,
+        Long id = dailyTaskDao.insert(new DailyTask(null, student.institutionId(), student.teachingUnitId(), studentId,
                 LocalDate.of(2026, 8, 6), null, "数学", "口算练习", false, false, null));
 
         dailyTaskDao.updateCompleted(id, true);
@@ -93,7 +95,7 @@ class JdbcDailyTaskDaoTest extends IntegrationTestBase {
     void deleteByIdRemovesRow() {
         Long studentId = createStudent("每日任务测试机构D", "13900003004");
         Student student = studentDao.findById(studentId).orElseThrow();
-        Long id = dailyTaskDao.insert(new DailyTask(null, student.institutionId(), student.classRoomId(), studentId,
+        Long id = dailyTaskDao.insert(new DailyTask(null, student.institutionId(), student.teachingUnitId(), studentId,
                 LocalDate.of(2026, 8, 6), null, "数学", "口算练习", false, false, null));
 
         dailyTaskDao.deleteById(id);

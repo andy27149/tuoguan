@@ -10,7 +10,8 @@ public interface CourseConsumptionRecordDao {
 
     Long insert(CourseConsumptionRecord record);
 
-    List<CourseConsumptionRecord> findAllByStudentIdAndCourseIdAndDate(Long studentId, Long courseId, LocalDate date);
+    List<CourseConsumptionRecord> findAllByStudentIdAndTeachingUnitIdAndDate(Long studentId, Long teachingUnitId,
+                                                                              LocalDate date);
 
     List<CourseConsumptionRecord> findAllByStudentIdAndDateRange(Long studentId, LocalDate start, LocalDate end);
 
@@ -20,5 +21,5 @@ public interface CourseConsumptionRecordDao {
 
     void deleteAllByStudentId(Long studentId);
 
-    void deleteAllByCourseId(Long courseId);
+    void deleteAllByTeachingUnitId(Long teachingUnitId);
 }

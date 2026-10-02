@@ -84,13 +84,6 @@ export function fetchMyCourses(): Promise<Course[]> {
   return apiFetch<Course[]>('/courses')
 }
 
-export function createCourse(name: string, lessonDurationMinutes: number): Promise<Course> {
-  return apiFetch<Course>('/courses', {
-    method: 'POST',
-    body: JSON.stringify({ name, lessonDurationMinutes }),
-  })
-}
-
 export function createCourseStudent(
   courseId: number,
   name: string,
@@ -144,6 +137,18 @@ export function recordBatchConsumption(
 
 export function fetchAdminCourses(): Promise<AdminCourse[]> {
   return apiFetch<AdminCourse[]>('/admin/courses')
+}
+
+export function createAdminCourse(
+  name: string,
+  lessonDurationMinutes: number,
+  teacherId: number,
+  pricePerLesson: number | null,
+): Promise<AdminCourse> {
+  return apiFetch<AdminCourse>('/admin/courses', {
+    method: 'POST',
+    body: JSON.stringify({ name, lessonDurationMinutes, teacherId, pricePerLesson }),
+  })
 }
 
 export function updateAdminCourse(

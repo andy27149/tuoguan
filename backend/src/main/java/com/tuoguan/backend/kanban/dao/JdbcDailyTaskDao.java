@@ -20,7 +20,7 @@ public class JdbcDailyTaskDao implements DailyTaskDao {
     private static final RowMapper<DailyTask> ROW_MAPPER = (rs, rowNum) -> new DailyTask(
             rs.getLong("id"),
             rs.getLong("institution_id"),
-            rs.getLong("class_room_id"),
+            rs.getLong("teaching_unit_id"),
             rs.getLong("student_id"),
             rs.getDate("task_date").toLocalDate(),
             rs.getObject("task_template_id", Long.class),
@@ -41,12 +41,12 @@ public class JdbcDailyTaskDao implements DailyTaskDao {
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(connection -> {
             PreparedStatement ps = connection.prepareStatement(
-                    "INSERT INTO daily_task (institution_id, class_room_id, student_id, task_date, "
+                    "INSERT INTO daily_task (institution_id, teaching_unit_id, student_id, task_date, "
                             + "task_template_id, subject, name, is_custom, completed) "
                             + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     Statement.RETURN_GENERATED_KEYS);
             ps.setLong(1, dailyTask.institutionId());
-            ps.setLong(2, dailyTask.classRoomId());
+            ps.setLong(2, dailyTask.teachingUnitId());
             ps.setLong(3, dailyTask.studentId());
             ps.setDate(4, java.sql.Date.valueOf(dailyTask.taskDate()));
             if (dailyTask.taskTemplateId() != null) {
@@ -66,25 +66,25 @@ public class JdbcDailyTaskDao implements DailyTaskDao {
     @Override
     public Optional<DailyTask> findById(Long id) {
         List<DailyTask> results = jdbcTemplate.query(
-                "SELECT id, institution_id, class_room_id, student_id, task_date, task_template_id, subject, "
+                "SELECT id, institution_id, teaching_unit_id, student_id, task_date, task_template_id, subject, "
                         + "name, is_custom, completed, created_at FROM daily_task WHERE id = ?",
                 ROW_MAPPER, id);
         return results.stream().findFirst();
     }
 
     @Override
-    public List<DailyTask> findAllByClassRoomIdAndDate(Long classRoomId, LocalDate date) {
+    public List<DailyTask> findAllByTeachingUnitIdAndDate(Long teachingUnitId, LocalDate date) {
         return jdbcTemplate.query(
-                "SELECT id, institution_id, class_room_id, student_id, task_date, task_template_id, subject, "
+                "SELECT id, institution_id, teaching_unit_id, student_id, task_date, task_template_id, subject, "
                         + "name, is_custom, completed, created_at FROM daily_task "
-                        + "WHERE class_room_id = ? AND task_date = ? ORDER BY id",
-                ROW_MAPPER, classRoomId, java.sql.Date.valueOf(date));
+                        + "WHERE teaching_unit_id = ? AND task_date = ? ORDER BY id",
+                ROW_MAPPER, teachingUnitId, java.sql.Date.valueOf(date));
     }
 
     @Override
     public List<DailyTask> findAllByStudentIdAndDateRange(Long studentId, LocalDate start, LocalDate end) {
         return jdbcTemplate.query(
-                "SELECT id, institution_id, class_room_id, student_id, task_date, task_template_id, subject, "
+                "SELECT id, institution_id, teaching_unit_id, student_id, task_date, task_template_id, subject, "
                         + "name, is_custom, completed, created_at FROM daily_task "
                         + "WHERE student_id = ? AND task_date BETWEEN ? AND ? ORDER BY task_date",
                 ROW_MAPPER, studentId, java.sql.Date.valueOf(start), java.sql.Date.valueOf(end));
@@ -101,7 +101,7 @@ public class JdbcDailyTaskDao implements DailyTaskDao {
     }
 
     @Override
-    public void deleteAllByClassRoomId(Long classRoomId) {
-        jdbcTemplate.update("DELETE FROM daily_task WHERE class_room_id = ?", classRoomId);
+    public void deleteAllByTeachingUnitId(Long teachingUnitId) {
+        jdbcTemplate.update("DELETE FROM daily_task WHERE teaching_unit_id = ?", teachingUnitId);
     }
 }

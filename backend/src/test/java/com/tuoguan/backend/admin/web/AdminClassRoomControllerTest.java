@@ -5,10 +5,11 @@ import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.auth.web.LoginResponse;
-import com.tuoguan.backend.roster.dao.ClassRoomDao;
 import com.tuoguan.backend.roster.dao.StudentDao;
-import com.tuoguan.backend.roster.domain.ClassRoom;
 import com.tuoguan.backend.roster.domain.Student;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
+import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import com.tuoguan.backend.support.IntegrationTestBase;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -34,7 +35,7 @@ class AdminClassRoomControllerTest extends IntegrationTestBase {
     private TeacherDao teacherDao;
 
     @Autowired
-    private ClassRoomDao classRoomDao;
+    private TeachingUnitDao teachingUnitDao;
 
     @Autowired
     private StudentDao studentDao;
@@ -52,7 +53,8 @@ class AdminClassRoomControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13600001002",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管一班", null));
+        teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管一班",
+                BillingMode.MONTHLY, null, null, true, null));
         String adminToken = login("13600001001", "admin-password");
 
         mockMvc.perform(get("/api/admin/classes")
@@ -72,7 +74,8 @@ class AdminClassRoomControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherBId = teacherDao.insert(new Teacher(null, institutionBId, "13600001004",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        classRoomDao.insert(new ClassRoom(null, institutionBId, teacherBId, "托管二班", null));
+        teachingUnitDao.insert(new TeachingUnit(null, institutionBId, teacherBId, "托管二班",
+                BillingMode.MONTHLY, null, null, true, null));
         String adminToken = login("13600001003", "admin-password");
 
         mockMvc.perform(get("/api/admin/classes")
@@ -116,7 +119,8 @@ class AdminClassRoomControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
         Long teacherBId = teacherDao.insert(new Teacher(null, institutionId, "13600004003",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherAId, "托管十班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherAId, "托管十班",
+                BillingMode.MONTHLY, null, null, true, null));
         String adminToken = login("13600004001", "admin-password");
 
         mockMvc.perform(patch("/api/admin/classes/" + classRoomId)
@@ -128,8 +132,8 @@ class AdminClassRoomControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.teacherId").value(teacherBId))
                 .andExpect(jsonPath("$.teacherPhone").value("13600004003"));
 
-        assertThat(classRoomDao.findById(classRoomId)).get()
-                .extracting(ClassRoom::name, ClassRoom::teacherId)
+        assertThat(teachingUnitDao.findById(classRoomId)).get()
+                .extracting(TeachingUnit::name, TeachingUnit::teacherId)
                 .containsExactly("托管十一班", teacherBId);
     }
 
@@ -141,7 +145,8 @@ class AdminClassRoomControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherBId = teacherDao.insert(new Teacher(null, institutionBId, "13600004005",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionBId, teacherBId, "托管十二班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionBId, teacherBId, "托管十二班",
+                BillingMode.MONTHLY, null, null, true, null));
         String adminToken = login("13600004004", "admin-password");
 
         mockMvc.perform(patch("/api/admin/classes/" + classRoomId)
@@ -161,7 +166,8 @@ class AdminClassRoomControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
         Long teacherBId = teacherDao.insert(new Teacher(null, institutionBId, "13600004008",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionAId, teacherAId, "托管十四班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionAId, teacherAId, "托管十四班",
+                BillingMode.MONTHLY, null, null, true, null));
         String adminToken = login("13600004006", "admin-password");
 
         mockMvc.perform(patch("/api/admin/classes/" + classRoomId)
@@ -178,8 +184,10 @@ class AdminClassRoomControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13600004010",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管十六班", null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管十七班", null));
+        teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管十六班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管十七班",
+                BillingMode.MONTHLY, null, null, true, null));
         String adminToken = login("13600004009", "admin-password");
 
         mockMvc.perform(patch("/api/admin/classes/" + classRoomId)
@@ -194,7 +202,8 @@ class AdminClassRoomControllerTest extends IntegrationTestBase {
         Long institutionId = institutionDao.insert("改名班级测试机构G");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13600004011",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管十八班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管十八班",
+                BillingMode.MONTHLY, null, null, true, null));
         String token = login("13600004011", "teacher-password");
 
         mockMvc.perform(patch("/api/admin/classes/" + classRoomId)
@@ -211,7 +220,8 @@ class AdminClassRoomControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13600004013",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管二十班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管二十班",
+                BillingMode.MONTHLY, null, null, true, null));
         String adminToken = login("13600004012", "admin-password");
 
         mockMvc.perform(patch("/api/admin/classes/" + classRoomId)
@@ -234,7 +244,8 @@ class AdminClassRoomControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13600002002",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管四班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管四班",
+                BillingMode.MONTHLY, null, null, true, null));
         studentDao.insert(new Student(null, institutionId, classRoomId, "小明", "一班", true, null, null));
         studentDao.insert(new Student(null, institutionId, classRoomId, "小红", "二班", true, null, null));
         String adminToken = login("13600002001", "admin-password");
@@ -252,14 +263,15 @@ class AdminClassRoomControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13600002004",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管五班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管五班",
+                BillingMode.MONTHLY, null, null, true, null));
         String adminToken = login("13600002003", "admin-password");
 
         mockMvc.perform(delete("/api/admin/classes/" + classRoomId)
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isNoContent());
 
-        assertThat(classRoomDao.findById(classRoomId)).isEmpty();
+        assertThat(teachingUnitDao.findById(classRoomId)).isEmpty();
     }
 
     @Test
@@ -269,7 +281,8 @@ class AdminClassRoomControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13600002006",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管六班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管六班",
+                BillingMode.MONTHLY, null, null, true, null));
         studentDao.insert(new Student(null, institutionId, classRoomId, "小刚", "三班", true, null, null));
         String adminToken = login("13600002005", "admin-password");
 
@@ -277,8 +290,8 @@ class AdminClassRoomControllerTest extends IntegrationTestBase {
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isNoContent());
 
-        assertThat(classRoomDao.findById(classRoomId)).isEmpty();
-        assertThat(studentDao.findAllByClassRoomId(classRoomId)).isEmpty();
+        assertThat(teachingUnitDao.findById(classRoomId)).isEmpty();
+        assertThat(studentDao.findAllByTeachingUnitId(classRoomId)).isEmpty();
     }
 
     @Test
@@ -289,7 +302,8 @@ class AdminClassRoomControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherBId = teacherDao.insert(new Teacher(null, institutionBId, "13600002008",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionBId, teacherBId, "托管七班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionBId, teacherBId, "托管七班",
+                BillingMode.MONTHLY, null, null, true, null));
         String adminToken = login("13600002007", "admin-password");
 
         mockMvc.perform(get("/api/admin/classes/" + classRoomId + "/deletion-impact")
@@ -305,14 +319,15 @@ class AdminClassRoomControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherBId = teacherDao.insert(new Teacher(null, institutionBId, "13600002010",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionBId, teacherBId, "托管八班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionBId, teacherBId, "托管八班",
+                BillingMode.MONTHLY, null, null, true, null));
         String adminToken = login("13600002009", "admin-password");
 
         mockMvc.perform(delete("/api/admin/classes/" + classRoomId)
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isNotFound());
 
-        assertThat(classRoomDao.findById(classRoomId)).isPresent();
+        assertThat(teachingUnitDao.findById(classRoomId)).isPresent();
     }
 
     @Test
@@ -320,7 +335,8 @@ class AdminClassRoomControllerTest extends IntegrationTestBase {
         Long institutionId = institutionDao.insert("班级删除测试机构H");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13600002011",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管九班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管九班",
+                BillingMode.MONTHLY, null, null, true, null));
         String token = login("13600002011", "teacher-password");
 
         mockMvc.perform(delete("/api/admin/classes/" + classRoomId)

@@ -7,14 +7,13 @@ import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.auth.web.LoginResponse;
 import com.tuoguan.backend.course.dao.CourseConsumptionRecordDao;
-import com.tuoguan.backend.course.dao.CourseDao;
-import com.tuoguan.backend.course.domain.Course;
 import com.tuoguan.backend.course.domain.CourseConsumptionRecord;
-import com.tuoguan.backend.roster.dao.ClassRoomDao;
 import com.tuoguan.backend.roster.dao.StudentDao;
-import com.tuoguan.backend.roster.domain.ClassRoom;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.support.IntegrationTestBase;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
+import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -38,13 +37,13 @@ class AdminStudentAccountControllerTest extends IntegrationTestBase {
     private TeacherDao teacherDao;
 
     @Autowired
-    private ClassRoomDao classRoomDao;
+    private TeachingUnitDao classRoomDao;
 
     @Autowired
     private StudentDao studentDao;
 
     @Autowired
-    private CourseDao courseDao;
+    private TeachingUnitDao courseDao;
 
     @Autowired
     private CourseConsumptionRecordDao consumptionRecordDao;
@@ -62,10 +61,11 @@ class AdminStudentAccountControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("password"), Role.ADMIN, false, null));
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800013002",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "一年级1班", null));
+        Long classRoomId = classRoomDao.insert(new TeachingUnit(null, institutionId, teacherId, "一年级1班",
+                BillingMode.MONTHLY, null, null, true, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小托", "一年级1班", true, null, null));
-        Long courseId = courseDao.insert(new Course(null, institutionId, teacherId, "数学课",
-                new BigDecimal("50.00"), 45, true, null));
+        Long courseId = courseDao.insert(new TeachingUnit(null, institutionId, teacherId, "数学课",
+                BillingMode.LESSON_COUNT, 45, new BigDecimal("50.00"), true, null));
         String token = login("13800013001", "password");
 
         mockMvc.perform(post("/api/admin/students/" + studentId + "/recharges")
@@ -82,8 +82,8 @@ class AdminStudentAccountControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("password"), Role.ADMIN, false, null));
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800013004",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long courseId = courseDao.insert(new Course(null, institutionId, teacherId, "数学课",
-                new BigDecimal("50.00"), 45, true, null));
+        Long courseId = courseDao.insert(new TeachingUnit(null, institutionId, teacherId, "数学课",
+                BillingMode.LESSON_COUNT, 45, new BigDecimal("50.00"), true, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, null, "小外", null, true, null, null));
         String token = login("13800013003", "password");
 
@@ -119,8 +119,8 @@ class AdminStudentAccountControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("password"), Role.ADMIN, false, null));
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800013007",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long courseId = courseDao.insert(new Course(null, institutionId, teacherId, "数学课",
-                new BigDecimal("50.00"), 45, true, null));
+        Long courseId = courseDao.insert(new TeachingUnit(null, institutionId, teacherId, "数学课",
+                BillingMode.LESSON_COUNT, 45, new BigDecimal("50.00"), true, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, null, "小外", null, true, null, null));
         String token = login("13800013006", "password");
 
@@ -145,8 +145,8 @@ class AdminStudentAccountControllerTest extends IntegrationTestBase {
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800013005",
                 passwordEncoder.encode("password"), Role.TEACHER, false, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, null, "小外", null, true, null, null));
-        Long courseId = courseDao.insert(new Course(null, institutionId, teacherId, "数学课",
-                new BigDecimal("50.00"), 45, true, null));
+        Long courseId = courseDao.insert(new TeachingUnit(null, institutionId, teacherId, "数学课",
+                BillingMode.LESSON_COUNT, 45, new BigDecimal("50.00"), true, null));
         String token = login("13800013005", "password");
 
         mockMvc.perform(post("/api/admin/students/" + studentId + "/recharges")

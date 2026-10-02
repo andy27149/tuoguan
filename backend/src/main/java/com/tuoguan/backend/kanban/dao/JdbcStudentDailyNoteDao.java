@@ -14,7 +14,7 @@ public class JdbcStudentDailyNoteDao implements StudentDailyNoteDao {
     private static final RowMapper<StudentDailyNote> ROW_MAPPER = (rs, rowNum) -> new StudentDailyNote(
             rs.getLong("id"),
             rs.getLong("institution_id"),
-            rs.getLong("class_room_id"),
+            rs.getLong("teaching_unit_id"),
             rs.getLong("student_id"),
             rs.getDate("note_date").toLocalDate(),
             rs.getInt("rating"),
@@ -29,42 +29,43 @@ public class JdbcStudentDailyNoteDao implements StudentDailyNoteDao {
     }
 
     @Override
-    public List<StudentDailyNote> findAllByClassRoomIdAndDate(Long classRoomId, LocalDate date) {
+    public List<StudentDailyNote> findAllByTeachingUnitIdAndDate(Long teachingUnitId, LocalDate date) {
         return jdbcTemplate.query(
-                "SELECT id, institution_id, class_room_id, student_id, note_date, rating, comment, created_at, "
-                        + "updated_at FROM student_daily_note WHERE class_room_id = ? AND note_date = ? ORDER BY id",
-                ROW_MAPPER, classRoomId, java.sql.Date.valueOf(date));
+                "SELECT id, institution_id, teaching_unit_id, student_id, note_date, rating, comment, created_at, "
+                        + "updated_at FROM student_daily_note WHERE teaching_unit_id = ? AND note_date = ? ORDER BY id",
+                ROW_MAPPER, teachingUnitId, java.sql.Date.valueOf(date));
     }
 
     @Override
     public List<StudentDailyNote> findAllByStudentIdAndDateRange(Long studentId, LocalDate start, LocalDate end) {
         return jdbcTemplate.query(
-                "SELECT id, institution_id, class_room_id, student_id, note_date, rating, comment, created_at, "
+                "SELECT id, institution_id, teaching_unit_id, student_id, note_date, rating, comment, created_at, "
                         + "updated_at FROM student_daily_note WHERE student_id = ? AND note_date BETWEEN ? AND ? "
                         + "ORDER BY note_date",
                 ROW_MAPPER, studentId, java.sql.Date.valueOf(start), java.sql.Date.valueOf(end));
     }
 
     @Override
-    public void upsertRating(Long institutionId, Long classRoomId, Long studentId, LocalDate date, int rating) {
+    public void upsertRating(Long institutionId, Long teachingUnitId, Long studentId, LocalDate date, int rating) {
         jdbcTemplate.update(
-                "INSERT INTO student_daily_note (institution_id, class_room_id, student_id, note_date, rating, "
+                "INSERT INTO student_daily_note (institution_id, teaching_unit_id, student_id, note_date, rating, "
                         + "comment) VALUES (?, ?, ?, ?, ?, '') "
                         + "ON DUPLICATE KEY UPDATE rating = VALUES(rating)",
-                institutionId, classRoomId, studentId, java.sql.Date.valueOf(date), rating);
+                institutionId, teachingUnitId, studentId, java.sql.Date.valueOf(date), rating);
     }
 
     @Override
-    public void upsertComment(Long institutionId, Long classRoomId, Long studentId, LocalDate date, String comment) {
+    public void upsertComment(Long institutionId, Long teachingUnitId, Long studentId, LocalDate date,
+                               String comment) {
         jdbcTemplate.update(
-                "INSERT INTO student_daily_note (institution_id, class_room_id, student_id, note_date, rating, "
+                "INSERT INTO student_daily_note (institution_id, teaching_unit_id, student_id, note_date, rating, "
                         + "comment) VALUES (?, ?, ?, ?, 0, ?) "
                         + "ON DUPLICATE KEY UPDATE comment = VALUES(comment)",
-                institutionId, classRoomId, studentId, java.sql.Date.valueOf(date), comment);
+                institutionId, teachingUnitId, studentId, java.sql.Date.valueOf(date), comment);
     }
 
     @Override
-    public void deleteAllByClassRoomId(Long classRoomId) {
-        jdbcTemplate.update("DELETE FROM student_daily_note WHERE class_room_id = ?", classRoomId);
+    public void deleteAllByTeachingUnitId(Long teachingUnitId) {
+        jdbcTemplate.update("DELETE FROM student_daily_note WHERE teaching_unit_id = ?", teachingUnitId);
     }
 }

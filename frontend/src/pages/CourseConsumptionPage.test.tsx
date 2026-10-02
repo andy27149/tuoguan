@@ -33,31 +33,10 @@ describe('CourseConsumptionPage', () => {
     vi.mocked(classesApi.fetchClasses).mockResolvedValue([])
   })
 
-  it('creates a new course', async () => {
-    const created: courseApi.Course = { id: 2, name: '绘画课', pricePerLesson: null, lessonDurationMinutes: 45, active: true }
-    vi.mocked(courseApi.fetchMyCourses).mockResolvedValueOnce([]).mockResolvedValueOnce(COURSES)
-    vi.mocked(courseApi.createCourse).mockResolvedValue(created)
-    setup()
-    await screen.findByText('暂无课外课，先在上方创建一门吧')
-
-    fireEvent.change(screen.getByPlaceholderText('课程名称'), { target: { value: '绘画课' } })
-    fireEvent.change(screen.getByPlaceholderText('时长（分钟）'), { target: { value: '45' } })
-    fireEvent.click(screen.getByRole('button', { name: '创建' }))
-
-    await waitFor(() => expect(courseApi.createCourse).toHaveBeenCalledWith('绘画课', 45))
-    expect(await screen.findByText('绘画课')).toBeInTheDocument()
-  })
-
-  it('shows a friendly error when creating a duplicate-named course', async () => {
+  it('shows a message to contact the admin when there are no assigned courses', async () => {
     vi.mocked(courseApi.fetchMyCourses).mockResolvedValue([])
-    vi.mocked(courseApi.createCourse).mockRejectedValue(new ApiError(409, 'dup'))
     setup()
-    await screen.findByText('暂无课外课，先在上方创建一门吧')
-
-    fireEvent.change(screen.getByPlaceholderText('课程名称'), { target: { value: '书法课' } })
-    fireEvent.click(screen.getByRole('button', { name: '创建' }))
-
-    expect(await screen.findByText('该课程名称已存在')).toBeInTheDocument()
+    expect(await screen.findByText('暂无课外课，请联系管理员分配')).toBeInTheDocument()
   })
 
   it('renders the roster with 托管/课外 badges', async () => {

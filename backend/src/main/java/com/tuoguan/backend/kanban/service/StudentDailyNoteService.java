@@ -25,25 +25,25 @@ public class StudentDailyNoteService {
         this.classRoomService = classRoomService;
     }
 
-    public List<StudentDailyNote> listForClass(Long teacherId, Long classRoomId, LocalDate date) {
-        classRoomService.getOwnedByTeacher(teacherId, classRoomId);
-        return studentDailyNoteDao.findAllByClassRoomIdAndDate(classRoomId, date);
+    public List<StudentDailyNote> listForClass(Long teacherId, Long teachingUnitId, LocalDate date) {
+        classRoomService.getOwnedByTeacher(teacherId, teachingUnitId);
+        return studentDailyNoteDao.findAllByTeachingUnitIdAndDate(teachingUnitId, date);
     }
 
     public void setRating(Long teacherId, Long studentId, LocalDate date, int rating) {
         Student student = findStudentOwnedByTeacher(teacherId, studentId);
-        studentDailyNoteDao.upsertRating(student.institutionId(), student.classRoomId(), studentId, date, rating);
+        studentDailyNoteDao.upsertRating(student.institutionId(), student.teachingUnitId(), studentId, date, rating);
     }
 
     public void setComment(Long teacherId, Long studentId, LocalDate date, String comment) {
         Student student = findStudentOwnedByTeacher(teacherId, studentId);
-        studentDailyNoteDao.upsertComment(student.institutionId(), student.classRoomId(), studentId, date, comment);
+        studentDailyNoteDao.upsertComment(student.institutionId(), student.teachingUnitId(), studentId, date, comment);
     }
 
     private Student findStudentOwnedByTeacher(Long teacherId, Long studentId) {
         Student student = studentDao.findById(studentId)
                 .orElseThrow(() -> new NotFoundException("Student not found: " + studentId));
-        classRoomService.getOwnedByTeacher(teacherId, student.classRoomId());
+        classRoomService.getOwnedByTeacher(teacherId, student.teachingUnitId());
         return student;
     }
 }

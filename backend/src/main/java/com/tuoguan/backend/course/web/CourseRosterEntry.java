@@ -6,6 +6,6 @@ public record CourseRosterEntry(Long studentId, String name, String schoolClassN
 
     public static CourseRosterEntry from(Student student) {
         return new CourseRosterEntry(student.id(), student.name(), student.schoolClassName(),
-                student.classRoomId() == null);
+                student.teachingUnitId() == null);
     }
 }

@@ -18,7 +18,7 @@ public class JdbcCourseRechargeRecordDao implements CourseRechargeRecordDao {
             rs.getLong("id"),
             rs.getLong("institution_id"),
             rs.getLong("student_id"),
-            rs.getLong("course_id"),
+            rs.getLong("teaching_unit_id"),
             rs.getInt("lesson_count"),
             rs.getString("note"),
             rs.getLong("recorded_by_teacher_id"),
@@ -35,12 +35,12 @@ public class JdbcCourseRechargeRecordDao implements CourseRechargeRecordDao {
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(connection -> {
             PreparedStatement ps = connection.prepareStatement(
-                    "INSERT INTO course_recharge_record (institution_id, student_id, course_id, lesson_count, "
+                    "INSERT INTO course_recharge_record (institution_id, student_id, teaching_unit_id, lesson_count, "
                             + "note, recorded_by_teacher_id) VALUES (?, ?, ?, ?, ?, ?)",
                     Statement.RETURN_GENERATED_KEYS);
             ps.setLong(1, record.institutionId());
             ps.setLong(2, record.studentId());
-            ps.setLong(3, record.courseId());
+            ps.setLong(3, record.teachingUnitId());
             ps.setInt(4, record.lessonCount());
             ps.setString(5, record.note());
             ps.setLong(6, record.recordedByTeacherId());
@@ -52,7 +52,7 @@ public class JdbcCourseRechargeRecordDao implements CourseRechargeRecordDao {
     @Override
     public List<CourseRechargeRecord> findAllByStudentId(Long studentId) {
         return jdbcTemplate.query(
-                "SELECT id, institution_id, student_id, course_id, lesson_count, note, recorded_by_teacher_id, "
+                "SELECT id, institution_id, student_id, teaching_unit_id, lesson_count, note, recorded_by_teacher_id, "
                         + "created_at FROM course_recharge_record WHERE student_id = ? ORDER BY id DESC",
                 ROW_MAPPER, studentId);
     }

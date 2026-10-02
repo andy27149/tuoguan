@@ -33,7 +33,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { key: 'teachers', label: '教师列表' },
       { key: 'classes', label: '托管班级', hiddenWhen: 'custodyDisabled' },
-      { key: 'courses', label: '课外课程', hiddenWhen: 'offCampusDisabled' },
+      { key: 'courses', label: '课程管理', hiddenWhen: 'offCampusDisabled' },
       { key: 'students', label: '学生总览' },
     ],
   },

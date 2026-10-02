@@ -4,9 +4,11 @@ import com.tuoguan.backend.auth.dao.InstitutionDao;
 import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
-import com.tuoguan.backend.roster.domain.ClassRoom;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.support.IntegrationTestBase;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
+import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -24,7 +26,7 @@ class JdbcStudentDaoTest extends IntegrationTestBase {
     private TeacherDao teacherDao;
 
     @Autowired
-    private ClassRoomDao classRoomDao;
+    private TeachingUnitDao teachingUnitDao;
 
     @Autowired
     private StudentDao studentDao;
@@ -33,13 +35,14 @@ class JdbcStudentDaoTest extends IntegrationTestBase {
         Long institutionId = institutionDao.insert(institutionName);
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, phone, "hash",
                 Role.TEACHER, false, null));
-        return classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管班", null));
+        return teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管班",
+                BillingMode.MONTHLY, null, null, true, null));
     }
 
     @Test
     void insertAndFindByIdRoundTrips() {
         Long classRoomId = createClassRoom("学生测试机构A", "13900002001");
-        Long institutionId = classRoomDao.findById(classRoomId).orElseThrow().institutionId();
+        Long institutionId = teachingUnitDao.findById(classRoomId).orElseThrow().institutionId();
         Student student = new Student(null, institutionId, classRoomId, "小明", "三年级2班", true, null, null);
 
         Long id = studentDao.insert(student);
@@ -60,7 +63,7 @@ class JdbcStudentDaoTest extends IntegrationTestBase {
 
         Optional<Student> found = studentDao.findById(id);
         assertThat(found).isPresent();
-        assertThat(found.get().classRoomId()).isNull();
+        assertThat(found.get().teachingUnitId()).isNull();
         assertThat(found.get().name()).isEqualTo("小外");
 
         List<Student> byInstitution = studentDao.findAllByInstitutionId(institutionId);
@@ -68,15 +71,15 @@ class JdbcStudentDaoTest extends IntegrationTestBase {
     }
 
     @Test
-    void findAllByClassRoomIdOnlyReturnsOwnStudents() {
+    void findAllByTeachingUnitIdOnlyReturnsOwnStudents() {
         Long classRoomAId = createClassRoom("学生测试机构B", "13900002002");
         Long classRoomBId = createClassRoom("学生测试机构C", "13900002003");
-        Long institutionAId = classRoomDao.findById(classRoomAId).orElseThrow().institutionId();
-        Long institutionBId = classRoomDao.findById(classRoomBId).orElseThrow().institutionId();
+        Long institutionAId = teachingUnitDao.findById(classRoomAId).orElseThrow().institutionId();
+        Long institutionBId = teachingUnitDao.findById(classRoomBId).orElseThrow().institutionId();
         studentDao.insert(new Student(null, institutionAId, classRoomAId, "小红", "四年级1班", true, null, null));
         studentDao.insert(new Student(null, institutionBId, classRoomBId, "小刚", "五年级1班", true, null, null));
 
-        List<Student> found = studentDao.findAllByClassRoomId(classRoomAId);
+        List<Student> found = studentDao.findAllByTeachingUnitId(classRoomAId);
 
         assertThat(found).hasSize(1);
         assertThat(found.get(0).name()).isEqualTo("小红");
@@ -85,7 +88,7 @@ class JdbcStudentDaoTest extends IntegrationTestBase {
     @Test
     void insertGeneratesUniqueShareTokenFindableByToken() {
         Long classRoomId = createClassRoom("学生测试机构E", "13900002005");
-        Long institutionId = classRoomDao.findById(classRoomId).orElseThrow().institutionId();
+        Long institutionId = teachingUnitDao.findById(classRoomId).orElseThrow().institutionId();
         Long id = studentDao.insert(new Student(null, institutionId, classRoomId, "小张", "二年级1班", true, null, null));
 
         String shareToken = studentDao.findShareToken(id);
@@ -106,11 +109,11 @@ class JdbcStudentDaoTest extends IntegrationTestBase {
     @Test
     void updateChangesNameSchoolClassAndEnrollment() {
         Long classRoomId = createClassRoom("学生测试机构D", "13900002004");
-        Long institutionId = classRoomDao.findById(classRoomId).orElseThrow().institutionId();
+        Long institutionId = teachingUnitDao.findById(classRoomId).orElseThrow().institutionId();
         Long id = studentDao.insert(new Student(null, institutionId, classRoomId, "小李", "六年级1班", true, null, null));
         Student existing = studentDao.findById(id).orElseThrow();
 
-        studentDao.update(new Student(existing.id(), existing.institutionId(), existing.classRoomId(),
+        studentDao.update(new Student(existing.id(), existing.institutionId(), existing.teachingUnitId(),
                 "小李四", "六年级2班", false, existing.avatarObjectKey(), existing.createdAt()));
 
         Student updated = studentDao.findById(id).orElseThrow();

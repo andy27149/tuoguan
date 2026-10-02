@@ -4,11 +4,13 @@ import com.tuoguan.backend.auth.dao.InstitutionDao;
 import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
-import com.tuoguan.backend.course.domain.Course;
 import com.tuoguan.backend.course.domain.CourseConsumptionRecord;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.support.IntegrationTestBase;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
+import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -27,7 +29,7 @@ class JdbcCourseConsumptionRecordDaoTest extends IntegrationTestBase {
     private TeacherDao teacherDao;
 
     @Autowired
-    private CourseDao courseDao;
+    private TeachingUnitDao teachingUnitDao;
 
     @Autowired
     private StudentDao studentDao;
@@ -36,8 +38,8 @@ class JdbcCourseConsumptionRecordDaoTest extends IntegrationTestBase {
     private CourseConsumptionRecordDao consumptionRecordDao;
 
     private Long createCourse(Long institutionId, Long teacherId) {
-        return courseDao.insert(new Course(null, institutionId, teacherId, "数学课",
-                new BigDecimal("50.00"), 60, true, null));
+        return teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "数学课",
+                BillingMode.LESSON_COUNT, 60, new BigDecimal("50.00"), true, null));
     }
 
     private Long createStudent(Long institutionId) {
@@ -45,7 +47,7 @@ class JdbcCourseConsumptionRecordDaoTest extends IntegrationTestBase {
     }
 
     @Test
-    void insertAndFindAllByStudentIdAndCourseIdAndDateRoundTrips() {
+    void insertAndFindAllByStudentIdAndTeachingUnitIdAndDateRoundTrips() {
         Long institutionId = institutionDao.insert("消课测试机构A");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900022001", "hash",
                 Role.TEACHER, false, null));
@@ -57,7 +59,7 @@ class JdbcCourseConsumptionRecordDaoTest extends IntegrationTestBase {
                 new BigDecimal("50.00"), teacherId, null));
 
         List<CourseConsumptionRecord> found = consumptionRecordDao
-                .findAllByStudentIdAndCourseIdAndDate(studentId, courseId, date);
+                .findAllByStudentIdAndTeachingUnitIdAndDate(studentId, courseId, date);
         assertThat(found).hasSize(1);
         assertThat(found.get(0).priceSnapshot()).isEqualByComparingTo("50.00");
     }
@@ -77,7 +79,7 @@ class JdbcCourseConsumptionRecordDaoTest extends IntegrationTestBase {
                 new BigDecimal("50.00"), teacherId, null));
 
         List<CourseConsumptionRecord> found = consumptionRecordDao
-                .findAllByStudentIdAndCourseIdAndDate(studentId, courseId, date);
+                .findAllByStudentIdAndTeachingUnitIdAndDate(studentId, courseId, date);
         assertThat(found).hasSize(2);
     }
 
@@ -154,7 +156,7 @@ class JdbcCourseConsumptionRecordDaoTest extends IntegrationTestBase {
     }
 
     @Test
-    void deleteAllByCourseIdRemovesRecords() {
+    void deleteAllByTeachingUnitIdRemovesRecords() {
         Long institutionId = institutionDao.insert("消课测试机构H");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900022007", "hash",
                 Role.TEACHER, false, null));
@@ -163,7 +165,7 @@ class JdbcCourseConsumptionRecordDaoTest extends IntegrationTestBase {
         consumptionRecordDao.insert(new CourseConsumptionRecord(null, institutionId, studentId, courseId,
                 LocalDate.of(2024, 1, 2), new BigDecimal("50.00"), teacherId, null));
 
-        consumptionRecordDao.deleteAllByCourseId(courseId);
+        consumptionRecordDao.deleteAllByTeachingUnitId(courseId);
 
         assertThat(consumptionRecordDao.findAllByStudentId(studentId)).isEmpty();
     }

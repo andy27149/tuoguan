@@ -1,13 +1,12 @@
 package com.tuoguan.backend.admin.service;
 
 import com.tuoguan.backend.admin.web.AdminStudentResponse;
-import com.tuoguan.backend.course.dao.CourseDao;
-import com.tuoguan.backend.course.dao.StudentCourseEnrollmentDao;
-import com.tuoguan.backend.course.domain.Course;
-import com.tuoguan.backend.course.domain.StudentCourseEnrollment;
-import com.tuoguan.backend.roster.dao.ClassRoomDao;
 import com.tuoguan.backend.roster.dao.StudentDao;
-import com.tuoguan.backend.roster.domain.ClassRoom;
+import com.tuoguan.backend.unit.dao.StudentUnitEnrollmentDao;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
+import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.StudentUnitEnrollment;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -19,35 +18,36 @@ import java.util.stream.Collectors;
 public class AdminStudentService {
 
     private final StudentDao studentDao;
-    private final ClassRoomDao classRoomDao;
-    private final StudentCourseEnrollmentDao enrollmentDao;
-    private final CourseDao courseDao;
+    private final TeachingUnitDao teachingUnitDao;
+    private final StudentUnitEnrollmentDao enrollmentDao;
 
-    public AdminStudentService(StudentDao studentDao, ClassRoomDao classRoomDao,
-                                StudentCourseEnrollmentDao enrollmentDao, CourseDao courseDao) {
+    public AdminStudentService(StudentDao studentDao, TeachingUnitDao teachingUnitDao,
+                                StudentUnitEnrollmentDao enrollmentDao) {
         this.studentDao = studentDao;
-        this.classRoomDao = classRoomDao;
+        this.teachingUnitDao = teachingUnitDao;
         this.enrollmentDao = enrollmentDao;
-        this.courseDao = courseDao;
     }
 
     public List<AdminStudentResponse> listStudents(Long institutionId) {
-        Map<Long, ClassRoom> classRoomById = classRoomDao.findAllByInstitutionId(institutionId).stream()
-                .collect(Collectors.toMap(ClassRoom::id, c -> c));
-        Map<Long, String> courseNameById = courseDao.findAllByInstitutionId(institutionId).stream()
-                .collect(Collectors.toMap(Course::id, Course::name));
+        List<TeachingUnit> units = teachingUnitDao.findAllByInstitutionId(institutionId);
+        Map<Long, TeachingUnit> classRoomById = units.stream()
+                .filter(u -> u.billingMode() == BillingMode.MONTHLY)
+                .collect(Collectors.toMap(TeachingUnit::id, u -> u));
+        Map<Long, String> courseNameById = units.stream()
+                .filter(u -> u.billingMode() == BillingMode.LESSON_COUNT)
+                .collect(Collectors.toMap(TeachingUnit::id, TeachingUnit::name));
         return studentDao.findAllByInstitutionId(institutionId).stream()
                 .map(student -> {
-                    ClassRoom classRoom = student.classRoomId() != null ? classRoomById.get(student.classRoomId())
-                            : null;
+                    TeachingUnit classRoom = student.teachingUnitId() != null
+                            ? classRoomById.get(student.teachingUnitId()) : null;
                     List<String> enrolledCourseNames = enrollmentDao.findAllByStudentId(student.id()).stream()
-                            .filter(StudentCourseEnrollment::active)
-                            .map(e -> courseNameById.get(e.courseId()))
+                            .filter(StudentUnitEnrollment::active)
+                            .map(e -> courseNameById.get(e.teachingUnitId()))
                             .filter(Objects::nonNull)
                             .toList();
                     return new AdminStudentResponse(student.id(), student.name(), student.schoolClassName(),
-                            student.classRoomId(), classRoom != null ? classRoom.name() : null,
-                            student.classRoomId() == null, enrolledCourseNames);
+                            student.teachingUnitId(), classRoom != null ? classRoom.name() : null,
+                            student.teachingUnitId() == null, enrolledCourseNames);
                 })
                 .toList();
     }

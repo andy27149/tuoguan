@@ -5,9 +5,10 @@ import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.auth.web.LoginResponse;
-import com.tuoguan.backend.roster.dao.ClassRoomDao;
-import com.tuoguan.backend.roster.domain.ClassRoom;
 import com.tuoguan.backend.support.IntegrationTestBase;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
+import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -31,7 +32,7 @@ class StudentAvatarControllerTest extends IntegrationTestBase {
     private TeacherDao teacherDao;
 
     @Autowired
-    private ClassRoomDao classRoomDao;
+    private TeachingUnitDao teachingUnitDao;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -54,7 +55,8 @@ class StudentAvatarControllerTest extends IntegrationTestBase {
         Long institutionId = institutionDao.insert("头像测试机构A");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800009001",
                 passwordEncoder.encode("password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管班",
+                BillingMode.MONTHLY, null, null, true, null));
         String token = login("13800009001", "password");
         Long studentId = createStudent(token, classRoomId, "小明");
         MockMultipartFile file = new MockMultipartFile("file", "avatar.png", "image/png", new byte[]{1, 2, 3, 4});
@@ -75,7 +77,8 @@ class StudentAvatarControllerTest extends IntegrationTestBase {
         Long institutionId = institutionDao.insert("头像测试机构B");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800009002",
                 passwordEncoder.encode("password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管班",
+                BillingMode.MONTHLY, null, null, true, null));
         String token = login("13800009002", "password");
         Long studentId = createStudent(token, classRoomId, "小红");
         MockMultipartFile file = new MockMultipartFile("file", "avatar.txt", "text/plain", new byte[]{1, 2, 3});
@@ -93,7 +96,8 @@ class StudentAvatarControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("password-a"), Role.TEACHER, false, null));
         teacherDao.insert(new Teacher(null, institutionId, "13800009004",
                 passwordEncoder.encode("password-b"), Role.TEACHER, false, null));
-        Long classRoomAId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherAId, "A班", null));
+        Long classRoomAId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherAId, "A班",
+                BillingMode.MONTHLY, null, null, true, null));
         String tokenA = login("13800009003", "password-a");
         String tokenB = login("13800009004", "password-b");
         Long studentId = createStudent(tokenA, classRoomAId, "小刚");

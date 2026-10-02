@@ -6,11 +6,12 @@ import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.auth.web.LoginResponse;
-import com.tuoguan.backend.roster.dao.ClassRoomDao;
 import com.tuoguan.backend.roster.dao.StudentDao;
-import com.tuoguan.backend.roster.domain.ClassRoom;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.support.IntegrationTestBase;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
+import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -32,7 +33,7 @@ class AdminStudentLeaveControllerTest extends IntegrationTestBase {
     private TeacherDao teacherDao;
 
     @Autowired
-    private ClassRoomDao classRoomDao;
+    private TeachingUnitDao teachingUnitDao;
 
     @Autowired
     private StudentDao studentDao;
@@ -50,7 +51,8 @@ class AdminStudentLeaveControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900012002",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "请假一班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "请假一班",
+                BillingMode.MONTHLY, null, null, true, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "学生甲", "一班", true, null, null));
         String adminToken = login("13900012001", "admin-password");
 
@@ -80,7 +82,8 @@ class AdminStudentLeaveControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900012004",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "请假二班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "请假二班",
+                BillingMode.MONTHLY, null, null, true, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "学生乙", "一班", true, null, null));
         String adminToken = login("13900012003", "admin-password");
 
@@ -111,7 +114,8 @@ class AdminStudentLeaveControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900012006",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "请假三班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "请假三班",
+                BillingMode.MONTHLY, null, null, true, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "学生丙", "一班", true, null, null));
         String adminToken = login("13900012005", "admin-password");
 
@@ -138,7 +142,8 @@ class AdminStudentLeaveControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900012008",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "请假四班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "请假四班",
+                BillingMode.MONTHLY, null, null, true, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "学生丁", "一班", true, null, null));
         String adminToken = login("13900012007", "admin-password");
 
@@ -157,7 +162,8 @@ class AdminStudentLeaveControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherBId = teacherDao.insert(new Teacher(null, institutionBId, "13900012010",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomBId = classRoomDao.insert(new ClassRoom(null, institutionBId, teacherBId, "请假五班", null));
+        Long classRoomBId = teachingUnitDao.insert(new TeachingUnit(null, institutionBId, teacherBId, "请假五班",
+                BillingMode.MONTHLY, null, null, true, null));
         Long studentBId = studentDao.insert(new Student(null, institutionBId, classRoomBId, "学生戊", "一班", true, null, null));
         String adminToken = login("13900012009", "admin-password");
 

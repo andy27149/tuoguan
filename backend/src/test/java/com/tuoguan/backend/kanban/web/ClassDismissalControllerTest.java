@@ -6,9 +6,10 @@ import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.auth.web.LoginResponse;
-import com.tuoguan.backend.roster.dao.ClassRoomDao;
-import com.tuoguan.backend.roster.domain.ClassRoom;
 import com.tuoguan.backend.support.IntegrationTestBase;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
+import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -30,7 +31,7 @@ class ClassDismissalControllerTest extends IntegrationTestBase {
     private TeacherDao teacherDao;
 
     @Autowired
-    private ClassRoomDao classRoomDao;
+    private TeachingUnitDao teachingUnitDao;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -43,8 +44,10 @@ class ClassDismissalControllerTest extends IntegrationTestBase {
         Long institutionId = institutionDao.insert("放学控制器测试机构A");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900006001",
                 passwordEncoder.encode("password"), Role.TEACHER, false, null));
-        Long classRoomAId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "A班", null));
-        Long classRoomBId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "B班", null));
+        Long classRoomAId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "A班", BillingMode.MONTHLY,
+                null, null, true, null));
+        Long classRoomBId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "B班",
+                BillingMode.MONTHLY, null, null, true, null));
         String token = login("13900006001", "password");
 
         mockMvc.perform(post("/api/classes/" + classRoomAId + "/dismissal")
@@ -80,7 +83,8 @@ class ClassDismissalControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("password-a"), Role.TEACHER, false, null));
         Long teacherBId = teacherDao.insert(new Teacher(null, institutionId, "13900006003",
                 passwordEncoder.encode("password-b"), Role.TEACHER, false, null));
-        Long classRoomAId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherAId, "A班", null));
+        Long classRoomAId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherAId, "A班",
+                BillingMode.MONTHLY, null, null, true, null));
         String tokenB = login("13900006003", "password-b");
 
         mockMvc.perform(post("/api/classes/" + classRoomAId + "/dismissal")

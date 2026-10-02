@@ -3,9 +3,7 @@ package com.tuoguan.backend.course.service;
 import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.course.dao.CourseConsumptionRecordDao;
-import com.tuoguan.backend.course.dao.CourseDao;
 import com.tuoguan.backend.course.dao.CourseRechargeRecordDao;
-import com.tuoguan.backend.course.domain.Course;
 import com.tuoguan.backend.course.domain.CourseConsumptionRecord;
 import com.tuoguan.backend.course.domain.CourseRechargeRecord;
 import com.tuoguan.backend.course.web.ConsumptionRecordResponse;
@@ -16,6 +14,9 @@ import com.tuoguan.backend.course.web.StudentCourseStatement;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.roster.web.NotFoundException;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
+import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -29,16 +30,16 @@ import java.util.Set;
 public class CourseAccountService {
 
     private final StudentDao studentDao;
-    private final CourseDao courseDao;
+    private final TeachingUnitDao teachingUnitDao;
     private final TeacherDao teacherDao;
     private final CourseRechargeRecordDao rechargeRecordDao;
     private final CourseConsumptionRecordDao consumptionRecordDao;
 
-    public CourseAccountService(StudentDao studentDao, CourseDao courseDao, TeacherDao teacherDao,
+    public CourseAccountService(StudentDao studentDao, TeachingUnitDao teachingUnitDao, TeacherDao teacherDao,
                                  CourseRechargeRecordDao rechargeRecordDao,
                                  CourseConsumptionRecordDao consumptionRecordDao) {
         this.studentDao = studentDao;
-        this.courseDao = courseDao;
+        this.teachingUnitDao = teachingUnitDao;
         this.teacherDao = teacherDao;
         this.rechargeRecordDao = rechargeRecordDao;
         this.consumptionRecordDao = consumptionRecordDao;
@@ -47,7 +48,7 @@ public class CourseAccountService {
     public CourseRechargeRecord recharge(Long institutionId, Long studentId, Long recordedByTeacherId,
                                           Long courseId, Integer lessonCount, String note) {
         Student student = requireStudentInInstitution(institutionId, studentId);
-        if (student.classRoomId() != null) {
+        if (student.teachingUnitId() != null) {
             throw new RechargeNotAllowedException("Student is enrolled in a class room: " + studentId);
         }
         requireCourseInInstitution(institutionId, courseId);
@@ -68,28 +69,28 @@ public class CourseAccountService {
         Map<Long, String> teacherNames = new HashMap<>();
 
         Set<Long> courseIds = new LinkedHashSet<>();
-        recharges.forEach(r -> courseIds.add(r.courseId()));
-        consumptions.forEach(c -> courseIds.add(c.courseId()));
+        recharges.forEach(r -> courseIds.add(r.teachingUnitId()));
+        consumptions.forEach(c -> courseIds.add(c.teachingUnitId()));
 
         List<CourseBalanceRow> balances = new ArrayList<>();
         for (Long courseId : courseIds) {
             String courseName = resolveCourseName(courseNames, courseId);
             int lessonsRecharged = recharges.stream()
-                    .filter(r -> r.courseId().equals(courseId))
+                    .filter(r -> r.teachingUnitId().equals(courseId))
                     .mapToInt(CourseRechargeRecord::lessonCount)
                     .sum();
             int lessonsConsumed = (int) consumptions.stream()
-                    .filter(c -> c.courseId().equals(courseId))
+                    .filter(c -> c.teachingUnitId().equals(courseId))
                     .count();
             balances.add(new CourseBalanceRow(courseId, courseName, lessonsRecharged, lessonsConsumed,
                     lessonsRecharged - lessonsConsumed));
         }
 
         List<RechargeRecordResponse> rechargeResponses = recharges.stream()
-                .map(r -> RechargeRecordResponse.from(r, resolveCourseName(courseNames, r.courseId())))
+                .map(r -> RechargeRecordResponse.from(r, resolveCourseName(courseNames, r.teachingUnitId())))
                 .toList();
         List<ConsumptionRecordResponse> consumptionResponses = consumptions.stream()
-                .map(c -> ConsumptionRecordResponse.from(c, resolveCourseName(courseNames, c.courseId()),
+                .map(c -> ConsumptionRecordResponse.from(c, resolveCourseName(courseNames, c.teachingUnitId()),
                         resolveTeacherName(teacherNames, c.recordedByTeacherId())))
                 .toList();
 
@@ -98,7 +99,7 @@ public class CourseAccountService {
 
     private String resolveCourseName(Map<Long, String> cache, Long courseId) {
         return cache.computeIfAbsent(courseId,
-                id -> courseDao.findById(id).map(Course::name).orElse(null));
+                id -> teachingUnitDao.findById(id).map(TeachingUnit::name).orElse(null));
     }
 
     private String resolveTeacherName(Map<Long, String> cache, Long teacherId) {
@@ -115,8 +116,9 @@ public class CourseAccountService {
         return student;
     }
 
-    private Course requireCourseInInstitution(Long institutionId, Long courseId) {
-        Course course = courseDao.findById(courseId)
+    private TeachingUnit requireCourseInInstitution(Long institutionId, Long courseId) {
+        TeachingUnit course = teachingUnitDao.findById(courseId)
+                .filter(c -> c.billingMode() == BillingMode.LESSON_COUNT)
                 .orElseThrow(() -> new NotFoundException("Course not found: " + courseId));
         if (!course.institutionId().equals(institutionId)) {
             throw new NotFoundException("Course not found: " + courseId);

@@ -39,10 +39,11 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   if (!res.ok) {
     throw new ApiError(res.status, `请求失败（${res.status}）`)
   }
-  if (res.status === 204) {
+  const text = await res.text()
+  if (!text) {
     return undefined as T
   }
-  return (await res.json()) as T
+  return JSON.parse(text) as T
 }
 
 export async function apiUpload<T>(path: string, formData: FormData): Promise<T> {

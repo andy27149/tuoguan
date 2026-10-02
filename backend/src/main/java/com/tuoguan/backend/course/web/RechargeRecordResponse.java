@@ -12,7 +12,7 @@ public record RechargeRecordResponse(Long id, Long studentId, Long courseId, Str
     }
 
     public static RechargeRecordResponse from(CourseRechargeRecord record, String courseName) {
-        return new RechargeRecordResponse(record.id(), record.studentId(), record.courseId(), courseName,
+        return new RechargeRecordResponse(record.id(), record.studentId(), record.teachingUnitId(), courseName,
                 record.lessonCount(), record.note(), record.createdAt());
     }
 }

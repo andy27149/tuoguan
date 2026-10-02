@@ -8,16 +8,17 @@ import com.tuoguan.backend.billing.dao.MonthlyBillDao;
 import com.tuoguan.backend.billing.dao.StudentLeaveRecordDao;
 import com.tuoguan.backend.course.dao.CourseConsumptionRecordDao;
 import com.tuoguan.backend.course.dao.CourseRechargeRecordDao;
-import com.tuoguan.backend.course.dao.StudentCourseEnrollmentDao;
 import com.tuoguan.backend.kanban.dao.ClassDismissalDao;
 import com.tuoguan.backend.kanban.dao.DailyTaskDao;
 import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
 import com.tuoguan.backend.kanban.dao.StudentDailyNoteDao;
-import com.tuoguan.backend.roster.dao.ClassRoomDao;
 import com.tuoguan.backend.roster.dao.StudentDao;
-import com.tuoguan.backend.roster.domain.ClassRoom;
 import com.tuoguan.backend.roster.web.DuplicateClassNameException;
 import com.tuoguan.backend.roster.web.NotFoundException;
+import com.tuoguan.backend.unit.dao.StudentUnitEnrollmentDao;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
+import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,7 +32,7 @@ public class AdminClassRoomService {
     public record ClassRoomDeletionImpact(int studentCount) {
     }
 
-    private final ClassRoomDao classRoomDao;
+    private final TeachingUnitDao teachingUnitDao;
     private final TeacherDao teacherDao;
     private final StudentDao studentDao;
     private final DailyTaskDao dailyTaskDao;
@@ -39,22 +40,22 @@ public class AdminClassRoomService {
     private final StudentArrivalCheckinDao studentArrivalCheckinDao;
     private final ClassDismissalDao classDismissalDao;
     private final ClassBillingRateDao classBillingRateDao;
-    private final StudentCourseEnrollmentDao studentCourseEnrollmentDao;
+    private final StudentUnitEnrollmentDao studentUnitEnrollmentDao;
     private final CourseConsumptionRecordDao courseConsumptionRecordDao;
     private final CourseRechargeRecordDao courseRechargeRecordDao;
     private final StudentLeaveRecordDao studentLeaveRecordDao;
     private final MonthlyBillDao monthlyBillDao;
 
-    public AdminClassRoomService(ClassRoomDao classRoomDao, TeacherDao teacherDao, StudentDao studentDao,
+    public AdminClassRoomService(TeachingUnitDao teachingUnitDao, TeacherDao teacherDao, StudentDao studentDao,
                                   DailyTaskDao dailyTaskDao, StudentDailyNoteDao studentDailyNoteDao,
                                   StudentArrivalCheckinDao studentArrivalCheckinDao,
                                   ClassDismissalDao classDismissalDao, ClassBillingRateDao classBillingRateDao,
-                                  StudentCourseEnrollmentDao studentCourseEnrollmentDao,
+                                  StudentUnitEnrollmentDao studentUnitEnrollmentDao,
                                   CourseConsumptionRecordDao courseConsumptionRecordDao,
                                   CourseRechargeRecordDao courseRechargeRecordDao,
                                   StudentLeaveRecordDao studentLeaveRecordDao,
                                   MonthlyBillDao monthlyBillDao) {
-        this.classRoomDao = classRoomDao;
+        this.teachingUnitDao = teachingUnitDao;
         this.teacherDao = teacherDao;
         this.studentDao = studentDao;
         this.dailyTaskDao = dailyTaskDao;
@@ -62,7 +63,7 @@ public class AdminClassRoomService {
         this.studentArrivalCheckinDao = studentArrivalCheckinDao;
         this.classDismissalDao = classDismissalDao;
         this.classBillingRateDao = classBillingRateDao;
-        this.studentCourseEnrollmentDao = studentCourseEnrollmentDao;
+        this.studentUnitEnrollmentDao = studentUnitEnrollmentDao;
         this.courseConsumptionRecordDao = courseConsumptionRecordDao;
         this.courseRechargeRecordDao = courseRechargeRecordDao;
         this.studentLeaveRecordDao = studentLeaveRecordDao;
@@ -72,7 +73,8 @@ public class AdminClassRoomService {
     public List<AdminClassRoomResponse> listClassRooms(Long institutionId) {
         Map<Long, Teacher> teacherById = teacherDao.findAllByInstitutionId(institutionId).stream()
                 .collect(Collectors.toMap(Teacher::id, t -> t));
-        return classRoomDao.findAllByInstitutionId(institutionId).stream()
+        return teachingUnitDao.findAllByInstitutionId(institutionId).stream()
+                .filter(c -> c.billingMode() == BillingMode.MONTHLY)
                 .map(c -> {
                     Teacher teacher = teacherById.get(c.teacherId());
                     return new AdminClassRoomResponse(c.id(), c.name(), c.teacherId(),
@@ -84,46 +86,48 @@ public class AdminClassRoomService {
     public AdminClassRoomResponse updateClassRoom(Long institutionId, Long classRoomId, String name, Long teacherId) {
         requireClassRoomInInstitution(institutionId, classRoomId);
         Teacher teacher = requireTeacherInInstitution(institutionId, teacherId);
-        boolean duplicate = classRoomDao.findAllByTeacherId(teacherId).stream()
+        boolean duplicate = teachingUnitDao.findAllByTeacherId(teacherId).stream()
+                .filter(c -> c.billingMode() == BillingMode.MONTHLY)
                 .anyMatch(c -> c.name().equals(name) && !c.id().equals(classRoomId));
         if (duplicate) {
             throw new DuplicateClassNameException("Class name already exists: " + name);
         }
-        classRoomDao.update(classRoomId, name, teacherId);
+        teachingUnitDao.updateNameAndTeacher(classRoomId, name, teacherId);
         return new AdminClassRoomResponse(classRoomId, name, teacher.id(), teacher.name(), teacher.phone());
     }
 
     public ClassRoomDeletionImpact getDeletionImpact(Long institutionId, Long classRoomId) {
-        ClassRoom classRoom = requireClassRoomInInstitution(institutionId, classRoomId);
-        return new ClassRoomDeletionImpact(studentDao.findAllByClassRoomId(classRoom.id()).size());
+        TeachingUnit teachingUnit = requireClassRoomInInstitution(institutionId, classRoomId);
+        return new ClassRoomDeletionImpact(studentDao.findAllByTeachingUnitId(teachingUnit.id()).size());
     }
 
     @Transactional
     public void deleteClassRoom(Long institutionId, Long classRoomId) {
-        ClassRoom classRoom = requireClassRoomInInstitution(institutionId, classRoomId);
-        dailyTaskDao.deleteAllByClassRoomId(classRoom.id());
-        studentDailyNoteDao.deleteAllByClassRoomId(classRoom.id());
-        studentArrivalCheckinDao.deleteAllByClassRoomId(classRoom.id());
-        classDismissalDao.deleteAllByClassRoomId(classRoom.id());
-        classBillingRateDao.deleteAllByClassRoomId(classRoom.id());
-        monthlyBillDao.deleteAllByClassRoomId(classRoom.id());
-        studentLeaveRecordDao.deleteAllByClassRoomId(classRoom.id());
-        for (var student : studentDao.findAllByClassRoomId(classRoom.id())) {
-            studentCourseEnrollmentDao.deleteAllByStudentId(student.id());
+        TeachingUnit teachingUnit = requireClassRoomInInstitution(institutionId, classRoomId);
+        dailyTaskDao.deleteAllByTeachingUnitId(teachingUnit.id());
+        studentDailyNoteDao.deleteAllByTeachingUnitId(teachingUnit.id());
+        studentArrivalCheckinDao.deleteAllByTeachingUnitId(teachingUnit.id());
+        classDismissalDao.deleteAllByTeachingUnitId(teachingUnit.id());
+        classBillingRateDao.deleteAllByTeachingUnitId(teachingUnit.id());
+        monthlyBillDao.deleteAllByTeachingUnitId(teachingUnit.id());
+        studentLeaveRecordDao.deleteAllByTeachingUnitId(teachingUnit.id());
+        for (var student : studentDao.findAllByTeachingUnitId(teachingUnit.id())) {
+            studentUnitEnrollmentDao.deleteAllByStudentId(student.id());
             courseConsumptionRecordDao.deleteAllByStudentId(student.id());
             courseRechargeRecordDao.deleteAllByStudentId(student.id());
         }
-        studentDao.deleteAllByClassRoomId(classRoom.id());
-        classRoomDao.deleteById(classRoom.id());
+        studentDao.deleteAllByTeachingUnitId(teachingUnit.id());
+        teachingUnitDao.deleteById(teachingUnit.id());
     }
 
-    private ClassRoom requireClassRoomInInstitution(Long institutionId, Long classRoomId) {
-        ClassRoom classRoom = classRoomDao.findById(classRoomId)
+    private TeachingUnit requireClassRoomInInstitution(Long institutionId, Long classRoomId) {
+        TeachingUnit teachingUnit = teachingUnitDao.findById(classRoomId)
+                .filter(c -> c.billingMode() == BillingMode.MONTHLY)
                 .orElseThrow(() -> new NotFoundException("ClassRoom not found: " + classRoomId));
-        if (!classRoom.institutionId().equals(institutionId)) {
+        if (!teachingUnit.institutionId().equals(institutionId)) {
             throw new NotFoundException("ClassRoom not found: " + classRoomId);
         }
-        return classRoom;
+        return teachingUnit;
     }
 
     private Teacher requireTeacherInInstitution(Long institutionId, Long teacherId) {

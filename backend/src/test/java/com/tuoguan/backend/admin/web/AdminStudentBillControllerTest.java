@@ -7,11 +7,12 @@ import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.auth.web.LoginResponse;
-import com.tuoguan.backend.roster.dao.ClassRoomDao;
 import com.tuoguan.backend.roster.dao.StudentDao;
-import com.tuoguan.backend.roster.domain.ClassRoom;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.support.IntegrationTestBase;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
+import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -40,7 +41,7 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
     private TeacherDao teacherDao;
 
     @Autowired
-    private ClassRoomDao classRoomDao;
+    private TeachingUnitDao teachingUnitDao;
 
     @Autowired
     private StudentDao studentDao;
@@ -58,7 +59,8 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900013002",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "账单一班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "账单一班",
+                BillingMode.MONTHLY, null, null, true, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "学生甲", "一班", true, null, null));
         String adminToken = login("13900013001", "admin-password");
 
@@ -74,7 +76,8 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900013004",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "账单二班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "账单二班",
+                BillingMode.MONTHLY, null, null, true, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "学生乙", "一班", true, null, null));
         String adminToken = login("13900013003", "admin-password");
 
@@ -106,7 +109,8 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900013006",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "账单三班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "账单三班",
+                BillingMode.MONTHLY, null, null, true, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "学生丙", "一班", true, null, null));
         String adminToken = login("13900013005", "admin-password");
 
@@ -142,7 +146,8 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900013008",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "账单四班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "账单四班",
+                BillingMode.MONTHLY, null, null, true, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "学生丁", "一班", true, null, null));
         String adminToken = login("13900013007", "admin-password");
 
@@ -153,10 +158,10 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                 .andExpect(status().isOk());
 
         String teacherToken = login("13900013008", "teacher-password");
-        MvcResult courseResult = mockMvc.perform(post("/api/courses")
-                        .header("Authorization", "Bearer " + teacherToken)
+        MvcResult courseResult = mockMvc.perform(post("/api/admin/courses")
+                        .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"数学课\",\"lessonDurationMinutes\":60}"))
+                        .content("{\"name\":\"数学课\",\"lessonDurationMinutes\":60,\"teacherId\":" + teacherId + "}"))
                 .andExpect(status().isCreated())
                 .andReturn();
         Long courseId = objectMapper.readTree(courseResult.getResponse().getContentAsString()).get("id").asLong();
@@ -200,7 +205,8 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900013018",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "账单九班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "账单九班",
+                BillingMode.MONTHLY, null, null, true, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "学生壬", "一班", true, null, null));
         String adminToken = login("13900013017", "admin-password");
 
@@ -211,10 +217,10 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                 .andExpect(status().isOk());
 
         String teacherToken = login("13900013018", "teacher-password");
-        MvcResult courseResult = mockMvc.perform(post("/api/courses")
-                        .header("Authorization", "Bearer " + teacherToken)
+        MvcResult courseResult = mockMvc.perform(post("/api/admin/courses")
+                        .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"数学课\",\"lessonDurationMinutes\":60}"))
+                        .content("{\"name\":\"数学课\",\"lessonDurationMinutes\":60,\"teacherId\":" + teacherId + "}"))
                 .andExpect(status().isCreated())
                 .andReturn();
         Long courseId = objectMapper.readTree(courseResult.getResponse().getContentAsString()).get("id").asLong();
@@ -253,7 +259,7 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    void generatingBillForPureOffCampusStudentReturnsNotFound() throws Exception {
+    void generatingBillForPureOffCampusStudentReturnsZeroTuitionAndMeal() throws Exception {
         Long institutionId = institutionDao.insert("账单测试机构K");
         teacherDao.insert(new Teacher(null, institutionId, "13900013019",
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
@@ -264,7 +270,10 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
 
         mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=2024-01")
                         .header("Authorization", "Bearer " + adminToken))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tuitionAmount").value(0.00))
+                .andExpect(jsonPath("$.mealAmount").value(0.00))
+                .andExpect(jsonPath("$.totalAmount").value(0.00));
     }
 
     @Test
@@ -274,7 +283,8 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900013010",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "账单五班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "账单五班",
+                BillingMode.MONTHLY, null, null, true, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "学生戊", "一班", true, null, null));
         String adminToken = login("13900013009", "admin-password");
 
@@ -305,7 +315,8 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherBId = teacherDao.insert(new Teacher(null, institutionBId, "13900013012",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomBId = classRoomDao.insert(new ClassRoom(null, institutionBId, teacherBId, "账单六班", null));
+        Long classRoomBId = teachingUnitDao.insert(new TeachingUnit(null, institutionBId, teacherBId, "账单六班",
+                BillingMode.MONTHLY, null, null, true, null));
         Long studentBId = studentDao.insert(new Student(null, institutionBId, classRoomBId, "学生己", "一班", true, null, null));
         String adminToken = login("13900013011", "admin-password");
 
@@ -321,7 +332,8 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900013014",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "账单七班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "账单七班",
+                BillingMode.MONTHLY, null, null, true, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "学生庚", "一班", true, null, null));
         String adminToken = login("13900013013", "admin-password");
 
@@ -330,7 +342,7 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"tuitionRatePerMonth\":50.00,\"mealRatePerDay\":10.00}"))
                 .andExpect(status().isOk());
-        createCourseWithConsumption(adminToken, login("13900013014", "teacher-password"), studentId);
+        createCourseWithConsumption(adminToken, teacherId, login("13900013014", "teacher-password"), studentId);
         mockMvc.perform(post("/api/admin/students/" + studentId + "/leave-records")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -354,7 +366,8 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900013016",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "账单八班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "账单八班",
+                BillingMode.MONTHLY, null, null, true, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "学生辛", "一班", true, null, null));
         String adminToken = login("13900013015", "admin-password");
 
@@ -363,7 +376,7 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"tuitionRatePerMonth\":50.00,\"mealRatePerDay\":10.00}"))
                 .andExpect(status().isOk());
-        createCourseWithConsumption(adminToken, login("13900013016", "teacher-password"), studentId);
+        createCourseWithConsumption(adminToken, teacherId, login("13900013016", "teacher-password"), studentId);
         mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=2024-01")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk());
@@ -378,16 +391,16 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
 
     private void assertBillingDataCleared(Long classRoomId, Long studentId) {
         Integer rateCount = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM class_billing_rate WHERE class_room_id = ?", Integer.class, classRoomId);
+                "SELECT COUNT(*) FROM class_billing_rate WHERE teaching_unit_id = ?", Integer.class, classRoomId);
         Integer consumptionCount = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM course_consumption_record WHERE student_id = ?", Integer.class, studentId);
         Integer leaveCount = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM student_leave_record WHERE class_room_id = ?", Integer.class, classRoomId);
+                "SELECT COUNT(*) FROM student_leave_record WHERE teaching_unit_id = ?", Integer.class, classRoomId);
         Integer billCount = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM monthly_bill WHERE class_room_id = ?", Integer.class, classRoomId);
+                "SELECT COUNT(*) FROM monthly_bill WHERE teaching_unit_id = ?", Integer.class, classRoomId);
         Integer billLineCount = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM monthly_bill_extra_fee_line l "
-                        + "JOIN monthly_bill b ON l.monthly_bill_id = b.id WHERE b.class_room_id = ?",
+                        + "JOIN monthly_bill b ON l.monthly_bill_id = b.id WHERE b.teaching_unit_id = ?",
                 Integer.class, classRoomId);
         assertThat(rateCount).isZero();
         assertThat(consumptionCount).isZero();
@@ -396,11 +409,11 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
         assertThat(billLineCount).isZero();
     }
 
-    private void createCourseWithConsumption(String adminToken, String teacherToken, Long studentId) throws Exception {
-        MvcResult courseResult = mockMvc.perform(post("/api/courses")
-                        .header("Authorization", "Bearer " + teacherToken)
+    private void createCourseWithConsumption(String adminToken, Long teacherId, String teacherToken, Long studentId) throws Exception {
+        MvcResult courseResult = mockMvc.perform(post("/api/admin/courses")
+                        .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"数学课\",\"lessonDurationMinutes\":60}"))
+                        .content("{\"name\":\"数学课\",\"lessonDurationMinutes\":60,\"teacherId\":" + teacherId + "}"))
                 .andExpect(status().isCreated())
                 .andReturn();
         Long courseId = objectMapper.readTree(courseResult.getResponse().getContentAsString()).get("id").asLong();

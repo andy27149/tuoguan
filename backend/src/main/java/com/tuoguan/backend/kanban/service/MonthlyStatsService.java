@@ -46,7 +46,7 @@ public class MonthlyStatsService {
     public MonthlyStatsResult getMonthlyStats(Long teacherId, Long studentId, YearMonth month) {
         Student student = studentDao.findById(studentId)
                 .orElseThrow(() -> new NotFoundException("Student not found: " + studentId));
-        classRoomService.getOwnedByTeacher(teacherId, student.classRoomId());
+        classRoomService.getOwnedByTeacher(teacherId, student.teachingUnitId());
 
         return buildMonthlyStats(studentId, month);
     }

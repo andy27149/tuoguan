@@ -1,12 +1,11 @@
 package com.tuoguan.backend.roster.service;
 
-import com.tuoguan.backend.course.dao.CourseDao;
-import com.tuoguan.backend.course.dao.StudentCourseEnrollmentDao;
-import com.tuoguan.backend.course.domain.Course;
-import com.tuoguan.backend.course.domain.StudentCourseEnrollment;
 import com.tuoguan.backend.roster.dao.StudentDao;
-import com.tuoguan.backend.roster.domain.ClassRoom;
 import com.tuoguan.backend.roster.domain.Student;
+import com.tuoguan.backend.unit.dao.StudentUnitEnrollmentDao;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
+import com.tuoguan.backend.unit.domain.StudentUnitEnrollment;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import com.tuoguan.backend.roster.web.InvalidAvatarException;
 import com.tuoguan.backend.roster.web.NotFoundException;
 import com.tuoguan.backend.storage.StorageService;
@@ -24,35 +23,35 @@ public class StudentService {
     private final StudentDao studentDao;
     private final ClassRoomService classRoomService;
     private final StorageService storageService;
-    private final StudentCourseEnrollmentDao enrollmentDao;
-    private final CourseDao courseDao;
+    private final StudentUnitEnrollmentDao enrollmentDao;
+    private final TeachingUnitDao teachingUnitDao;
 
     public StudentService(StudentDao studentDao, ClassRoomService classRoomService, StorageService storageService,
-                           StudentCourseEnrollmentDao enrollmentDao, CourseDao courseDao) {
+                           StudentUnitEnrollmentDao enrollmentDao, TeachingUnitDao teachingUnitDao) {
         this.studentDao = studentDao;
         this.classRoomService = classRoomService;
         this.storageService = storageService;
         this.enrollmentDao = enrollmentDao;
-        this.courseDao = courseDao;
+        this.teachingUnitDao = teachingUnitDao;
     }
 
-    public Student create(Long teacherId, Long classRoomId, String name, String schoolClassName) {
-        ClassRoom classRoom = classRoomService.getOwnedByTeacher(teacherId, classRoomId);
-        Student student = new Student(null, classRoom.institutionId(), classRoom.id(), name, schoolClassName,
+    public Student create(Long teacherId, Long teachingUnitId, String name, String schoolClassName) {
+        TeachingUnit teachingUnit = classRoomService.getOwnedByTeacher(teacherId, teachingUnitId);
+        Student student = new Student(null, teachingUnit.institutionId(), teachingUnit.id(), name, schoolClassName,
                 true, null, null);
         Long id = studentDao.insert(student);
         return studentDao.findById(id)
                 .orElseThrow(() -> new IllegalStateException("Student not found after insert: " + id));
     }
 
-    public List<Student> list(Long teacherId, Long classRoomId) {
-        classRoomService.getOwnedByTeacher(teacherId, classRoomId);
-        return studentDao.findAllByClassRoomId(classRoomId);
+    public List<Student> list(Long teacherId, Long teachingUnitId) {
+        classRoomService.getOwnedByTeacher(teacherId, teachingUnitId);
+        return studentDao.findAllByTeachingUnitId(teachingUnitId);
     }
 
     public Student update(Long teacherId, Long studentId, String name, String schoolClassName, boolean enrolled) {
         Student existing = findOwnedByTeacher(teacherId, studentId);
-        Student updated = new Student(existing.id(), existing.institutionId(), existing.classRoomId(),
+        Student updated = new Student(existing.id(), existing.institutionId(), existing.teachingUnitId(),
                 name, schoolClassName, enrolled, existing.avatarObjectKey(), existing.createdAt());
         studentDao.update(updated);
         return studentDao.findById(existing.id())
@@ -80,8 +79,8 @@ public class StudentService {
 
     public List<String> enrolledCourseNames(Long studentId) {
         return enrollmentDao.findAllByStudentId(studentId).stream()
-                .filter(StudentCourseEnrollment::active)
-                .map(e -> courseDao.findById(e.courseId()).map(Course::name).orElse(null))
+                .filter(StudentUnitEnrollment::active)
+                .map(e -> teachingUnitDao.findById(e.teachingUnitId()).map(TeachingUnit::name).orElse(null))
                 .filter(Objects::nonNull)
                 .toList();
     }
@@ -94,7 +93,7 @@ public class StudentService {
     private Student findOwnedByTeacher(Long teacherId, Long studentId) {
         Student student = studentDao.findById(studentId)
                 .orElseThrow(() -> new NotFoundException("Student not found: " + studentId));
-        classRoomService.getOwnedByTeacher(teacherId, student.classRoomId());
+        classRoomService.getOwnedByTeacher(teacherId, student.teachingUnitId());
         return student;
     }
 }

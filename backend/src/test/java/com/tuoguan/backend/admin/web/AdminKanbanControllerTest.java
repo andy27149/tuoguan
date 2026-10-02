@@ -11,10 +11,11 @@ import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
 import com.tuoguan.backend.kanban.dao.StudentDailyNoteDao;
 import com.tuoguan.backend.kanban.domain.ClassDismissal;
 import com.tuoguan.backend.kanban.domain.DailyTask;
-import com.tuoguan.backend.roster.dao.ClassRoomDao;
 import com.tuoguan.backend.roster.dao.StudentDao;
-import com.tuoguan.backend.roster.domain.ClassRoom;
 import com.tuoguan.backend.roster.domain.Student;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
+import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.TeachingUnit;
 import com.tuoguan.backend.support.IntegrationTestBase;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -39,7 +40,7 @@ class AdminKanbanControllerTest extends IntegrationTestBase {
     private TeacherDao teacherDao;
 
     @Autowired
-    private ClassRoomDao classRoomDao;
+    private TeachingUnitDao teachingUnitDao;
 
     @Autowired
     private StudentDao studentDao;
@@ -69,7 +70,8 @@ class AdminKanbanControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13700002002",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管一班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管一班",
+                BillingMode.MONTHLY, null, null, true, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小明", "三年级2班",
                 true, null, null));
         LocalDate date = LocalDate.of(2026, 8, 24);
@@ -126,7 +128,8 @@ class AdminKanbanControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         Long teacherBId = teacherDao.insert(new Teacher(null, institutionBId, "13700002004",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionBId, teacherBId, "托管二班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionBId, teacherBId, "托管二班",
+                BillingMode.MONTHLY, null, null, true, null));
         Long studentId = studentDao.insert(new Student(null, institutionBId, classRoomId, "小红", "三年级3班",
                 true, null, null));
         String adminToken = login("13700002003", "admin-password");
@@ -149,7 +152,8 @@ class AdminKanbanControllerTest extends IntegrationTestBase {
         Long institutionId = institutionDao.insert("管理员看板数据测试机构D");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13700002005",
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
-        Long classRoomId = classRoomDao.insert(new ClassRoom(null, institutionId, teacherId, "托管三班", null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管三班",
+                BillingMode.MONTHLY, null, null, true, null));
         String token = login("13700002005", "teacher-password");
 
         mockMvc.perform(get("/api/admin/classes/" + classRoomId + "/students")

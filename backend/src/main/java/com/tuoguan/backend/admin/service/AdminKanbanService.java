@@ -8,10 +8,10 @@ import com.tuoguan.backend.kanban.domain.DailyTask;
 import com.tuoguan.backend.kanban.domain.StudentArrivalCheckin;
 import com.tuoguan.backend.kanban.domain.StudentDailyNote;
 import com.tuoguan.backend.kanban.service.MonthlyStatsService;
-import com.tuoguan.backend.roster.dao.ClassRoomDao;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.roster.web.NotFoundException;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -21,7 +21,7 @@ import java.util.List;
 @Service
 public class AdminKanbanService {
 
-    private final ClassRoomDao classRoomDao;
+    private final TeachingUnitDao teachingUnitDao;
     private final StudentDao studentDao;
     private final DailyTaskDao dailyTaskDao;
     private final ClassDismissalDao classDismissalDao;
@@ -29,11 +29,11 @@ public class AdminKanbanService {
     private final StudentArrivalCheckinDao studentArrivalCheckinDao;
     private final MonthlyStatsService monthlyStatsService;
 
-    public AdminKanbanService(ClassRoomDao classRoomDao, StudentDao studentDao, DailyTaskDao dailyTaskDao,
+    public AdminKanbanService(TeachingUnitDao teachingUnitDao, StudentDao studentDao, DailyTaskDao dailyTaskDao,
                                ClassDismissalDao classDismissalDao, StudentDailyNoteDao studentDailyNoteDao,
                                StudentArrivalCheckinDao studentArrivalCheckinDao,
                                MonthlyStatsService monthlyStatsService) {
-        this.classRoomDao = classRoomDao;
+        this.teachingUnitDao = teachingUnitDao;
         this.studentDao = studentDao;
         this.dailyTaskDao = dailyTaskDao;
         this.classDismissalDao = classDismissalDao;
@@ -42,29 +42,29 @@ public class AdminKanbanService {
         this.monthlyStatsService = monthlyStatsService;
     }
 
-    public List<Student> listStudents(Long institutionId, Long classRoomId) {
-        requireClassInInstitution(institutionId, classRoomId);
-        return studentDao.findAllByClassRoomId(classRoomId);
+    public List<Student> listStudents(Long institutionId, Long teachingUnitId) {
+        requireUnitInInstitution(institutionId, teachingUnitId);
+        return studentDao.findAllByTeachingUnitId(teachingUnitId);
     }
 
-    public List<DailyTask> listDailyTasks(Long institutionId, Long classRoomId, LocalDate date) {
-        requireClassInInstitution(institutionId, classRoomId);
-        return dailyTaskDao.findAllByClassRoomIdAndDate(classRoomId, date);
+    public List<DailyTask> listDailyTasks(Long institutionId, Long teachingUnitId, LocalDate date) {
+        requireUnitInInstitution(institutionId, teachingUnitId);
+        return dailyTaskDao.findAllByTeachingUnitIdAndDate(teachingUnitId, date);
     }
 
-    public boolean isDismissed(Long institutionId, Long classRoomId, LocalDate date) {
-        requireClassInInstitution(institutionId, classRoomId);
-        return classDismissalDao.findByClassRoomIdAndDate(classRoomId, date).isPresent();
+    public boolean isDismissed(Long institutionId, Long teachingUnitId, LocalDate date) {
+        requireUnitInInstitution(institutionId, teachingUnitId);
+        return classDismissalDao.findByTeachingUnitIdAndDate(teachingUnitId, date).isPresent();
     }
 
-    public List<StudentDailyNote> listNotes(Long institutionId, Long classRoomId, LocalDate date) {
-        requireClassInInstitution(institutionId, classRoomId);
-        return studentDailyNoteDao.findAllByClassRoomIdAndDate(classRoomId, date);
+    public List<StudentDailyNote> listNotes(Long institutionId, Long teachingUnitId, LocalDate date) {
+        requireUnitInInstitution(institutionId, teachingUnitId);
+        return studentDailyNoteDao.findAllByTeachingUnitIdAndDate(teachingUnitId, date);
     }
 
-    public List<StudentArrivalCheckin> listArrivals(Long institutionId, Long classRoomId, LocalDate date) {
-        requireClassInInstitution(institutionId, classRoomId);
-        return studentArrivalCheckinDao.findAllByClassRoomIdAndDate(classRoomId, date);
+    public List<StudentArrivalCheckin> listArrivals(Long institutionId, Long teachingUnitId, LocalDate date) {
+        requireUnitInInstitution(institutionId, teachingUnitId);
+        return studentArrivalCheckinDao.findAllByTeachingUnitIdAndDate(teachingUnitId, date);
     }
 
     public MonthlyStatsService.MonthlyStatsResult getMonthlyStats(Long institutionId, Long studentId, YearMonth month) {
@@ -86,9 +86,9 @@ public class AdminKanbanService {
         return student;
     }
 
-    private void requireClassInInstitution(Long institutionId, Long classRoomId) {
-        classRoomDao.findById(classRoomId)
-                .filter(c -> c.institutionId().equals(institutionId))
-                .orElseThrow(() -> new NotFoundException("Class not found: " + classRoomId));
+    private void requireUnitInInstitution(Long institutionId, Long teachingUnitId) {
+        teachingUnitDao.findById(teachingUnitId)
+                .filter(u -> u.institutionId().equals(institutionId))
+                .orElseThrow(() -> new NotFoundException("Class not found: " + teachingUnitId));
     }
 }
