@@ -96,6 +96,9 @@ export function KanbanPage({
       setLoading(true)
       setError(null)
       try {
+        // 管理员分支只调用 adminKanbanApi 的只读接口——这是前端层面的约定，不是后端强制
+        // 的权限边界：管理员账号同时满足教师接口的鉴权条件，理论上能绕开这里调用写接口。
+        // 新增功能时不要假设「管理员等于只读」，详见 AdminKanbanController 的类注释（产品诊断 #09）。
         const [studentList, taskList, dismissalStatus, noteList, arrivalList] = isAdmin
           ? await Promise.all([
               adminKanbanApi.fetchStudents(classId),

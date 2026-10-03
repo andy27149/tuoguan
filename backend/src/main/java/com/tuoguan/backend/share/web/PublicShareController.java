@@ -25,6 +25,6 @@ public class PublicShareController {
         PublicShareService.PublicShareResult result = publicShareService.getShare(token, yearMonth);
         MonthlyStatsResponse stats = result.stats() != null ? MonthlyStatsResponse.from(result.stats()) : null;
         return new PublicShareResponse(result.studentName(), result.schoolClassName(), result.avatarUrl(), stats,
-                result.courseStatement());
+                result.courseStatement(), result.courseActivity());
     }
 }

@@ -7,6 +7,7 @@ import com.tuoguan.backend.course.dao.CourseRechargeRecordDao;
 import com.tuoguan.backend.course.domain.CourseConsumptionRecord;
 import com.tuoguan.backend.course.domain.CourseRechargeRecord;
 import com.tuoguan.backend.course.web.ConsumptionRecordResponse;
+import com.tuoguan.backend.course.web.CourseActivityRow;
 import com.tuoguan.backend.course.web.CourseBalanceRow;
 import com.tuoguan.backend.course.web.RechargeNotAllowedException;
 import com.tuoguan.backend.course.web.RechargeRecordResponse;
@@ -19,8 +20,11 @@ import com.tuoguan.backend.unit.domain.BillingMode;
 import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -95,6 +99,31 @@ public class CourseAccountService {
                 .toList();
 
         return new StudentCourseStatement(balances, rechargeResponses, consumptionResponses);
+    }
+
+    // 供托管班学生（同时报名课外课）的家长分享页使用：只给课程名+最近消课日期，不带
+    // 充值/余额——这类学生的课外课费用走托管月度账单附加费，从不预充值，余额概念不成立。
+    public List<CourseActivityRow> getCourseActivity(Long institutionId, Long studentId) {
+        requireStudentInInstitution(institutionId, studentId);
+        List<CourseConsumptionRecord> consumptions = consumptionRecordDao.findAllByStudentId(studentId);
+
+        Map<Long, List<LocalDate>> datesByCourse = new LinkedHashMap<>();
+        for (CourseConsumptionRecord record : consumptions) {
+            datesByCourse.computeIfAbsent(record.teachingUnitId(), id -> new ArrayList<>())
+                    .add(record.consumptionDate());
+        }
+
+        Map<Long, String> courseNames = new HashMap<>();
+        List<CourseActivityRow> rows = new ArrayList<>();
+        for (Map.Entry<Long, List<LocalDate>> entry : datesByCourse.entrySet()) {
+            List<LocalDate> recentDates = entry.getValue().stream()
+                    .sorted(Comparator.reverseOrder())
+                    .limit(5)
+                    .toList();
+            rows.add(new CourseActivityRow(entry.getKey(), resolveCourseName(courseNames, entry.getKey()),
+                    recentDates));
+        }
+        return rows;
     }
 
     private String resolveCourseName(Map<Long, String> cache, Long courseId) {

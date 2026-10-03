@@ -30,6 +30,7 @@ const SHARE: PublicShare = {
     ],
   },
   courseStatement: null,
+  courseActivity: [],
 }
 
 const PURE_OFF_CAMPUS_SHARE: PublicShare = {
@@ -46,6 +47,15 @@ const PURE_OFF_CAMPUS_SHARE: PublicShare = {
       { id: 1, studentId: 1, courseId: 1, courseName: '书法课', consumptionDate: '2026-09-05', priceSnapshot: 80, teacherName: '王老师' },
     ],
   },
+  courseActivity: [],
+}
+
+const DUAL_IDENTITY_SHARE: PublicShare = {
+  ...SHARE,
+  studentName: '小双',
+  courseActivity: [
+    { courseId: 2, courseName: '围棋课', recentConsumptionDates: ['2026-10-01', '2026-09-28'] },
+  ],
 }
 
 describe('ParentSharePage', () => {
@@ -108,5 +118,18 @@ describe('ParentSharePage', () => {
     expect(screen.getByText('剩 7 课时')).toBeInTheDocument()
     expect(screen.getByText(/王老师老师/)).toBeInTheDocument()
     expect(screen.queryByText(/完成天数/)).not.toBeInTheDocument()
+  })
+
+  it('shows both monthly stats and a lightweight course-activity card for a dual-identity student', async () => {
+    vi.mocked(publicShareApi.fetchPublicShare).mockResolvedValue(DUAL_IDENTITY_SHARE)
+    render(<ParentSharePage token="dual-token" />)
+
+    expect(await screen.findByText('小双')).toBeInTheDocument()
+    expect(screen.getByText(/完成天数 1 \/ 未完成天数 1/)).toBeInTheDocument()
+    expect(screen.getByText('课外课情况')).toBeInTheDocument()
+    expect(screen.getByText('围棋课')).toBeInTheDocument()
+    expect(screen.getByText('2026-10-01、2026-09-28')).toBeInTheDocument()
+    // 双身份学生的课外课费用走托管账单，不应该出现「余额」字样
+    expect(screen.queryByText(/剩 .* 课时/)).not.toBeInTheDocument()
   })
 })

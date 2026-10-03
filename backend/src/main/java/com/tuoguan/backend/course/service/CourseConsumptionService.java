@@ -92,6 +92,10 @@ public class CourseConsumptionService {
                 .orElseThrow(() -> new NotFoundException("Consumption record not found: " + id));
     }
 
+    // 设计权衡（产品诊断 #08）：未勾选的学生不生成任何记录，呼应「课外课无请假概念」的
+    // 简化设计——事后无法区分「教师忘记点名」和「学生确实没来」。暂不建议改动这里的核心
+    // 语义；全库目前还没有应用日志基础设施，若投诉增多，比起单独为这一处引入日志框架，
+    // 更建议先统一规划一套应用日志方案（这里加一条「本日已点名，共到 N 人」的操作记录）。
     public List<CourseConsumptionRecord> recordBatchConsumption(Long teacherId, Long courseId, LocalDate date,
                                                                   List<Long> presentStudentIds) {
         TeachingUnit teachingUnit = courseService.getOwnedByTeacher(teacherId, courseId);

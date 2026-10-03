@@ -48,6 +48,9 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ]
 
+// 注意：custodyEnabled/offCampusEnabled 目前只是 UI 层面的软开关——关闭后只隐藏这里的
+// 导航入口，后端对应接口（如 AdminTeachingUnitController）并没有机构级拦截，仍可被直接
+// 调用成功。当前风险低（无对外 API），接入对外 API 前需要在后端补充硬校验。见产品诊断 #07。
 export function isModuleHidden(
   module: AdminModule,
   custodyEnabled: boolean,

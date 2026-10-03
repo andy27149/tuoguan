@@ -4,7 +4,9 @@ import com.tuoguan.backend.auth.dao.InstitutionDao;
 import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
+import com.tuoguan.backend.course.dao.CourseConsumptionRecordDao;
 import com.tuoguan.backend.course.dao.CourseRechargeRecordDao;
+import com.tuoguan.backend.course.domain.CourseConsumptionRecord;
 import com.tuoguan.backend.course.domain.CourseRechargeRecord;
 import com.tuoguan.backend.kanban.dao.DailyTaskDao;
 import com.tuoguan.backend.kanban.dao.StudentDailyNoteDao;
@@ -13,8 +15,10 @@ import com.tuoguan.backend.kanban.domain.DailyTask;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.support.IntegrationTestBase;
+import com.tuoguan.backend.unit.dao.StudentUnitEnrollmentDao;
 import com.tuoguan.backend.unit.dao.TeachingUnitDao;
 import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.StudentUnitEnrollment;
 import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,6 +58,12 @@ class PublicShareControllerTest extends IntegrationTestBase {
     private CourseRechargeRecordDao rechargeRecordDao;
 
     @Autowired
+    private CourseConsumptionRecordDao consumptionRecordDao;
+
+    @Autowired
+    private StudentUnitEnrollmentDao enrollmentDao;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Test
@@ -80,7 +90,38 @@ class PublicShareControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.schoolClassName").value("三年级1班"))
                 .andExpect(jsonPath("$.stats.completedDays").value(1))
                 .andExpect(jsonPath("$.stats.averageRating").value(5.0))
-                .andExpect(jsonPath("$.stats.days[0].arrivedAt").value("17:45"));
+                .andExpect(jsonPath("$.stats.days[0].arrivedAt").value("17:45"))
+                .andExpect(jsonPath("$.courseActivity.length()").value(0));
+    }
+
+    @Test
+    void dualIdentityStudentSeesBothStatsAndLightweightCourseActivityWithoutBalance() throws Exception {
+        Long institutionId = institutionDao.insert("公开分享测试机构C");
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900009003",
+                passwordEncoder.encode("password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long courseId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "书法课",
+                BillingMode.LESSON_COUNT, 60, new BigDecimal("50.00"), true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小双", "三年级1班",
+                true, null, null));
+        enrollmentDao.insert(new StudentUnitEnrollment(null, institutionId, studentId, courseId, true, null));
+        consumptionRecordDao.insert(new CourseConsumptionRecord(null, institutionId, studentId, courseId,
+                LocalDate.of(2026, 9, 28), new BigDecimal("50.00"), teacherId, null));
+        consumptionRecordDao.insert(new CourseConsumptionRecord(null, institutionId, studentId, courseId,
+                LocalDate.of(2026, 10, 1), new BigDecimal("50.00"), teacherId, null));
+
+        String shareToken = studentDao.findShareToken(studentId);
+
+        mockMvc.perform(get("/api/public/share/" + shareToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.studentName").value("小双"))
+                .andExpect(jsonPath("$.stats").exists())
+                .andExpect(jsonPath("$.courseStatement").doesNotExist())
+                .andExpect(jsonPath("$.courseActivity.length()").value(1))
+                .andExpect(jsonPath("$.courseActivity[0].courseName").value("书法课"))
+                .andExpect(jsonPath("$.courseActivity[0].recentConsumptionDates.length()").value(2))
+                .andExpect(jsonPath("$.courseActivity[0].recentConsumptionDates[0]").value("2026-10-01"));
     }
 
     @Test
@@ -102,7 +143,8 @@ class PublicShareControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.stats").doesNotExist())
                 .andExpect(jsonPath("$.courseStatement.balances[0].courseName").value("书法课"))
                 .andExpect(jsonPath("$.courseStatement.balances[0].lessonsRecharged").value(10))
-                .andExpect(jsonPath("$.courseStatement.recharges.length()").value(1));
+                .andExpect(jsonPath("$.courseStatement.recharges.length()").value(1))
+                .andExpect(jsonPath("$.courseActivity.length()").value(0));
     }
 
     @Test

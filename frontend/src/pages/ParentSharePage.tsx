@@ -3,6 +3,7 @@ import { fetchPublicShare, type PublicShare } from '../api/publicShare'
 import { currentMonthString, todayDateString } from '../kanban/date'
 import { MonthlyStatsView } from '../components/MonthlyStatsView'
 import { CourseStatementView } from '../components/CourseStatementView'
+import { CourseActivityView } from '../components/CourseActivityView'
 import { BrandMark } from '../brand/BrandMark'
 
 interface ParentSharePageProps {
@@ -79,6 +80,8 @@ export function ParentSharePage({ token }: ParentSharePageProps) {
             )}
 
             {share.courseStatement && <CourseStatementView statement={share.courseStatement} />}
+
+            {share.courseActivity.length > 0 && <CourseActivityView rows={share.courseActivity} />}
 
             <p className="parent-share-page__brand">
               <BrandMark size={14} />

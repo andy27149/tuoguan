@@ -19,6 +19,15 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDate;
 import java.util.List;
 
+/**
+ * 管理员的只读看板入口——全 GET，供前端 {@code KanbanPage.tsx} 的 isAdmin 分支调用。
+ * <p>
+ * 权限边界说明（产品诊断 #09）：管理员账号同时满足所有未标注 {@code @PreAuthorize} 的教师
+ * 接口（如花名册、消课）的鉴权条件，理论上可以绕开这个只读控制器、直接以「教师身份」调用
+ * 任意本机构教学单元的写接口。当前前端只给管理员提供这里的只读入口、不提供其他写操作的
+ * UI，路径设计正确、无实际漏洞，但这是「前端不提供入口」而非「后端禁止」的隐式约定——
+ * 新增接口时不要想当然地认为「管理员等于只读」。已验证实现正确，无需改动。
+ */
 @RestController
 @RequestMapping("/api/admin/classes/{classId}")
 @PreAuthorize("hasRole('ADMIN')")
