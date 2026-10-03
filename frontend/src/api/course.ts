@@ -8,17 +8,6 @@ export interface Course {
   active: boolean
 }
 
-export interface AdminCourse {
-  id: number
-  name: string
-  teacherId: number
-  teacherName: string
-  teacherPhone: string
-  pricePerLesson: number | null
-  lessonDurationMinutes: number
-  active: boolean
-}
-
 export interface CourseRosterEntry {
   studentId: number
   name: string
@@ -84,17 +73,6 @@ export function fetchMyCourses(): Promise<Course[]> {
   return apiFetch<Course[]>('/courses')
 }
 
-export function createCourseStudent(
-  courseId: number,
-  name: string,
-  schoolClassName: string | null,
-): Promise<CourseRosterEntry> {
-  return apiFetch<CourseRosterEntry>(`/courses/${courseId}/students`, {
-    method: 'POST',
-    body: JSON.stringify({ name, schoolClassName }),
-  })
-}
-
 export function enrollExistingStudent(courseId: number, studentId: number): Promise<void> {
   return apiFetch<void>(`/courses/${courseId}/enrollments`, {
     method: 'POST',
@@ -134,35 +112,22 @@ export function recordBatchConsumption(
 }
 
 // 管理员端
-
-export function fetchAdminCourses(): Promise<AdminCourse[]> {
-  return apiFetch<AdminCourse[]>('/admin/courses')
-}
-
-export function createAdminCourse(
-  name: string,
-  lessonDurationMinutes: number,
-  teacherId: number,
-  pricePerLesson: number | null,
-): Promise<AdminCourse> {
-  return apiFetch<AdminCourse>('/admin/courses', {
-    method: 'POST',
-    body: JSON.stringify({ name, lessonDurationMinutes, teacherId, pricePerLesson }),
-  })
-}
-
-export function updateAdminCourse(
-  courseId: number,
-  updates: { pricePerLesson?: number; teacherId?: number; active?: boolean },
-): Promise<void> {
-  return apiFetch<void>(`/admin/courses/${courseId}`, {
-    method: 'PATCH',
-    body: JSON.stringify(updates),
-  })
-}
+// 课程（教学单元）的增删改已统一收归 api/unit.ts 的 teaching-units 接口；这里只保留
+// 课外课预充值账户相关的管理员操作（对账单、充值、消课统计），维持独立不并入月度账单。
 
 export function fetchAdminStudents(): Promise<AdminStudent[]> {
   return apiFetch<AdminStudent[]>('/admin/students')
+}
+
+export function createAdminStudent(
+  name: string,
+  schoolClassName: string | null,
+  teachingUnitId: number | null,
+): Promise<AdminStudent> {
+  return apiFetch<AdminStudent>('/admin/students', {
+    method: 'POST',
+    body: JSON.stringify({ name, schoolClassName, teachingUnitId }),
+  })
 }
 
 export function rechargeStudentAccount(

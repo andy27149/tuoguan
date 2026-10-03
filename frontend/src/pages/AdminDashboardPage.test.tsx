@@ -13,8 +13,8 @@ vi.mock('../api/institution')
 vi.mock('./AdminTeachersModule', () => ({
   AdminTeachersModule: () => <div>TeachersModuleStub</div>,
 }))
-vi.mock('./AdminClassesModule', () => ({
-  AdminClassesModule: () => <div>ClassesModuleStub</div>,
+vi.mock('./AdminTeachingUnitsModule', () => ({
+  AdminTeachingUnitsModule: () => <div>UnitsModuleStub</div>,
 }))
 vi.mock('./AdminTaskStatsModule', () => ({
   AdminTaskStatsModule: () => <div>TaskStatsModuleStub</div>,
@@ -46,7 +46,7 @@ describe('AdminDashboardPage', () => {
 
     expect(await screen.findByText('阳光托管班')).toBeInTheDocument()
     expect(screen.getByText('TeachersModuleStub')).toBeInTheDocument()
-    expect(screen.queryByText('ClassesModuleStub')).not.toBeInTheDocument()
+    expect(screen.queryByText('UnitsModuleStub')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '教师列表' })).toHaveAttribute('aria-current', 'page')
   })
 
@@ -83,12 +83,12 @@ describe('AdminDashboardPage', () => {
     expect(logout).toHaveBeenCalled()
   })
 
-  it('switches to the classes module when its sidebar item is clicked', () => {
+  it('switches to the teaching units module when its sidebar item is clicked', () => {
     render(<AdminDashboardPage onBack={vi.fn()} />)
 
-    fireEvent.click(screen.getByRole('button', { name: '托管班级' }))
+    fireEvent.click(screen.getByRole('button', { name: '教学单元' }))
 
-    expect(screen.getByText('ClassesModuleStub')).toBeInTheDocument()
+    expect(screen.getByText('UnitsModuleStub')).toBeInTheDocument()
     expect(screen.queryByText('TeachersModuleStub')).not.toBeInTheDocument()
   })
 
@@ -130,9 +130,23 @@ describe('AdminDashboardPage', () => {
     render(<AdminDashboardPage onBack={vi.fn()} />)
 
     await screen.findByText('阳光托管班')
-    expect(screen.queryByRole('button', { name: '托管班级' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '教学单元' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '任务完成情况' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '账单管理' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '定价中心' })).toBeInTheDocument()
+  })
+
+  it('hides the teaching units nav item when both custody and off-campus are disabled', async () => {
+    vi.mocked(institutionApi.fetchInstitutionSettings).mockResolvedValue({
+      id: 1,
+      name: '阳光托管班',
+      logoUrl: null,
+      custodyEnabled: false,
+      offCampusEnabled: false,
+    })
+    render(<AdminDashboardPage onBack={vi.fn()} />)
+
+    await screen.findByText('阳光托管班')
+    expect(screen.queryByRole('button', { name: '教学单元' })).not.toBeInTheDocument()
   })
 })

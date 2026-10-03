@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import * as courseApi from '../api/course'
+import * as unitApi from '../api/unit'
 import { ApiError } from '../api/client'
 
 interface AdminCourseStatementModalProps {
@@ -14,7 +15,7 @@ export function AdminCourseStatementModal({ studentId, studentName, onClose }: A
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
 
-  const [courses, setCourses] = useState<courseApi.AdminCourse[]>([])
+  const [courses, setCourses] = useState<unitApi.TeachingUnit[]>([])
   const [rechargeCourseId, setRechargeCourseId] = useState('')
   const [rechargeLessonCount, setRechargeLessonCount] = useState('')
   const [rechargeNote, setRechargeNote] = useState('')
@@ -33,8 +34,8 @@ export function AdminCourseStatementModal({ studentId, studentName, onClose }: A
 
   useEffect(() => {
     loadStatement()
-    courseApi
-      .fetchAdminCourses()
+    unitApi
+      .fetchTeachingUnits('LESSON_COUNT')
       .then((all) => setCourses(all.filter((c) => c.active)))
       .catch(() => setCourses([]))
     // eslint-disable-next-line react-hooks/exhaustive-deps

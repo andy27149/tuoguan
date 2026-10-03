@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState } from 'react'
 import * as courseApi from '../api/course'
 import * as classesApi from '../api/classes'
 import * as studentsApi from '../api/students'
@@ -19,11 +19,6 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
   const [roster, setRoster] = useState<courseApi.CourseRosterEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
-
-  const [newStudentName, setNewStudentName] = useState('')
-  const [newStudentSchoolClass, setNewStudentSchoolClass] = useState('')
-  const [creatingStudent, setCreatingStudent] = useState(false)
-  const [studentError, setStudentError] = useState<string | null>(null)
 
   const [myClasses, setMyClasses] = useState<classesApi.ClassRoom[]>([])
   const [pickClassId, setPickClassId] = useState<number | null>(null)
@@ -82,25 +77,6 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
     if (activeCourseId === null) return
     const list = await courseApi.fetchCourseRoster(activeCourseId)
     applyRoster(list)
-  }
-
-  async function handleCreateStudent(e: FormEvent) {
-    e.preventDefault()
-    if (activeCourseId === null) return
-    const name = newStudentName.trim()
-    if (!name) return
-    setCreatingStudent(true)
-    setStudentError(null)
-    try {
-      await courseApi.createCourseStudent(activeCourseId, name, newStudentSchoolClass.trim() || null)
-      await refreshRoster()
-      setNewStudentName('')
-      setNewStudentSchoolClass('')
-    } catch {
-      setStudentError('添加失败，请重试')
-    } finally {
-      setCreatingStudent(false)
-    }
   }
 
   function handlePickClass(classId: number) {
@@ -289,37 +265,8 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
             )}
 
             <div className="mt-3 border-t border-gray-100 pt-3">
-              <h3 className="text-sm font-medium text-gray-700">新增课外学生</h3>
-              <form onSubmit={handleCreateStudent} className="mt-2 flex flex-wrap gap-2">
-                <input
-                  placeholder="姓名"
-                  value={newStudentName}
-                  onChange={(e) => setNewStudentName(e.target.value)}
-                  className="w-24 rounded border px-2 py-1 text-sm"
-                />
-                <input
-                  placeholder="学籍班（选填）"
-                  value={newStudentSchoolClass}
-                  onChange={(e) => setNewStudentSchoolClass(e.target.value)}
-                  className="w-28 rounded border px-2 py-1 text-sm"
-                />
-                <button
-                  type="submit"
-                  disabled={creatingStudent || !newStudentName.trim()}
-                  className="rounded bg-blue-600 px-3 py-1 text-sm text-white disabled:opacity-50"
-                >
-                  新增并报名
-                </button>
-              </form>
-              {studentError && (
-                <p role="alert" className="mt-1 text-xs text-red-600">
-                  {studentError}
-                </p>
-              )}
-            </div>
-
-            <div className="mt-3 border-t border-gray-100 pt-3">
               <h3 className="text-sm font-medium text-gray-700">添加已有学生（我的托管班）</h3>
+              <p className="mt-1 text-xs text-gray-400">新增课外学生请联系管理员添加</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <select
                   value={pickClassId ?? ''}

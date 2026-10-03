@@ -22,7 +22,7 @@ export function EmptyTeacherState({ onOpenRoster, onLogout }: EmptyTeacherStateP
       <div className="no-class-screen">
         <p>您还未被分配托管班或课外课，请联系管理员</p>
         <button type="button" onClick={onOpenRoster} className="logout-btn">
-          前往学生管理创建托管班
+          前往学生管理
         </button>
       </div>
     </div>

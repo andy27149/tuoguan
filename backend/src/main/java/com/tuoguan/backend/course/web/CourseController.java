@@ -38,15 +38,6 @@ public class CourseController {
                 .toList();
     }
 
-    @PostMapping("/api/courses/{id}/students")
-    @ResponseStatus(HttpStatus.CREATED)
-    public CourseRosterEntry createStudent(@AuthenticationPrincipal TeacherPrincipal principal,
-                                            @PathVariable Long id,
-                                            @Valid @RequestBody CreateCourseStudentRequest request) {
-        return CourseRosterEntry.from(courseEnrollmentService.createAndEnrollStudent(principal.teacherId(), id,
-                request.name(), request.schoolClassName()));
-    }
-
     @PostMapping("/api/courses/{id}/enrollments")
     @ResponseStatus(HttpStatus.CREATED)
     public void enroll(@AuthenticationPrincipal TeacherPrincipal principal, @PathVariable Long id,

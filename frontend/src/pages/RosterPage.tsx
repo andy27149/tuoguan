@@ -1,7 +1,6 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState } from 'react'
 import * as classesApi from '../api/classes'
 import * as studentsApi from '../api/students'
-import { ApiError } from '../api/client'
 import { BrandMark } from '../brand/BrandMark'
 
 interface RosterPageProps {
@@ -15,13 +14,6 @@ export function RosterPage({ onBack }: RosterPageProps) {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
 
-  const [newClassName, setNewClassName] = useState('')
-  const [creatingClass, setCreatingClass] = useState(false)
-  const [classError, setClassError] = useState<string | null>(null)
-
-  const [newStudentName, setNewStudentName] = useState('')
-  const [newStudentSchoolClass, setNewStudentSchoolClass] = useState('')
-  const [creatingStudent, setCreatingStudent] = useState(false)
   const [studentError, setStudentError] = useState<string | null>(null)
 
   const [editingStudentId, setEditingStudentId] = useState<number | null>(null)
@@ -65,44 +57,6 @@ export function RosterPage({ onBack }: RosterPageProps) {
     if (activeClassId === null) return
     const list = await studentsApi.fetchStudents(activeClassId)
     setStudents(list)
-  }
-
-  async function handleCreateClass(e: FormEvent) {
-    e.preventDefault()
-    const name = newClassName.trim()
-    if (!name) return
-    setCreatingClass(true)
-    setClassError(null)
-    try {
-      const created = await classesApi.createClass(name)
-      setClasses((prev) => [...prev, created])
-      setActiveClassId(created.id)
-      setNewClassName('')
-    } catch (err) {
-      setClassError(err instanceof ApiError && err.status === 409 ? '该托管班名称已存在' : '创建失败，请重试')
-    } finally {
-      setCreatingClass(false)
-    }
-  }
-
-  async function handleCreateStudent(e: FormEvent) {
-    e.preventDefault()
-    if (activeClassId === null) return
-    const name = newStudentName.trim()
-    const schoolClassName = newStudentSchoolClass.trim()
-    if (!name || !schoolClassName) return
-    setCreatingStudent(true)
-    setStudentError(null)
-    try {
-      await studentsApi.createStudent(activeClassId, name, schoolClassName)
-      await refreshStudents()
-      setNewStudentName('')
-      setNewStudentSchoolClass('')
-    } catch {
-      setStudentError('添加失败，请重试')
-    } finally {
-      setCreatingStudent(false)
-    }
   }
 
   function startEdit(student: studentsApi.Student) {
@@ -175,35 +129,11 @@ export function RosterPage({ onBack }: RosterPageProps) {
       </header>
 
       <main className="mx-auto max-w-2xl space-y-4 px-4 pt-4">
-        <div className="rounded-lg border border-gray-200 bg-white p-3">
-          <h2 className="text-sm font-medium text-gray-700">新建托管班</h2>
-          <form onSubmit={handleCreateClass} className="mt-2 flex gap-2">
-            <input
-              placeholder="托管班名称"
-              value={newClassName}
-              onChange={(e) => setNewClassName(e.target.value)}
-              className="flex-1 rounded border px-2 py-1 text-sm"
-            />
-            <button
-              type="submit"
-              disabled={creatingClass || !newClassName.trim()}
-              className="rounded bg-blue-600 px-3 py-1 text-sm text-white disabled:opacity-50"
-            >
-              创建
-            </button>
-          </form>
-          {classError && (
-            <p role="alert" className="mt-1 text-xs text-red-600">
-              {classError}
-            </p>
-          )}
-        </div>
-
         {loadError && <p className="text-sm text-red-600">{loadError}</p>}
         {loading && <p className="text-sm text-gray-400">加载中...</p>}
 
         {!loading && classes.length === 0 && (
-          <p className="text-sm text-gray-400">暂无托管班，先在上方创建一个吧</p>
+          <p className="text-sm text-gray-400">暂无托管班，请联系管理员创建</p>
         )}
 
         {!loading && activeClassId !== null && classes.length > 0 && (
@@ -274,27 +204,7 @@ export function RosterPage({ onBack }: RosterPageProps) {
               {students.length === 0 && <li className="text-xs text-gray-400">该班暂无学生</li>}
             </ul>
 
-            <form onSubmit={handleCreateStudent} className="mt-3 flex flex-wrap gap-2">
-              <input
-                placeholder="姓名"
-                value={newStudentName}
-                onChange={(e) => setNewStudentName(e.target.value)}
-                className="w-24 rounded border px-2 py-1 text-sm"
-              />
-              <input
-                placeholder="学籍班"
-                value={newStudentSchoolClass}
-                onChange={(e) => setNewStudentSchoolClass(e.target.value)}
-                className="w-28 rounded border px-2 py-1 text-sm"
-              />
-              <button
-                type="submit"
-                disabled={creatingStudent || !newStudentName.trim() || !newStudentSchoolClass.trim()}
-                className="rounded bg-blue-600 px-3 py-1 text-sm text-white disabled:opacity-50"
-              >
-                新增学生
-              </button>
-            </form>
+            <p className="mt-3 border-t border-gray-100 pt-3 text-xs text-gray-400">新增学生请联系管理员添加</p>
             {studentError && (
               <p role="alert" className="mt-1 text-xs text-red-600">
                 {studentError}

@@ -1,11 +1,11 @@
 package com.tuoguan.backend.roster.web;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tuoguan.backend.auth.dao.InstitutionDao;
 import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.auth.web.LoginResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tuoguan.backend.support.IntegrationTestBase;
 import com.tuoguan.backend.unit.dao.TeachingUnitDao;
 import com.tuoguan.backend.unit.domain.BillingMode;
@@ -39,18 +39,13 @@ class ClassRoomControllerTest extends IntegrationTestBase {
     private ObjectMapper objectMapper;
 
     @Test
-    void createsClassAndListsItForOwningTeacher() throws Exception {
+    void teacherListsOwnClasses() throws Exception {
         Long institutionId = institutionDao.insert("班级控制器测试机构A");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800007001",
                 passwordEncoder.encode("password"), Role.TEACHER, false, null));
+        teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "新托管班", BillingMode.MONTHLY,
+                null, null, true, null));
         String token = login("13800007001", "password");
-
-        mockMvc.perform(post("/api/classes")
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"新托管班\"}"))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.name").value("新托管班"));
 
         mockMvc.perform(get("/api/classes")
                         .header("Authorization", "Bearer " + token))
@@ -60,36 +55,15 @@ class ClassRoomControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    void rejectsDuplicateClassNameForSameTeacher() throws Exception {
-        Long institutionId = institutionDao.insert("班级控制器测试机构B");
-        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800007002",
-                passwordEncoder.encode("password"), Role.TEACHER, false, null));
-        teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "重名班", BillingMode.MONTHLY,
-                null, null, true, null));
-        String token = login("13800007002", "password");
-
-        mockMvc.perform(post("/api/classes")
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"重名班\"}"))
-                .andExpect(status().isConflict());
-    }
-
-    @Test
-    void teacherOnlySeesOwnClassesNotAnotherTeachersNewClass() throws Exception {
+    void teacherOnlySeesOwnClassesNotAnotherTeachersClass() throws Exception {
         Long institutionId = institutionDao.insert("班级控制器测试机构C");
         Long teacherAId = teacherDao.insert(new Teacher(null, institutionId, "13800007003",
                 passwordEncoder.encode("password-a"), Role.TEACHER, false, null));
         Long teacherBId = teacherDao.insert(new Teacher(null, institutionId, "13800007004",
                 passwordEncoder.encode("password-b"), Role.TEACHER, false, null));
-        String tokenA = login("13800007003", "password-a");
+        teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherAId, "A老师的班", BillingMode.MONTHLY,
+                null, null, true, null));
         String tokenB = login("13800007004", "password-b");
-
-        mockMvc.perform(post("/api/classes")
-                        .header("Authorization", "Bearer " + tokenA)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"A老师的班\"}"))
-                .andExpect(status().isCreated());
 
         mockMvc.perform(get("/api/classes")
                         .header("Authorization", "Bearer " + tokenB))

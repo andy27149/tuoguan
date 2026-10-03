@@ -57,15 +57,10 @@ export function fetchAdminDashboard(date?: string): Promise<AdminDashboard> {
   return apiFetch<AdminDashboard>(`/admin/dashboard${query}`)
 }
 
+// 托管班（MONTHLY 计费的教学单元）列表，供账单/教师模块复用。班级的增删改已统一收归
+// unit.ts 的 teaching-units 接口，这里只保留只读查询。
 export function fetchAdminClasses(): Promise<AdminClassRoom[]> {
-  return apiFetch<AdminClassRoom[]>('/admin/classes')
-}
-
-export function updateClassRoom(classRoomId: number, name: string, teacherId: number): Promise<AdminClassRoom> {
-  return apiFetch<AdminClassRoom>(`/admin/classes/${classRoomId}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ name, teacherId }),
-  })
+  return apiFetch<AdminClassRoom[]>('/admin/teaching-units?billingMode=MONTHLY')
 }
 
 export interface TeacherDeletionImpact {
@@ -83,16 +78,4 @@ export function deleteTeacher(teacherId: number, mode: 'DELETE_ALL' | 'TRANSFER'
   const params = new URLSearchParams({ mode })
   if (targetTeacherId) params.set('targetTeacherId', String(targetTeacherId))
   return apiFetch<void>(`/admin/teachers/${teacherId}?${params.toString()}`, { method: 'DELETE' })
-}
-
-export interface ClassRoomDeletionImpact {
-  studentCount: number
-}
-
-export function fetchClassRoomDeletionImpact(classRoomId: number): Promise<ClassRoomDeletionImpact> {
-  return apiFetch<ClassRoomDeletionImpact>(`/admin/classes/${classRoomId}/deletion-impact`)
-}
-
-export function deleteClassRoom(classRoomId: number): Promise<void> {
-  return apiFetch<void>(`/admin/classes/${classRoomId}`, { method: 'DELETE' })
 }

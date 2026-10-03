@@ -47,18 +47,12 @@ describe('CourseConsumptionPage', () => {
     expect(screen.getByText('纯课外')).toBeInTheDocument()
   })
 
-  it('adds a new off-campus student and re-enrolls to the roster', async () => {
-    vi.mocked(courseApi.createCourseStudent).mockResolvedValue(ROSTER[1])
+  it('shows a hint to contact the admin instead of a self-create-student form', async () => {
     setup()
     await screen.findByText('小明')
 
-    fireEvent.change(screen.getByPlaceholderText('姓名'), { target: { value: '小刚' } })
-    fireEvent.click(screen.getByRole('button', { name: '新增并报名' }))
-
-    await waitFor(() =>
-      expect(courseApi.createCourseStudent).toHaveBeenCalledWith(1, '小刚', null),
-    )
-    await waitFor(() => expect(courseApi.fetchCourseRoster).toHaveBeenCalledTimes(2))
+    expect(screen.getByText('新增课外学生请联系管理员添加')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '新增并报名' })).not.toBeInTheDocument()
   })
 
   it('enrolls an existing student from one of the teacher own classes', async () => {

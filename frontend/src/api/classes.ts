@@ -5,13 +5,7 @@ export interface ClassRoom {
   name: string
 }
 
+// 教师端只读花名册入口；建班已收归管理员，见 api/unit.ts 的 createTeachingUnit。
 export function fetchClasses(): Promise<ClassRoom[]> {
   return apiFetch<ClassRoom[]>('/classes')
-}
-
-export function createClass(name: string): Promise<ClassRoom> {
-  return apiFetch<ClassRoom>('/classes', {
-    method: 'POST',
-    body: JSON.stringify({ name }),
-  })
 }

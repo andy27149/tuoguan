@@ -3,7 +3,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { RosterPage } from './RosterPage'
 import * as classesApi from '../api/classes'
 import * as studentsApi from '../api/students'
-import { ApiError } from '../api/client'
 
 vi.mock('../api/classes')
 vi.mock('../api/students')
@@ -37,42 +36,20 @@ describe('RosterPage', () => {
     expect(screen.getByText(/小明/).textContent).not.toMatch(/另报名/)
   })
 
-  it('creates a new class and switches to it', async () => {
-    const created = { id: 2, name: '二班' }
-    vi.mocked(classesApi.createClass).mockResolvedValue(created)
+  it('shows a hint to contact the admin instead of self-create-class/student forms', async () => {
     render(<RosterPage onBack={vi.fn()} />)
     await screen.findByText(/小明/)
 
-    fireEvent.change(screen.getByPlaceholderText('托管班名称'), { target: { value: '二班' } })
-    fireEvent.click(screen.getByRole('button', { name: '创建' }))
-
-    await waitFor(() => expect(classesApi.createClass).toHaveBeenCalledWith('二班'))
-    expect(await screen.findByRole('tab', { name: '二班' })).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('托管班名称')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '新增学生' })).not.toBeInTheDocument()
+    expect(screen.getByText('新增学生请联系管理员添加')).toBeInTheDocument()
   })
 
-  it('shows a duplicate-name message on 409', async () => {
-    vi.mocked(classesApi.createClass).mockRejectedValue(new ApiError(409, '冲突'))
+  it('shows a contact-admin message when there are no classes', async () => {
+    vi.mocked(classesApi.fetchClasses).mockResolvedValue([])
     render(<RosterPage onBack={vi.fn()} />)
-    await screen.findByText(/小明/)
 
-    fireEvent.change(screen.getByPlaceholderText('托管班名称'), { target: { value: '一班' } })
-    fireEvent.click(screen.getByRole('button', { name: '创建' }))
-
-    expect(await screen.findByText('该托管班名称已存在')).toBeInTheDocument()
-  })
-
-  it('creates a student in the active class', async () => {
-    vi.mocked(studentsApi.createStudent).mockResolvedValue(undefined)
-    render(<RosterPage onBack={vi.fn()} />)
-    await screen.findByText(/小明/)
-
-    fireEvent.change(screen.getByPlaceholderText('姓名'), { target: { value: '小刚' } })
-    fireEvent.change(screen.getByPlaceholderText('学籍班'), { target: { value: '三年三班' } })
-    fireEvent.click(screen.getByRole('button', { name: '新增学生' }))
-
-    await waitFor(() =>
-      expect(studentsApi.createStudent).toHaveBeenCalledWith(1, '小刚', '三年三班'),
-    )
+    expect(await screen.findByText('暂无托管班，请联系管理员创建')).toBeInTheDocument()
   })
 
   it('edits a student name and school class', async () => {

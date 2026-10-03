@@ -5,6 +5,8 @@ import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.auth.web.LoginResponse;
+import com.tuoguan.backend.roster.dao.StudentDao;
+import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.support.IntegrationTestBase;
 import com.tuoguan.backend.unit.dao.TeachingUnitDao;
 import com.tuoguan.backend.unit.domain.BillingMode;
@@ -35,19 +37,16 @@ class StudentAvatarControllerTest extends IntegrationTestBase {
     private TeachingUnitDao teachingUnitDao;
 
     @Autowired
+    private StudentDao studentDao;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Autowired
     private ObjectMapper objectMapper;
 
-    private Long createStudent(String token, Long classRoomId, String name) throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/classes/" + classRoomId + "/students")
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"" + name + "\",\"schoolClassName\":\"三年级2班\"}"))
-                .andExpect(status().isCreated())
-                .andReturn();
-        return objectMapper.readValue(result.getResponse().getContentAsString(), StudentResponse.class).id();
+    private Long createStudent(Long institutionId, Long classRoomId, String name) {
+        return studentDao.insert(new Student(null, institutionId, classRoomId, name, "三年级2班", true, null, null));
     }
 
     @Test
@@ -58,7 +57,7 @@ class StudentAvatarControllerTest extends IntegrationTestBase {
         Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管班",
                 BillingMode.MONTHLY, null, null, true, null));
         String token = login("13800009001", "password");
-        Long studentId = createStudent(token, classRoomId, "小明");
+        Long studentId = createStudent(institutionId, classRoomId, "小明");
         MockMultipartFile file = new MockMultipartFile("file", "avatar.png", "image/png", new byte[]{1, 2, 3, 4});
 
         MvcResult result = mockMvc.perform(multipart("/api/students/" + studentId + "/avatar")
@@ -80,7 +79,7 @@ class StudentAvatarControllerTest extends IntegrationTestBase {
         Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管班",
                 BillingMode.MONTHLY, null, null, true, null));
         String token = login("13800009002", "password");
-        Long studentId = createStudent(token, classRoomId, "小红");
+        Long studentId = createStudent(institutionId, classRoomId, "小红");
         MockMultipartFile file = new MockMultipartFile("file", "avatar.txt", "text/plain", new byte[]{1, 2, 3});
 
         mockMvc.perform(multipart("/api/students/" + studentId + "/avatar")
@@ -100,7 +99,7 @@ class StudentAvatarControllerTest extends IntegrationTestBase {
                 BillingMode.MONTHLY, null, null, true, null));
         String tokenA = login("13800009003", "password-a");
         String tokenB = login("13800009004", "password-b");
-        Long studentId = createStudent(tokenA, classRoomAId, "小刚");
+        Long studentId = createStudent(institutionId, classRoomAId, "小刚");
         MockMultipartFile file = new MockMultipartFile("file", "avatar.png", "image/png", new byte[]{1, 2, 3, 4});
 
         mockMvc.perform(multipart("/api/students/" + studentId + "/avatar")

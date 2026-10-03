@@ -158,14 +158,14 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                 .andExpect(status().isOk());
 
         String teacherToken = login("13900013008", "teacher-password");
-        MvcResult courseResult = mockMvc.perform(post("/api/admin/courses")
+        MvcResult courseResult = mockMvc.perform(post("/api/admin/teaching-units")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"数学课\",\"lessonDurationMinutes\":60,\"teacherId\":" + teacherId + "}"))
+                        .content("{\"billingMode\":\"LESSON_COUNT\",\"name\":\"数学课\",\"lessonDurationMinutes\":60,\"teacherId\":" + teacherId + "}"))
                 .andExpect(status().isCreated())
                 .andReturn();
         Long courseId = objectMapper.readTree(courseResult.getResponse().getContentAsString()).get("id").asLong();
-        mockMvc.perform(patch("/api/admin/courses/" + courseId)
+        mockMvc.perform(patch("/api/admin/teaching-units/" + courseId)
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"pricePerLesson\":50.00}"))
@@ -217,14 +217,14 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                 .andExpect(status().isOk());
 
         String teacherToken = login("13900013018", "teacher-password");
-        MvcResult courseResult = mockMvc.perform(post("/api/admin/courses")
+        MvcResult courseResult = mockMvc.perform(post("/api/admin/teaching-units")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"数学课\",\"lessonDurationMinutes\":60,\"teacherId\":" + teacherId + "}"))
+                        .content("{\"billingMode\":\"LESSON_COUNT\",\"name\":\"数学课\",\"lessonDurationMinutes\":60,\"teacherId\":" + teacherId + "}"))
                 .andExpect(status().isCreated())
                 .andReturn();
         Long courseId = objectMapper.readTree(courseResult.getResponse().getContentAsString()).get("id").asLong();
-        mockMvc.perform(patch("/api/admin/courses/" + courseId)
+        mockMvc.perform(patch("/api/admin/teaching-units/" + courseId)
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"pricePerLesson\":50.00}"))
@@ -245,7 +245,7 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.extraFeeLines[0].amount").value(50.00));
 
-        mockMvc.perform(patch("/api/admin/courses/" + courseId)
+        mockMvc.perform(patch("/api/admin/teaching-units/" + courseId)
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"pricePerLesson\":999.00}"))
@@ -352,7 +352,7 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(delete("/api/admin/classes/" + classRoomId)
+        mockMvc.perform(delete("/api/admin/teaching-units/" + classRoomId)
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isNoContent());
 
@@ -410,14 +410,14 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
     }
 
     private void createCourseWithConsumption(String adminToken, Long teacherId, String teacherToken, Long studentId) throws Exception {
-        MvcResult courseResult = mockMvc.perform(post("/api/admin/courses")
+        MvcResult courseResult = mockMvc.perform(post("/api/admin/teaching-units")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"数学课\",\"lessonDurationMinutes\":60,\"teacherId\":" + teacherId + "}"))
+                        .content("{\"billingMode\":\"LESSON_COUNT\",\"name\":\"数学课\",\"lessonDurationMinutes\":60,\"teacherId\":" + teacherId + "}"))
                 .andExpect(status().isCreated())
                 .andReturn();
         Long courseId = objectMapper.readTree(courseResult.getResponse().getContentAsString()).get("id").asLong();
-        mockMvc.perform(patch("/api/admin/courses/" + courseId)
+        mockMvc.perform(patch("/api/admin/teaching-units/" + courseId)
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"pricePerLesson\":50.00}"))

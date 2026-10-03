@@ -64,14 +64,14 @@ class AdminBillOverviewControllerTest extends IntegrationTestBase {
                 .andExpect(status().isOk());
 
         String teacherToken = login("13900014002", "teacher-password");
-        MvcResult courseResult = mockMvc.perform(post("/api/admin/courses")
+        MvcResult courseResult = mockMvc.perform(post("/api/admin/teaching-units")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"数学课\",\"lessonDurationMinutes\":60,\"teacherId\":" + teacherId + "}"))
+                        .content("{\"billingMode\":\"LESSON_COUNT\",\"name\":\"数学课\",\"lessonDurationMinutes\":60,\"teacherId\":" + teacherId + "}"))
                 .andExpect(status().isCreated())
                 .andReturn();
         Long courseId = objectMapper.readTree(courseResult.getResponse().getContentAsString()).get("id").asLong();
-        mockMvc.perform(patch("/api/admin/courses/" + courseId)
+        mockMvc.perform(patch("/api/admin/teaching-units/" + courseId)
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"pricePerLesson\":50.00}"))

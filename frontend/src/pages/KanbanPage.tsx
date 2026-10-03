@@ -275,7 +275,7 @@ export function KanbanPage({
     if (!hasClasses && hasCourses) {
       return (
         <div className="no-class-screen">
-          <p>暂无托管班级</p>
+          <p>暂无托管班级，请联系管理员创建</p>
           <button type="button" onClick={onOpenConsumption} className="logout-btn">
             前往消课
           </button>
@@ -284,9 +284,9 @@ export function KanbanPage({
     }
     return (
       <div className="no-class-screen">
-        <p>暂无托管班级</p>
+        <p>暂无托管班级，请联系管理员创建</p>
         <button type="button" onClick={onOpenRoster} className="logout-btn">
-          前往学生管理创建托管班
+          前往学生管理
         </button>
       </div>
     )

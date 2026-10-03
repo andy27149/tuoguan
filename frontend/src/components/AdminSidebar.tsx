@@ -1,7 +1,6 @@
 export type AdminModule =
   | 'teachers'
-  | 'classes'
-  | 'courses'
+  | 'units'
   | 'students'
   | 'taskStats'
   | 'pricing'
@@ -18,7 +17,7 @@ interface AdminSidebarProps {
 interface NavItem {
   key: AdminModule
   label: string
-  hiddenWhen?: 'custodyDisabled' | 'offCampusDisabled'
+  hiddenWhen?: 'custodyDisabled' | 'offCampusDisabled' | 'unitsDisabled'
 }
 
 interface NavGroup {
@@ -32,8 +31,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: '结构信息',
     items: [
       { key: 'teachers', label: '教师列表' },
-      { key: 'classes', label: '托管班级', hiddenWhen: 'custodyDisabled' },
-      { key: 'courses', label: '课程管理', hiddenWhen: 'offCampusDisabled' },
+      { key: 'units', label: '教学单元', hiddenWhen: 'unitsDisabled' },
       { key: 'students', label: '学生总览' },
     ],
   },
@@ -60,6 +58,7 @@ export function isModuleHidden(
     if (!item) continue
     if (item.hiddenWhen === 'custodyDisabled') return !custodyEnabled
     if (item.hiddenWhen === 'offCampusDisabled') return !offCampusEnabled
+    if (item.hiddenWhen === 'unitsDisabled') return !custodyEnabled && !offCampusEnabled
     return false
   }
   return false

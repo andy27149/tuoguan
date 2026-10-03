@@ -22,16 +22,6 @@ public class CourseEnrollmentService {
         this.enrollmentDao = enrollmentDao;
     }
 
-    public Student createAndEnrollStudent(Long teacherId, Long courseId, String name, String schoolClassName) {
-        TeachingUnit course = courseService.getOwnedByTeacher(teacherId, courseId);
-        Student student = new Student(null, course.institutionId(), null, name, schoolClassName, true, null, null);
-        Long studentId = studentDao.insert(student);
-        enrollmentDao.insert(new StudentUnitEnrollment(null, course.institutionId(), studentId, course.id(), true,
-                null));
-        return studentDao.findById(studentId)
-                .orElseThrow(() -> new IllegalStateException("Student not found after insert: " + studentId));
-    }
-
     public void enrollExistingStudent(Long teacherId, Long courseId, Long studentId) {
         TeachingUnit course = courseService.getOwnedByTeacher(teacherId, courseId);
         Student student = requireStudentInInstitution(course.institutionId(), studentId);

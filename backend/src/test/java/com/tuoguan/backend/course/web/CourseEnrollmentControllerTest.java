@@ -48,26 +48,26 @@ class CourseEnrollmentControllerTest extends IntegrationTestBase {
     private ObjectMapper objectMapper;
 
     @Test
-    void createsPureOffCampusStudentAndAutoEnrollsInOwnCourse() throws Exception {
+    void enrollsPureOffCampusStudentIntoOwnCourse() throws Exception {
         Long institutionId = institutionDao.insert("报名控制器测试机构A");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900031001",
                 passwordEncoder.encode("password"), Role.TEACHER, false, null));
         Long courseId = courseDao.insert(new TeachingUnit(null, institutionId, teacherId, "数学课", BillingMode.LESSON_COUNT, 45, null, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, null, "小外", "七年级1班", true, null, null));
         String token = login("13900031001", "password");
 
-        mockMvc.perform(post("/api/courses/" + courseId + "/students")
+        mockMvc.perform(post("/api/courses/" + courseId + "/enrollments")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"小外\",\"schoolClassName\":\"七年级1班\"}"))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.name").value("小外"))
-                .andExpect(jsonPath("$.offCampusOnly").value(true));
+                        .content("{\"studentId\":" + studentId + "}"))
+                .andExpect(status().isCreated());
 
         mockMvc.perform(get("/api/courses/" + courseId + "/roster")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].name").value("小外"));
+                .andExpect(jsonPath("$[0].name").value("小外"))
+                .andExpect(jsonPath("$[0].offCampusOnly").value(true));
     }
 
     @Test
@@ -100,18 +100,16 @@ class CourseEnrollmentControllerTest extends IntegrationTestBase {
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900031003",
                 passwordEncoder.encode("password"), Role.TEACHER, false, null));
         Long courseId = courseDao.insert(new TeachingUnit(null, institutionId, teacherId, "语文课", BillingMode.LESSON_COUNT, 45, null, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, null, "小外", null, true, null, null));
         String token = login("13900031003", "password");
 
-        MvcResult createResult = mockMvc.perform(post("/api/courses/" + courseId + "/students")
+        mockMvc.perform(post("/api/courses/" + courseId + "/enrollments")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"小外\",\"schoolClassName\":null}"))
-                .andExpect(status().isCreated())
-                .andReturn();
-        CourseRosterEntry created = objectMapper.readValue(createResult.getResponse().getContentAsString(),
-                CourseRosterEntry.class);
+                        .content("{\"studentId\":" + studentId + "}"))
+                .andExpect(status().isCreated());
 
-        mockMvc.perform(delete("/api/courses/" + courseId + "/enrollments/" + created.studentId())
+        mockMvc.perform(delete("/api/courses/" + courseId + "/enrollments/" + studentId)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isNoContent());
 
@@ -129,12 +127,13 @@ class CourseEnrollmentControllerTest extends IntegrationTestBase {
         teacherDao.insert(new Teacher(null, institutionId, "13900031005",
                 passwordEncoder.encode("intruder-password"), Role.TEACHER, false, null));
         Long courseId = courseDao.insert(new TeachingUnit(null, institutionId, ownerTeacherId, "科学课", BillingMode.LESSON_COUNT, 45, null, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, null, "小外", null, true, null, null));
         String intruderToken = login("13900031005", "intruder-password");
 
-        mockMvc.perform(post("/api/courses/" + courseId + "/students")
+        mockMvc.perform(post("/api/courses/" + courseId + "/enrollments")
                         .header("Authorization", "Bearer " + intruderToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"小外\",\"schoolClassName\":null}"))
+                        .content("{\"studentId\":" + studentId + "}"))
                 .andExpect(status().isNotFound());
 
         mockMvc.perform(get("/api/courses/" + courseId + "/roster")

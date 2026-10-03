@@ -12,6 +12,8 @@ import com.tuoguan.backend.course.web.CoursePriceNotConfiguredException;
 import com.tuoguan.backend.course.web.DuplicateConsumptionException;
 import com.tuoguan.backend.course.web.DuplicateCourseNameException;
 import com.tuoguan.backend.course.web.RechargeNotAllowedException;
+import com.tuoguan.backend.unit.web.FeatureDisabledException;
+import com.tuoguan.backend.unit.web.InvalidTeachingUnitRequestException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -99,5 +101,15 @@ public class RosterExceptionHandler {
     @ExceptionHandler(RechargeNotAllowedException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public void handleRechargeNotAllowed() {
+    }
+
+    @ExceptionHandler(FeatureDisabledException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public void handleFeatureDisabled() {
+    }
+
+    @ExceptionHandler(InvalidTeachingUnitRequestException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public void handleInvalidTeachingUnitRequest() {
     }
 }

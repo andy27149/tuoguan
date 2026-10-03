@@ -35,15 +35,6 @@ public class StudentService {
         this.teachingUnitDao = teachingUnitDao;
     }
 
-    public Student create(Long teacherId, Long teachingUnitId, String name, String schoolClassName) {
-        TeachingUnit teachingUnit = classRoomService.getOwnedByTeacher(teacherId, teachingUnitId);
-        Student student = new Student(null, teachingUnit.institutionId(), teachingUnit.id(), name, schoolClassName,
-                true, null, null);
-        Long id = studentDao.insert(student);
-        return studentDao.findById(id)
-                .orElseThrow(() -> new IllegalStateException("Student not found after insert: " + id));
-    }
-
     public List<Student> list(Long teacherId, Long teachingUnitId) {
         classRoomService.getOwnedByTeacher(teacherId, teachingUnitId);
         return studentDao.findAllByTeachingUnitId(teachingUnitId);
