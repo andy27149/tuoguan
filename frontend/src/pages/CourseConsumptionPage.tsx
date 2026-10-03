@@ -27,6 +27,11 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
   const [enrolling, setEnrolling] = useState(false)
   const [enrollError, setEnrollError] = useState<string | null>(null)
 
+  const [offCampusCandidates, setOffCampusCandidates] = useState<courseApi.CourseEnrollmentCandidate[]>([])
+  const [pickOffCampusStudentId, setPickOffCampusStudentId] = useState<number | null>(null)
+  const [enrollingOffCampus, setEnrollingOffCampus] = useState(false)
+  const [enrollOffCampusError, setEnrollOffCampusError] = useState<string | null>(null)
+
   const [rollCallDate, setRollCallDate] = useState(todayDateString())
   const [presentStudentIds, setPresentStudentIds] = useState<Set<number>>(new Set())
   const [rollCallSubmitting, setRollCallSubmitting] = useState(false)
@@ -66,6 +71,7 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
       .then(applyRoster)
       .catch(() => setLoadError('加载花名册失败，请刷新重试'))
       .finally(() => setLoading(false))
+    courseApi.fetchOffCampusCandidates(activeCourseId).then(setOffCampusCandidates).catch(() => {})
   }, [activeCourseId])
 
   function applyRoster(list: courseApi.CourseRosterEntry[]) {
@@ -75,8 +81,12 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
 
   async function refreshRoster() {
     if (activeCourseId === null) return
-    const list = await courseApi.fetchCourseRoster(activeCourseId)
+    const [list, candidates] = await Promise.all([
+      courseApi.fetchCourseRoster(activeCourseId),
+      courseApi.fetchOffCampusCandidates(activeCourseId),
+    ])
     applyRoster(list)
+    setOffCampusCandidates(candidates)
   }
 
   function handlePickClass(classId: number) {
@@ -103,6 +113,23 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
     }
   }
 
+  async function handleEnrollOffCampusExisting() {
+    if (activeCourseId === null || pickOffCampusStudentId === null) return
+    setEnrollingOffCampus(true)
+    setEnrollOffCampusError(null)
+    try {
+      await courseApi.enrollExistingStudent(activeCourseId, pickOffCampusStudentId)
+      await refreshRoster()
+      setPickOffCampusStudentId(null)
+    } catch (err) {
+      setEnrollOffCampusError(
+        err instanceof ApiError && err.status === 409 ? '该学生已在花名册中' : '添加失败，请重试',
+      )
+    } finally {
+      setEnrollingOffCampus(false)
+    }
+  }
+
   async function handleUnenroll(studentId: number) {
     if (activeCourseId === null) return
     const previous = roster
@@ -114,6 +141,7 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
     })
     try {
       await courseApi.unenrollStudent(activeCourseId, studentId)
+      courseApi.fetchOffCampusCandidates(activeCourseId).then(setOffCampusCandidates).catch(() => {})
     } catch {
       setRoster(previous)
       setPresentStudentIds((prev) => new Set(prev).add(studentId))
@@ -320,6 +348,43 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
               {enrollError && (
                 <p role="alert" className="mt-1 text-xs text-red-600">
                   {enrollError}
+                </p>
+              )}
+            </div>
+
+            <div className="mt-3 border-t border-gray-100 pt-3">
+              <h3 className="text-sm font-medium text-gray-700">添加已有学生（纯课外课学生）</h3>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <select
+                  value={pickOffCampusStudentId ?? ''}
+                  onChange={(e) => setPickOffCampusStudentId(Number(e.target.value))}
+                  className="rounded border px-2 py-1 text-sm"
+                >
+                  <option value="" disabled>
+                    选择学生
+                  </option>
+                  {offCampusCandidates.map((c) => (
+                    <option key={c.studentId} value={c.studentId}>
+                      {c.name}
+                      {c.schoolClassName ? ` · ${c.schoolClassName}` : ''}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={handleEnrollOffCampusExisting}
+                  disabled={enrollingOffCampus || pickOffCampusStudentId === null}
+                  className="rounded bg-blue-600 px-3 py-1 text-sm text-white disabled:opacity-50"
+                >
+                  添加到花名册
+                </button>
+              </div>
+              {offCampusCandidates.length === 0 && (
+                <p className="mt-1 text-xs text-gray-400">暂无可添加的纯课外课学生</p>
+              )}
+              {enrollOffCampusError && (
+                <p role="alert" className="mt-1 text-xs text-red-600">
+                  {enrollOffCampusError}
                 </p>
               )}
             </div>

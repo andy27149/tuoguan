@@ -81,10 +81,24 @@ public class StudentService {
         return studentDao.findShareToken(existing.id());
     }
 
+    // 纯课外课学生（teachingUnitId==null）没有托管班可归属校验；改为校验该教师名下是否有
+    // 课程报名了这个学生——任一满足即可管理（改名/头像/分享链接），不要求两者都满足。
+    // 这条口径之前漏掉了，导致纯课外课学生创建后谁都拿不到分享链接，见产品诊断 #06 延伸。
     private Student findOwnedByTeacher(Long teacherId, Long studentId) {
         Student student = studentDao.findById(studentId)
                 .orElseThrow(() -> new NotFoundException("Student not found: " + studentId));
-        classRoomService.getOwnedByTeacher(teacherId, student.teachingUnitId());
+        if (student.teachingUnitId() != null) {
+            classRoomService.getOwnedByTeacher(teacherId, student.teachingUnitId());
+            return student;
+        }
+        boolean enrolledInTeachersCourse = enrollmentDao.findAllByStudentId(studentId).stream()
+                .filter(StudentUnitEnrollment::active)
+                .anyMatch(e -> teachingUnitDao.findById(e.teachingUnitId())
+                        .filter(unit -> unit.teacherId().equals(teacherId))
+                        .isPresent());
+        if (!enrolledInTeachersCourse) {
+            throw new NotFoundException("Student not found: " + studentId);
+        }
         return student;
     }
 }

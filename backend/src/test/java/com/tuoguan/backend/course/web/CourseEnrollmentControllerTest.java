@@ -184,6 +184,53 @@ class CourseEnrollmentControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$[0].balance").value(-1));
     }
 
+    @Test
+    void offCampusCandidatesListsUnenrolledInstitutionWideOffCampusStudentsOnly() throws Exception {
+        Long institutionId = institutionDao.insert("报名控制器测试机构F");
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900031007",
+                passwordEncoder.encode("password"), Role.TEACHER, false, null));
+        Long otherTeacherId = teacherDao.insert(new Teacher(null, institutionId, "13900031008",
+                passwordEncoder.encode("other-password"), Role.TEACHER, false, null));
+        Long courseId = courseDao.insert(new TeachingUnit(null, institutionId, teacherId, "跆拳道课",
+                BillingMode.LESSON_COUNT, 45, null, true, null));
+        Long classRoomId = classRoomDao.insert(new TeachingUnit(null, institutionId, otherTeacherId, "二年级1班",
+                BillingMode.MONTHLY, null, null, true, null));
+        // 候选人：纯课外课、未报名本课程
+        Long candidateId = studentDao.insert(new Student(null, institutionId, null, "小候选", "三年级1班",
+                true, null, null));
+        // 非候选人：已经报名了本课程的纯课外课学生
+        Long alreadyEnrolledId = studentDao.insert(new Student(null, institutionId, null, "小已报", null,
+                true, null, null));
+        enrollmentDao.insert(new StudentUnitEnrollment(null, institutionId, alreadyEnrolledId, courseId, true, null));
+        // 非候选人：有托管班的学生，即使没报名任何课程也不该出现在纯课外课候选人里
+        studentDao.insert(new Student(null, institutionId, classRoomId, "小托管", "二年级1班", true, null, null));
+        String token = login("13900031007", "password");
+
+        mockMvc.perform(get("/api/courses/" + courseId + "/off-campus-candidates")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].studentId").value(candidateId))
+                .andExpect(jsonPath("$[0].name").value("小候选"))
+                .andExpect(jsonPath("$[0].schoolClassName").value("三年级1班"));
+    }
+
+    @Test
+    void offCampusCandidatesForAnotherTeachersCourseReturnsNotFound() throws Exception {
+        Long institutionId = institutionDao.insert("报名控制器测试机构G");
+        Long ownerTeacherId = teacherDao.insert(new Teacher(null, institutionId, "13900031009",
+                passwordEncoder.encode("owner-password"), Role.TEACHER, false, null));
+        teacherDao.insert(new Teacher(null, institutionId, "13900031010",
+                passwordEncoder.encode("intruder-password"), Role.TEACHER, false, null));
+        Long courseId = courseDao.insert(new TeachingUnit(null, institutionId, ownerTeacherId, "篮球课",
+                BillingMode.LESSON_COUNT, 45, null, true, null));
+        String intruderToken = login("13900031010", "intruder-password");
+
+        mockMvc.perform(get("/api/courses/" + courseId + "/off-campus-candidates")
+                        .header("Authorization", "Bearer " + intruderToken))
+                .andExpect(status().isNotFound());
+    }
+
     private String login(String phone, String password) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

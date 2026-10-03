@@ -18,6 +18,13 @@ export interface CourseRosterEntry {
   balance: number | null
 }
 
+// 可加入本课程花名册的纯课外课学生（机构内、未报名本课程、不挂靠任何托管班）。
+export interface CourseEnrollmentCandidate {
+  studentId: number
+  name: string
+  schoolClassName: string | null
+}
+
 export interface ConsumptionRecord {
   id: number
   studentId: number
@@ -89,6 +96,10 @@ export function unenrollStudent(courseId: number, studentId: number): Promise<vo
 
 export function fetchCourseRoster(courseId: number): Promise<CourseRosterEntry[]> {
   return apiFetch<CourseRosterEntry[]>(`/courses/${courseId}/roster`)
+}
+
+export function fetchOffCampusCandidates(courseId: number): Promise<CourseEnrollmentCandidate[]> {
+  return apiFetch<CourseEnrollmentCandidate[]>(`/courses/${courseId}/off-campus-candidates`)
 }
 
 export function recordConsumption(

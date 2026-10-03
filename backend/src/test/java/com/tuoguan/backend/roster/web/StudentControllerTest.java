@@ -9,8 +9,10 @@ import com.tuoguan.backend.auth.web.LoginResponse;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.support.IntegrationTestBase;
+import com.tuoguan.backend.unit.dao.StudentUnitEnrollmentDao;
 import com.tuoguan.backend.unit.dao.TeachingUnitDao;
 import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.StudentUnitEnrollment;
 import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +39,9 @@ class StudentControllerTest extends IntegrationTestBase {
 
     @Autowired
     private StudentDao studentDao;
+
+    @Autowired
+    private StudentUnitEnrollmentDao enrollmentDao;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -131,6 +136,38 @@ class StudentControllerTest extends IntegrationTestBase {
 
         mockMvc.perform(get("/api/students/" + studentId + "/share-link")
                         .header("Authorization", "Bearer " + tokenB))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void courseTeacherCanManagePureOffCampusStudentButUnrelatedTeacherCannot() throws Exception {
+        Long institutionId = institutionDao.insert("学生控制器测试机构E");
+        Long courseTeacherId = teacherDao.insert(new Teacher(null, institutionId, "13800008008",
+                passwordEncoder.encode("course-teacher-password"), Role.TEACHER, false, null));
+        Long unrelatedTeacherId = teacherDao.insert(new Teacher(null, institutionId, "13800008009",
+                passwordEncoder.encode("unrelated-teacher-password"), Role.TEACHER, false, null));
+        Long courseId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, courseTeacherId, "围棋课",
+                BillingMode.LESSON_COUNT, 60, null, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, null, "小外", null, true, null, null));
+        enrollmentDao.insert(new StudentUnitEnrollment(null, institutionId, studentId, courseId, true, null));
+
+        String courseTeacherToken = login("13800008008", "course-teacher-password");
+        String unrelatedTeacherToken = login("13800008009", "unrelated-teacher-password");
+
+        mockMvc.perform(get("/api/students/" + studentId + "/share-link")
+                        .header("Authorization", "Bearer " + courseTeacherToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").isNotEmpty());
+
+        mockMvc.perform(put("/api/students/" + studentId)
+                        .header("Authorization", "Bearer " + courseTeacherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"小外改名\",\"schoolClassName\":null,\"enrolled\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("小外改名"));
+
+        mockMvc.perform(get("/api/students/" + studentId + "/share-link")
+                        .header("Authorization", "Bearer " + unrelatedTeacherToken))
                 .andExpect(status().isNotFound());
     }
 

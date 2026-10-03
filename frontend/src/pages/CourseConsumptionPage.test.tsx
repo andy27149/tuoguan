@@ -30,6 +30,7 @@ describe('CourseConsumptionPage', () => {
     vi.resetAllMocks()
     vi.mocked(courseApi.fetchMyCourses).mockResolvedValue(COURSES)
     vi.mocked(courseApi.fetchCourseRoster).mockResolvedValue(ROSTER)
+    vi.mocked(courseApi.fetchOffCampusCandidates).mockResolvedValue([])
     vi.mocked(classesApi.fetchClasses).mockResolvedValue([])
   })
 
@@ -79,10 +80,32 @@ describe('CourseConsumptionPage', () => {
 
     fireEvent.change(screen.getByText('选择班级').closest('select')!, { target: { value: '5' } })
     await waitFor(() => expect(studentsApi.fetchStudents).toHaveBeenCalledWith(5))
-    fireEvent.change(screen.getByText('选择学生').closest('select')!, { target: { value: '300' } })
-    fireEvent.click(screen.getByRole('button', { name: '添加到花名册' }))
+    fireEvent.change(screen.getAllByText('选择学生')[0].closest('select')!, { target: { value: '300' } })
+    fireEvent.click(screen.getAllByRole('button', { name: '添加到花名册' })[0])
 
     await waitFor(() => expect(courseApi.enrollExistingStudent).toHaveBeenCalledWith(1, 300))
+  })
+
+  it('shows off-campus candidates and enrolls one into the roster', async () => {
+    vi.mocked(courseApi.fetchOffCampusCandidates).mockResolvedValue([
+      { studentId: 400, name: '小芳', schoolClassName: '四年级二班' },
+    ])
+    vi.mocked(courseApi.enrollExistingStudent).mockResolvedValue(undefined)
+    setup()
+    await screen.findByText('小明')
+
+    expect(await screen.findByText('小芳 · 四年级二班')).toBeInTheDocument()
+    fireEvent.change(screen.getAllByText('选择学生')[1].closest('select')!, { target: { value: '400' } })
+    fireEvent.click(screen.getAllByRole('button', { name: '添加到花名册' })[1])
+
+    await waitFor(() => expect(courseApi.enrollExistingStudent).toHaveBeenCalledWith(1, 400))
+  })
+
+  it('shows a hint when there are no off-campus candidates to add', async () => {
+    setup()
+    await screen.findByText('小明')
+
+    expect(screen.getByText('暂无可添加的纯课外课学生')).toBeInTheDocument()
   })
 
   it('unenrolls a student from the roster', async () => {

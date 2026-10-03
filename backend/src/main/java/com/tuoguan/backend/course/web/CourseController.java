@@ -58,6 +58,14 @@ public class CourseController {
         return courseConsumptionService.listRosterForCourse(principal.teacherId(), id);
     }
 
+    @GetMapping("/api/courses/{id}/off-campus-candidates")
+    public List<CourseEnrollmentCandidate> offCampusCandidates(@AuthenticationPrincipal TeacherPrincipal principal,
+                                                                 @PathVariable Long id) {
+        return courseEnrollmentService.listOffCampusCandidates(principal.teacherId(), id).stream()
+                .map(CourseEnrollmentCandidate::from)
+                .toList();
+    }
+
     @PostMapping("/api/courses/{id}/consumption")
     @ResponseStatus(HttpStatus.CREATED)
     public ConsumptionRecordResponse recordConsumption(@AuthenticationPrincipal TeacherPrincipal principal,
