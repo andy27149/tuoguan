@@ -6,11 +6,15 @@ import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.auth.web.LoginResponse;
+import com.tuoguan.backend.course.dao.CourseRechargeRecordDao;
+import com.tuoguan.backend.course.domain.CourseRechargeRecord;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.support.IntegrationTestBase;
+import com.tuoguan.backend.unit.dao.StudentUnitEnrollmentDao;
 import com.tuoguan.backend.unit.dao.TeachingUnitDao;
 import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.StudentUnitEnrollment;
 import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +22,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MvcResult;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -40,6 +45,12 @@ class CourseEnrollmentControllerTest extends IntegrationTestBase {
 
     @Autowired
     private StudentDao studentDao;
+
+    @Autowired
+    private StudentUnitEnrollmentDao enrollmentDao;
+
+    @Autowired
+    private CourseRechargeRecordDao rechargeRecordDao;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -67,7 +78,8 @@ class CourseEnrollmentControllerTest extends IntegrationTestBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].name").value("小外"))
-                .andExpect(jsonPath("$[0].offCampusOnly").value(true));
+                .andExpect(jsonPath("$[0].offCampusOnly").value(true))
+                .andExpect(jsonPath("$[0].balance").value(0));
     }
 
     @Test
@@ -91,7 +103,8 @@ class CourseEnrollmentControllerTest extends IntegrationTestBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].name").value("小托"))
-                .andExpect(jsonPath("$[0].offCampusOnly").value(false));
+                .andExpect(jsonPath("$[0].offCampusOnly").value(false))
+                .andExpect(jsonPath("$[0].balance").value(nullValue()));
     }
 
     @Test
@@ -139,6 +152,36 @@ class CourseEnrollmentControllerTest extends IntegrationTestBase {
         mockMvc.perform(get("/api/courses/" + courseId + "/roster")
                         .header("Authorization", "Bearer " + intruderToken))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void rosterShowsNegativeBalanceForOffCampusStudentAfterOverConsumption() throws Exception {
+        Long institutionId = institutionDao.insert("报名控制器测试机构E");
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900031006",
+                passwordEncoder.encode("password"), Role.TEACHER, false, null));
+        Long courseId = courseDao.insert(new TeachingUnit(null, institutionId, teacherId, "围棋课",
+                BillingMode.LESSON_COUNT, 45, new java.math.BigDecimal("50.00"), true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, null, "小外", null, true, null, null));
+        enrollmentDao.insert(new StudentUnitEnrollment(null, institutionId, studentId, courseId, true, null));
+        rechargeRecordDao.insert(new CourseRechargeRecord(null, institutionId, studentId, courseId, 1, null,
+                teacherId, null));
+        String token = login("13900031006", "password");
+
+        mockMvc.perform(post("/api/courses/" + courseId + "/consumption")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"studentId\":" + studentId + ",\"date\":\"2024-01-02\",\"confirm\":false}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/api/courses/" + courseId + "/consumption")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"studentId\":" + studentId + ",\"date\":\"2024-01-03\",\"confirm\":false}"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/courses/" + courseId + "/roster")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].balance").value(-1));
     }
 
     private String login(String phone, String password) throws Exception {

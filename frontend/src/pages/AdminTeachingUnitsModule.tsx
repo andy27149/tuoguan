@@ -41,11 +41,6 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled }: A
   const [editSubmitting, setEditSubmitting] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
 
-  const [editingPriceId, setEditingPriceId] = useState<number | null>(null)
-  const [editPriceInput, setEditPriceInput] = useState('')
-  const [priceSubmitting, setPriceSubmitting] = useState(false)
-  const [priceError, setPriceError] = useState<string | null>(null)
-
   const [togglingId, setTogglingId] = useState<number | null>(null)
 
   const [deletingUnit, setDeletingUnit] = useState<unitApi.TeachingUnit | null>(null)
@@ -165,36 +160,6 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled }: A
       )
     } finally {
       setEditSubmitting(false)
-    }
-  }
-
-  function handleStartEditPrice(unit: unitApi.TeachingUnit) {
-    setEditingPriceId(unit.id)
-    setEditPriceInput(unit.pricePerLesson !== null ? String(unit.pricePerLesson) : '')
-    setPriceError(null)
-  }
-
-  function handleCancelEditPrice() {
-    setEditingPriceId(null)
-    setPriceError(null)
-  }
-
-  async function handleSavePrice(unitId: number) {
-    const price = Number(editPriceInput)
-    if (!Number.isFinite(price) || price < 0) {
-      setPriceError('请输入有效的单价')
-      return
-    }
-    setPriceSubmitting(true)
-    setPriceError(null)
-    try {
-      await unitApi.updateTeachingUnit(unitId, { pricePerLesson: price })
-      setEditingPriceId(null)
-      loadUnits(activeTab)
-    } catch {
-      setPriceError('保存失败，请重试')
-    } finally {
-      setPriceSubmitting(false)
     }
   }
 
@@ -338,7 +303,6 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled }: A
         {loadError && <p className="mt-2 text-sm text-[#b7591f]">{loadError}</p>}
         {deleteError && <p className="mt-2 text-sm text-[#b7591f]">{deleteError}</p>}
         {editError && <p className="mt-2 text-sm text-[#b7591f]">{editError}</p>}
-        {priceError && <p className="mt-2 text-sm text-[#b7591f]">{priceError}</p>}
         {loadingUnits && <p className="mt-2 text-sm text-[#7c7391]">加载中...</p>}
         {!loadingUnits && (
           <table className="mt-3 w-full text-left text-sm">
@@ -421,45 +385,10 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled }: A
                     )}
                     {isLessonCount && (
                       <td className="px-4 py-3">
-                        {editingPriceId === unit.id ? (
-                          <span className="flex items-center gap-1.5">
-                            <input
-                              aria-label={`单价${unit.id}`}
-                              value={editPriceInput}
-                              onChange={(e) => setEditPriceInput(e.target.value)}
-                              className="w-20 rounded-lg border border-[#ece7de] px-2 py-1 text-sm"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => handleSavePrice(unit.id)}
-                              disabled={priceSubmitting}
-                              className="shrink-0 rounded-full bg-[#6d5bd0] px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
-                            >
-                              保存
-                            </button>
-                            <button
-                              type="button"
-                              onClick={handleCancelEditPrice}
-                              disabled={priceSubmitting}
-                              className="shrink-0 rounded-full border border-[#ece7de] px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]"
-                            >
-                              取消
-                            </button>
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1.5">
-                            <span className="text-[#241f3d]">
-                              {unit.pricePerLesson !== null ? `¥${unit.pricePerLesson.toFixed(2)}` : '未配置'}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleStartEditPrice(unit)}
-                              className="rounded-full border border-[#ece7de] px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]"
-                            >
-                              设置单价
-                            </button>
-                          </span>
-                        )}
+                        <span className="text-[#241f3d]">
+                          {unit.pricePerLesson !== null ? `¥${unit.pricePerLesson.toFixed(2)}` : '未配置'}
+                        </span>
+                        <span className="ml-2 text-xs text-[#a79fc2]">（在定价中心设置）</span>
                       </td>
                     )}
                     {isLessonCount && (

@@ -15,8 +15,8 @@ const COURSES: courseApi.Course[] = [
 ]
 
 const ROSTER: courseApi.CourseRosterEntry[] = [
-  { studentId: 100, name: '小明', schoolClassName: '三年级一班', offCampusOnly: false },
-  { studentId: 200, name: '小红', schoolClassName: null, offCampusOnly: true },
+  { studentId: 100, name: '小明', schoolClassName: '三年级一班', offCampusOnly: false, balance: null },
+  { studentId: 200, name: '小红', schoolClassName: null, offCampusOnly: true, balance: 3 },
 ]
 
 function setup() {
@@ -39,12 +39,25 @@ describe('CourseConsumptionPage', () => {
     expect(await screen.findByText('暂无课外课，请联系管理员分配')).toBeInTheDocument()
   })
 
-  it('renders the roster with 托管/课外 badges', async () => {
+  it('renders the roster with billing-mode badges explaining the actual financial treatment', async () => {
     setup()
 
     expect(await screen.findByText('小明')).toBeInTheDocument()
-    expect(screen.getByText('托管')).toBeInTheDocument()
-    expect(screen.getByText('纯课外')).toBeInTheDocument()
+    expect(screen.getByText('托管（计入月度账单）')).toBeInTheDocument()
+    expect(screen.getByText('纯课外（扣课时余额）')).toBeInTheDocument()
+  })
+
+  it('shows the off-campus balance, highlighted red when depleted or negative', async () => {
+    vi.mocked(courseApi.fetchCourseRoster).mockResolvedValue([
+      { studentId: 100, name: '小明', schoolClassName: '三年级一班', offCampusOnly: false, balance: null },
+      { studentId: 200, name: '小红', schoolClassName: null, offCampusOnly: true, balance: 3 },
+      { studentId: 300, name: '小刚', schoolClassName: null, offCampusOnly: true, balance: -1 },
+    ])
+    setup()
+    await screen.findByText('小明')
+
+    expect(screen.getByText('余额：3 课时')).toHaveClass('text-gray-600')
+    expect(screen.getByText('余额：-1 课时')).toHaveClass('text-red-700')
   })
 
   it('shows a hint to contact the admin instead of a self-create-student form', async () => {

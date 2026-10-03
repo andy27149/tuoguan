@@ -72,7 +72,10 @@ describe('App', () => {
     render(<App />)
 
     expect(await screen.findByRole('button', { name: '学生管理' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '消课' })).not.toBeInTheDocument()
+    // hasClasses/hasCourses both default to true before the resource-check effect resolves,
+    // so 消课 can be present on the very first paint — wait for the effect to settle rather
+    // than asserting synchronously right after an unrelated findByRole.
+    await waitFor(() => expect(screen.queryByRole('button', { name: '消课' })).not.toBeInTheDocument())
   })
 
   it('hides 学生管理 and shows a 前往消课 prompt for a teacher with courses but no class', async () => {

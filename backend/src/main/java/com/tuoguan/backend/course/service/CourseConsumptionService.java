@@ -1,7 +1,9 @@
 package com.tuoguan.backend.course.service;
 
 import com.tuoguan.backend.course.dao.CourseConsumptionRecordDao;
+import com.tuoguan.backend.course.dao.CourseRechargeRecordDao;
 import com.tuoguan.backend.course.domain.CourseConsumptionRecord;
+import com.tuoguan.backend.course.domain.CourseRechargeRecord;
 import com.tuoguan.backend.course.web.CourseNotEnrolledException;
 import com.tuoguan.backend.course.web.CoursePriceNotConfiguredException;
 import com.tuoguan.backend.course.web.CourseRosterEntry;
@@ -24,14 +26,17 @@ public class CourseConsumptionService {
     private final StudentDao studentDao;
     private final StudentUnitEnrollmentDao enrollmentDao;
     private final CourseConsumptionRecordDao consumptionRecordDao;
+    private final CourseRechargeRecordDao rechargeRecordDao;
 
     public CourseConsumptionService(CourseService courseService, StudentDao studentDao,
                                      StudentUnitEnrollmentDao enrollmentDao,
-                                     CourseConsumptionRecordDao consumptionRecordDao) {
+                                     CourseConsumptionRecordDao consumptionRecordDao,
+                                     CourseRechargeRecordDao rechargeRecordDao) {
         this.courseService = courseService;
         this.studentDao = studentDao;
         this.enrollmentDao = enrollmentDao;
         this.consumptionRecordDao = consumptionRecordDao;
+        this.rechargeRecordDao = rechargeRecordDao;
     }
 
     public List<CourseRosterEntry> listRosterForCourse(Long teacherId, Long courseId) {
@@ -42,9 +47,24 @@ public class CourseConsumptionService {
                     Student student = studentDao.findById(enrollment.studentId())
                             .orElseThrow(() -> new IllegalStateException("Student not found: "
                                     + enrollment.studentId()));
-                    return CourseRosterEntry.from(student);
+                    Integer balance = student.teachingUnitId() == null
+                            ? computeBalance(student.id(), teachingUnit.id()) : null;
+                    return CourseRosterEntry.from(student, balance);
                 })
                 .toList();
+    }
+
+    // 仅纯课外课学生走预充值余额模型（见 CourseAccountService.recharge 的校验）；托管班学生消课
+    // 记入月度账单附加费，没有余额概念，调用方不会对他们算余额。
+    private int computeBalance(Long studentId, Long teachingUnitId) {
+        int recharged = rechargeRecordDao.findAllByStudentId(studentId).stream()
+                .filter(r -> r.teachingUnitId().equals(teachingUnitId))
+                .mapToInt(CourseRechargeRecord::lessonCount)
+                .sum();
+        int consumed = (int) consumptionRecordDao.findAllByStudentId(studentId).stream()
+                .filter(c -> c.teachingUnitId().equals(teachingUnitId))
+                .count();
+        return recharged - consumed;
     }
 
     public CourseConsumptionRecord recordConsumption(Long teacherId, Long courseId, Long studentId, LocalDate date,

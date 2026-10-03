@@ -163,18 +163,15 @@ describe('AdminTeachingUnitsModule', () => {
     )
   })
 
-  it('sets a price for a 课外课 row', async () => {
-    vi.mocked(unitApi.updateTeachingUnit).mockResolvedValue({ ...COURSE, pricePerLesson: 99 })
+  it('shows the course price read-only, pointing to the pricing center instead of an inline editor', async () => {
     render(<AdminTeachingUnitsModule custodyEnabled offCampusEnabled />)
     await screen.findByText('一班')
     fireEvent.click(screen.getByRole('tab', { name: '课外课' }))
     await screen.findByText('书法课')
 
-    fireEvent.click(screen.getByRole('button', { name: '设置单价' }))
-    fireEvent.change(screen.getByLabelText('单价20'), { target: { value: '99' } })
-    fireEvent.click(screen.getByRole('button', { name: '保存' }))
-
-    await waitFor(() => expect(unitApi.updateTeachingUnit).toHaveBeenCalledWith(20, { pricePerLesson: 99 }))
+    expect(screen.getByText('¥50.00')).toBeInTheDocument()
+    expect(screen.getByText('（在定价中心设置）')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '设置单价' })).not.toBeInTheDocument()
   })
 
   it('toggles active status for a 课外课 row but not for 托管班', async () => {

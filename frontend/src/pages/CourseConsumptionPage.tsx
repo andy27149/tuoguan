@@ -218,8 +218,19 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
                               : 'ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700'
                           }
                         >
-                          {entry.offCampusOnly ? '纯课外' : '托管'}
+                          {entry.offCampusOnly ? '纯课外（扣课时余额）' : '托管（计入月度账单）'}
                         </span>
+                        {entry.offCampusOnly && entry.balance !== null && (
+                          <span
+                            className={
+                              entry.balance <= 0
+                                ? 'ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700'
+                                : 'ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600'
+                            }
+                          >
+                            余额：{entry.balance} 课时
+                          </span>
+                        )}
                       </span>
                     </label>
                     <button
