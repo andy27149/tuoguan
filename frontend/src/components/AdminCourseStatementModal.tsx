@@ -4,6 +4,7 @@ import * as courseApi from '../api/course'
 import * as unitApi from '../api/unit'
 import { ApiError } from '../api/client'
 import { teacherLabel } from '../utils/teacherLabel'
+import { formatDateTime } from '../kanban/date'
 
 interface AdminCourseStatementModalProps {
   studentId: number
@@ -161,7 +162,7 @@ export function AdminCourseStatementModal({ studentId, studentName, onClose }: A
                   {statement.recharges.map((r) => (
                     <li key={r.id} className="flex justify-between border-b border-[#ece7de] py-1">
                       <span>
-                        {new Date(r.createdAt).toLocaleString()} · {r.courseName ?? `课程#${r.courseId}`}
+                        {formatDateTime(r.createdAt)} · {r.courseName ?? `课程#${r.courseId}`}
                         {r.note && ` · ${r.note}`}
                       </span>
                       <span className="font-medium text-[#241f3d]">+{r.lessonCount} 课时</span>

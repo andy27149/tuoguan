@@ -15,7 +15,9 @@ import * as courseApi from './api/course'
 function AuthenticatedApp() {
   const { logout, state } = useAuth()
   const isAdmin = state.status === 'authenticated' && state.teacher.role === 'ADMIN'
-  const [view, setView] = useState<'kanban' | 'roster' | 'consumption' | 'admin'>('kanban')
+  // 机构管理员默认落地机构管理后台（桌面端仪表盘），而不是为手机单班级场景设计的只读看板；
+  // 教师仍然默认落地看板，这是他们的日常工作台。
+  const [view, setView] = useState<'kanban' | 'roster' | 'consumption' | 'admin'>(isAdmin ? 'admin' : 'kanban')
   const [jumpToClassId, setJumpToClassId] = useState<number | null>(null)
   const [resourcesLoading, setResourcesLoading] = useState(!isAdmin)
   const [hasClasses, setHasClasses] = useState(true)

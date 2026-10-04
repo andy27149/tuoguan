@@ -72,13 +72,13 @@ export function ShareLinkModal({ studentId, studentName, onClose, onShowToast, f
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="share-modal" role="dialog" aria-modal="true" aria-label="家长链接">
+      <div className="share-modal" role="dialog" aria-modal="true" aria-label="家长专属链接">
         <button type="button" className="share-modal__close" aria-label="关闭" onClick={onClose}>
           ×
         </button>
 
         <div className="stats-modal__header">
-          <span className="stats-modal__title">{studentName}的家长链接</span>
+          <span className="stats-modal__title">{studentName}的家长专属链接</span>
         </div>
 
         {loading && <p className="stats-status">加载中...</p>}

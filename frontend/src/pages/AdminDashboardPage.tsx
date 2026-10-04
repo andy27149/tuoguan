@@ -8,6 +8,7 @@ import { AdminTaskStatsModule } from './AdminTaskStatsModule'
 import { AdminPricingModule } from './AdminPricingModule'
 import { AdminBillingModule } from './AdminBillingModule'
 import { AdminSettingsModule } from './AdminSettingsModule'
+import { UpdatesButton } from '../components/UpdatesButton'
 import * as institutionApi from '../api/institution'
 
 interface AdminDashboardPageProps {
@@ -44,11 +45,12 @@ export function AdminDashboardPage({ onBack, onOpenClassKanban }: AdminDashboard
             )}
             <h1 className="app-header__title">{institution?.name || '机构管理'}</h1>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <button type="button" onClick={onBack} className="logout-btn">
-              返回看板
+              查看托管看板
             </button>
-            <button type="button" onClick={logout} className="logout-btn">
+            <UpdatesButton />
+            <button type="button" onClick={logout} className="logout-btn logout-btn--subtle">
               退出登录
             </button>
           </div>

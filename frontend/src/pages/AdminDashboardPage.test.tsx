@@ -70,7 +70,7 @@ describe('AdminDashboardPage', () => {
     const onBack = vi.fn()
     render(<AdminDashboardPage onBack={onBack} />)
 
-    fireEvent.click(screen.getByRole('button', { name: '返回看板' }))
+    fireEvent.click(screen.getByRole('button', { name: '查看托管看板' }))
 
     expect(onBack).toHaveBeenCalled()
   })

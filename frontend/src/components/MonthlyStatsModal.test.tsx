@@ -66,7 +66,8 @@ describe('MonthlyStatsModal', () => {
   it('shows the fetched completed/incomplete counts and average rating', async () => {
     render(<MonthlyStatsModal studentId={10} studentName="小明" onClose={vi.fn()} />)
 
-    expect(await screen.findByText(/完成天数 1 \/ 未完成天数 1/)).toBeInTheDocument()
+    expect(await screen.findByText(/已完成 1 天/)).toBeInTheDocument()
+    expect(screen.getByText(/未完成 1 天/, { selector: '.stats-summary__muted' })).toBeInTheDocument()
     expect(screen.getByText('4.5')).toBeInTheDocument()
     expect(monthlyStatsApi.fetchMonthlyStats).toHaveBeenCalledWith(10, currentMonthString())
   })
@@ -74,7 +75,7 @@ describe('MonthlyStatsModal', () => {
   it('defaults the selected day to today and shows its tasks/rating/comment', async () => {
     render(<MonthlyStatsModal studentId={10} studentName="小明" onClose={vi.fn()} />)
 
-    await screen.findByText(/完成天数/)
+    await screen.findByText(/已完成/)
 
     expect(screen.getByText(TODAY)).toBeInTheDocument()
     expect(screen.getByText(/单词听写/)).toBeInTheDocument()
@@ -83,7 +84,7 @@ describe('MonthlyStatsModal', () => {
 
   it('switches the day detail when another calendar day is clicked', async () => {
     render(<MonthlyStatsModal studentId={10} studentName="小明" onClose={vi.fn()} />)
-    await screen.findByText(/完成天数/)
+    await screen.findByText(/已完成/)
 
     fireEvent.click(screen.getByRole('button', { name: '1' }))
 
@@ -93,7 +94,7 @@ describe('MonthlyStatsModal', () => {
 
   it('fetches the previous month when clicking 上月', async () => {
     render(<MonthlyStatsModal studentId={10} studentName="小明" onClose={vi.fn()} />)
-    await screen.findByText(/完成天数/)
+    await screen.findByText(/已完成/)
 
     fireEvent.click(screen.getByRole('button', { name: /上月/ }))
 
@@ -107,7 +108,7 @@ describe('MonthlyStatsModal', () => {
 
   it('fetches the next month when clicking 下月', async () => {
     render(<MonthlyStatsModal studentId={10} studentName="小明" onClose={vi.fn()} />)
-    await screen.findByText(/完成天数/)
+    await screen.findByText(/已完成/)
 
     fireEvent.click(screen.getByRole('button', { name: /下月/ }))
 
@@ -121,14 +122,14 @@ describe('MonthlyStatsModal', () => {
 
   it('shows the arrival info for a day that recorded it', async () => {
     render(<MonthlyStatsModal studentId={10} studentName="小明" onClose={vi.fn()} />)
-    await screen.findByText(/完成天数/)
+    await screen.findByText(/已完成/)
 
     expect(screen.getByText('到达托管班：17:30')).toBeInTheDocument()
   })
 
   it('does not show an arrival line for a day with no arrival recorded', async () => {
     render(<MonthlyStatsModal studentId={10} studentName="小明" onClose={vi.fn()} />)
-    await screen.findByText(/完成天数/)
+    await screen.findByText(/已完成/)
 
     fireEvent.click(screen.getByRole('button', { name: '1' }))
     await screen.findByText('2026-08-01')

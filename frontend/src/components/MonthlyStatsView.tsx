@@ -171,15 +171,16 @@ export function MonthlyStatsView({ stats, month, onMonthChange, selectedDate, on
         </button>
       </div>
 
-      <p className="stats-summary">
-        完成天数 {stats.completedDays} / 未完成天数 {stats.incompleteDays}
-      </p>
-
       <div className="stats-rating">
         <span className="stats-rating__label">本月平均评星</span>
         <StarRating value={Math.round(stats.averageRating)} readOnly />
         <span className="stats-rating__value">{stats.averageRating.toFixed(1)}</span>
       </div>
+
+      <p className="stats-summary">
+        已完成 {stats.completedDays} 天
+        <span className="stats-summary__muted"> · 未完成 {stats.incompleteDays} 天</span>
+      </p>
 
       <div className="stats-calendar">
         <div className="stats-calendar__weekdays">

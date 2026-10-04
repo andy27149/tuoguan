@@ -39,7 +39,9 @@ export interface MonthlyBill {
   id: number
   institutionId: number
   studentId: number
-  classRoomId: number
+  // null：纯课外课学生，没有托管班。此前这里误写成不存在的 classRoomId 字段，
+  // 后端实际返回的 JSON 字段名是 teachingUnitId（对应 MonthlyBill 领域对象）。
+  teachingUnitId: number | null
   yearMonth: string
   totalWeekdays: number
   leaveDays: number

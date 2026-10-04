@@ -69,7 +69,9 @@ describe('ParentSharePage', () => {
 
     expect(await screen.findByText('小美')).toBeInTheDocument()
     expect(screen.getByText('三年级1班')).toBeInTheDocument()
-    expect(screen.getByText(/完成天数 1 \/ 未完成天数 1/)).toBeInTheDocument()
+    expect(screen.getByText(/已完成 1 天/)).toBeInTheDocument()
+    expect(screen.getByText(/未完成 1 天/, { selector: '.stats-summary__muted' })).toBeInTheDocument()
+    expect(screen.getByText(/关注机构公众号/)).toBeInTheDocument()
     expect(publicShareApi.fetchPublicShare).toHaveBeenCalledWith('abc123', currentMonthString())
   })
 
@@ -118,7 +120,7 @@ describe('ParentSharePage', () => {
     expect(screen.getByText('剩 7 课时')).toBeInTheDocument()
     expect(screen.getByText(/王老师/)).toBeInTheDocument()
     expect(screen.queryByText(/王老师老师/)).not.toBeInTheDocument()
-    expect(screen.queryByText(/完成天数/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/已完成/)).not.toBeInTheDocument()
   })
 
   it('shows both monthly stats and a lightweight course-activity card for a dual-identity student', async () => {
@@ -126,7 +128,8 @@ describe('ParentSharePage', () => {
     render(<ParentSharePage token="dual-token" />)
 
     expect(await screen.findByText('小双')).toBeInTheDocument()
-    expect(screen.getByText(/完成天数 1 \/ 未完成天数 1/)).toBeInTheDocument()
+    expect(screen.getByText(/已完成 1 天/)).toBeInTheDocument()
+    expect(screen.getByText(/未完成 1 天/, { selector: '.stats-summary__muted' })).toBeInTheDocument()
     expect(screen.getByText('课外课情况')).toBeInTheDocument()
     expect(screen.getByText('围棋课')).toBeInTheDocument()
     expect(screen.getByText('2026-10-01、2026-09-28')).toBeInTheDocument()

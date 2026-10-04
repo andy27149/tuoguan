@@ -272,7 +272,7 @@ export function StudentCard({
           )}
 
           <button type="button" className="share-btn" onClick={() => setSharing(true)}>
-            分享给家长
+            生成今日海报
           </button>
         </>
       )}
@@ -282,7 +282,7 @@ export function StudentCard({
       </button>
 
       <button type="button" className="share-btn" onClick={() => setShowingShareLink(true)}>
-        家长链接
+        家长专属链接
       </button>
 
       {readOnly ? (

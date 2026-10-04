@@ -17,6 +17,7 @@ import { DismissButton } from '../components/DismissButton'
 import { TaskTemplateManager } from '../components/TaskTemplateManager'
 import { Toast } from '../components/Toast'
 import { useToast } from '../hooks/useToast'
+import { UpdatesButton } from '../components/UpdatesButton'
 import { useAuth } from '../auth/AuthContext'
 import { BrandMark } from '../brand/BrandMark'
 
@@ -375,7 +376,8 @@ export function KanbanPage({
                 机构管理
               </button>
             )}
-            <button type="button" onClick={logout} className="logout-btn">
+            <UpdatesButton />
+            <button type="button" onClick={logout} className="logout-btn logout-btn--subtle">
               退出登录
             </button>
           </div>

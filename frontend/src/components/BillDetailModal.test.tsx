@@ -10,7 +10,7 @@ const BILL: MonthlyBill = {
   id: 500,
   institutionId: 1,
   studentId: 100,
-  classRoomId: 20,
+  teachingUnitId: 20,
   yearMonth: '2026-09',
   totalWeekdays: 22,
   leaveDays: 2,

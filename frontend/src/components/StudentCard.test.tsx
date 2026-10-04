@@ -53,12 +53,12 @@ describe('StudentCard share-link button', () => {
     vi.mocked(QRCode.toCanvas).mockResolvedValue(undefined as never)
   })
 
-  it('opens the ShareLinkModal showing the student-specific title when the 家长链接 button is clicked', async () => {
+  it('opens the ShareLinkModal showing the student-specific title when the 家长专属链接 button is clicked', async () => {
     setup()
 
-    fireEvent.click(screen.getByRole('button', { name: '家长链接' }))
+    fireEvent.click(screen.getByRole('button', { name: '家长专属链接' }))
 
-    expect(await screen.findByText('小明的家长链接')).toBeInTheDocument()
+    expect(await screen.findByText('小明的家长专属链接')).toBeInTheDocument()
     expect(studentsApi.fetchShareLink).toHaveBeenCalledWith(1)
   })
 })

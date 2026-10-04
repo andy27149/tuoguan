@@ -3,6 +3,7 @@ import * as platformApi from '../api/platform'
 import { ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { BrandMark } from '../brand/BrandMark'
+import { formatDate } from '../kanban/date'
 
 export function PlatformAdminPage() {
   const { logout } = useAuth()
@@ -129,7 +130,7 @@ export function PlatformAdminPage() {
               {institutions.map((institution) => (
                 <li key={institution.id} className="rounded border border-gray-100 p-2 text-sm">
                   {institution.name} · {institution.teacherCount} 位教师 · 创建于{' '}
-                  {new Date(institution.createdAt).toLocaleDateString('zh-CN')}
+                  {formatDate(institution.createdAt)}
                 </li>
               ))}
               {institutions.length === 0 && <li className="text-xs text-gray-400">暂无机构</li>}

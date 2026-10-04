@@ -10,6 +10,8 @@ import * as dailyTasksApi from './api/dailyTasks'
 import * as dismissalApi from './api/dismissal'
 import * as studentNotesApi from './api/studentNotes'
 import * as arrivalApi from './api/arrival'
+import * as adminApi from './api/admin'
+import * as institutionApi from './api/institution'
 import { setToken } from './api/client'
 
 vi.mock('./api/auth', async () => {
@@ -24,12 +26,20 @@ vi.mock('./api/dailyTasks')
 vi.mock('./api/dismissal')
 vi.mock('./api/studentNotes')
 vi.mock('./api/arrival')
+vi.mock('./api/admin')
+vi.mock('./api/institution')
 
 const TEACHER = { id: 2, phone: '13700000002', institutionId: 1, role: 'TEACHER' as const }
+const ADMIN = { id: 3, phone: '13700000003', institutionId: 1, role: 'ADMIN' as const }
 
 function loginAsTeacher() {
   setToken('teacher-token')
   vi.mocked(authApi.fetchMe).mockResolvedValue(TEACHER)
+}
+
+function loginAsAdmin() {
+  setToken('admin-token')
+  vi.mocked(authApi.fetchMe).mockResolvedValue(ADMIN)
 }
 
 describe('App', () => {
@@ -62,6 +72,25 @@ describe('App', () => {
     render(<App />)
 
     expect(await screen.findByRole('heading', { name: '平台管理' })).toBeInTheDocument()
+  })
+
+  it('lands an institution admin on the admin dashboard by default, not the read-only kanban', async () => {
+    loginAsAdmin()
+    vi.mocked(institutionApi.fetchInstitutionSettings).mockResolvedValue({
+      id: 1,
+      name: '阳光托管班',
+      logoUrl: null,
+      custodyEnabled: true,
+      offCampusEnabled: true,
+    })
+    vi.mocked(adminApi.fetchTeachers).mockResolvedValue([])
+    vi.mocked(adminApi.fetchAdminClasses).mockResolvedValue([])
+
+    render(<App />)
+
+    expect(await screen.findByText('教师列表')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '学生管理' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '查看托管看板' })).toBeInTheDocument()
   })
 
   it('shows 学生管理 but hides 消课 for a teacher with a class but no courses', async () => {
