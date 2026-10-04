@@ -22,6 +22,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MvcResult;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -130,6 +131,11 @@ class CourseEnrollmentControllerTest extends IntegrationTestBase {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));
+
+        Integer auditCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM audit_log WHERE action = 'COURSE_UNENROLL' AND target_id = ?",
+                Integer.class, studentId);
+        assertThat(auditCount).isEqualTo(1);
     }
 
     @Test

@@ -18,6 +18,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MvcResult;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -164,6 +165,33 @@ class AdminBillOverviewControllerTest extends IntegrationTestBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.studentId == " + studentId + ")].billId").value(
                         org.hamcrest.Matchers.contains(org.hamcrest.Matchers.notNullValue())));
+    }
+
+    @Test
+    void setPaidTogglesBillAndRecordsAnAuditLogEntry() throws Exception {
+        Long institutionId = institutionDao.insert("账单缴费状态测试机构");
+        teacherDao.insert(new Teacher(null, institutionId, "13900014021",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, null, "待缴费学生", null, true, null, null));
+        String adminToken = login("13900014021", "admin-password");
+
+        MvcResult generateResult = mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=2024-01")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn();
+        Long billId = objectMapper.readTree(generateResult.getResponse().getContentAsString()).get("id").asLong();
+
+        mockMvc.perform(patch("/api/admin/bills/" + billId + "/paid")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"isPaid\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isPaid").value(true));
+
+        Integer auditCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM audit_log WHERE action = 'BILL_SET_PAID' AND target_id = ?",
+                Integer.class, billId);
+        assertThat(auditCount).isEqualTo(1);
     }
 
     @Test

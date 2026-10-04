@@ -1,5 +1,6 @@
 package com.tuoguan.backend.admin.web;
 
+import com.tuoguan.backend.audit.service.AuditLogService;
 import com.tuoguan.backend.auth.security.TeacherPrincipal;
 import com.tuoguan.backend.billing.domain.MonthlyBill;
 import com.tuoguan.backend.billing.service.BillGenerationService;
@@ -23,9 +24,11 @@ import java.util.List;
 public class AdminBillOverviewController {
 
     private final BillGenerationService billGenerationService;
+    private final AuditLogService auditLogService;
 
-    public AdminBillOverviewController(BillGenerationService billGenerationService) {
+    public AdminBillOverviewController(BillGenerationService billGenerationService, AuditLogService auditLogService) {
         this.billGenerationService = billGenerationService;
+        this.auditLogService = auditLogService;
     }
 
     @GetMapping
@@ -49,6 +52,9 @@ public class AdminBillOverviewController {
     @PatchMapping("/{billId}/paid")
     public MonthlyBill setPaid(@AuthenticationPrincipal TeacherPrincipal principal, @PathVariable Long billId,
                                 @Valid @RequestBody SetBillPaidRequest request) {
-        return billGenerationService.setBillPaid(principal.institutionId(), billId, request.isPaid());
+        MonthlyBill bill = billGenerationService.setBillPaid(principal.institutionId(), billId, request.isPaid());
+        auditLogService.record(principal.institutionId(), principal.teacherId(), "BILL_SET_PAID", "MONTHLY_BILL",
+                billId, "isPaid=" + request.isPaid());
+        return bill;
     }
 }

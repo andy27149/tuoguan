@@ -247,6 +247,11 @@ class AdminTeacherControllerTest extends IntegrationTestBase {
         assertThat(teacherDao.findById(teacherId)).isEmpty();
         assertThat(teachingUnitDao.findById(classRoomId)).isEmpty();
         assertThat(taskTemplateDao.findById(templateId)).isEmpty();
+
+        Integer auditCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM audit_log WHERE action = 'TEACHER_DELETE' AND target_id = ?",
+                Integer.class, teacherId);
+        assertThat(auditCount).isEqualTo(1);
     }
 
     @Test

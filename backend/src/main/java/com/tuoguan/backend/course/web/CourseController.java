@@ -1,5 +1,6 @@
 package com.tuoguan.backend.course.web;
 
+import com.tuoguan.backend.audit.service.AuditLogService;
 import com.tuoguan.backend.auth.security.TeacherPrincipal;
 import com.tuoguan.backend.course.service.CourseConsumptionService;
 import com.tuoguan.backend.course.service.CourseEnrollmentService;
@@ -23,12 +24,14 @@ public class CourseController {
     private final CourseService courseService;
     private final CourseEnrollmentService courseEnrollmentService;
     private final CourseConsumptionService courseConsumptionService;
+    private final AuditLogService auditLogService;
 
     public CourseController(CourseService courseService, CourseEnrollmentService courseEnrollmentService,
-                             CourseConsumptionService courseConsumptionService) {
+                             CourseConsumptionService courseConsumptionService, AuditLogService auditLogService) {
         this.courseService = courseService;
         this.courseEnrollmentService = courseEnrollmentService;
         this.courseConsumptionService = courseConsumptionService;
+        this.auditLogService = auditLogService;
     }
 
     @GetMapping("/api/courses")
@@ -50,6 +53,8 @@ public class CourseController {
     public void unenroll(@AuthenticationPrincipal TeacherPrincipal principal, @PathVariable Long id,
                           @PathVariable Long studentId) {
         courseEnrollmentService.unenroll(principal.teacherId(), id, studentId);
+        auditLogService.record(principal.institutionId(), principal.teacherId(), "COURSE_UNENROLL", "STUDENT",
+                studentId, "courseId=" + id);
     }
 
     @GetMapping("/api/courses/{id}/roster")

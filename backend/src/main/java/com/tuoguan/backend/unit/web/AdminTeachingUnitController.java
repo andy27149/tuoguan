@@ -1,5 +1,6 @@
 package com.tuoguan.backend.unit.web;
 
+import com.tuoguan.backend.audit.service.AuditLogService;
 import com.tuoguan.backend.auth.security.TeacherPrincipal;
 import com.tuoguan.backend.unit.domain.BillingMode;
 import com.tuoguan.backend.unit.service.AdminTeachingUnitService;
@@ -23,9 +24,12 @@ import java.util.List;
 public class AdminTeachingUnitController {
 
     private final AdminTeachingUnitService adminTeachingUnitService;
+    private final AuditLogService auditLogService;
 
-    public AdminTeachingUnitController(AdminTeachingUnitService adminTeachingUnitService) {
+    public AdminTeachingUnitController(AdminTeachingUnitService adminTeachingUnitService,
+                                        AuditLogService auditLogService) {
         this.adminTeachingUnitService = adminTeachingUnitService;
+        this.auditLogService = auditLogService;
     }
 
     @GetMapping("/api/admin/teaching-units")
@@ -48,7 +52,13 @@ public class AdminTeachingUnitController {
     public AdminTeachingUnitResponse update(@AuthenticationPrincipal TeacherPrincipal principal,
                                              @PathVariable Long id,
                                              @RequestBody UpdateTeachingUnitRequest request) {
-        return adminTeachingUnitService.update(principal.institutionId(), id, request);
+        AdminTeachingUnitResponse response = adminTeachingUnitService.update(principal.institutionId(), id, request);
+        if (request.active() != null) {
+            auditLogService.record(principal.institutionId(), principal.teacherId(),
+                    request.active() ? "TEACHING_UNIT_ACTIVATE" : "TEACHING_UNIT_DEACTIVATE", "TEACHING_UNIT", id,
+                    null);
+        }
+        return response;
     }
 
     @GetMapping("/api/admin/teaching-units/{id}/deletion-impact")

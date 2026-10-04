@@ -1,5 +1,6 @@
 package com.tuoguan.backend.roster.service;
 
+import com.tuoguan.backend.audit.service.AuditLogService;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.unit.dao.StudentUnitEnrollmentDao;
@@ -25,14 +26,17 @@ public class StudentService {
     private final StorageService storageService;
     private final StudentUnitEnrollmentDao enrollmentDao;
     private final TeachingUnitDao teachingUnitDao;
+    private final AuditLogService auditLogService;
 
     public StudentService(StudentDao studentDao, ClassRoomService classRoomService, StorageService storageService,
-                           StudentUnitEnrollmentDao enrollmentDao, TeachingUnitDao teachingUnitDao) {
+                           StudentUnitEnrollmentDao enrollmentDao, TeachingUnitDao teachingUnitDao,
+                           AuditLogService auditLogService) {
         this.studentDao = studentDao;
         this.classRoomService = classRoomService;
         this.storageService = storageService;
         this.enrollmentDao = enrollmentDao;
         this.teachingUnitDao = teachingUnitDao;
+        this.auditLogService = auditLogService;
     }
 
     public List<Student> list(Long teacherId, Long teachingUnitId) {
@@ -45,6 +49,10 @@ public class StudentService {
         Student updated = new Student(existing.id(), existing.institutionId(), existing.teachingUnitId(),
                 name, schoolClassName, enrolled, existing.avatarObjectKey(), existing.createdAt());
         studentDao.update(updated);
+        if (existing.enrolled() != enrolled) {
+            auditLogService.record(existing.institutionId(), teacherId,
+                    enrolled ? "STUDENT_ENABLE" : "STUDENT_DEACTIVATE", "STUDENT", studentId, null);
+        }
         return studentDao.findById(existing.id())
                 .orElseThrow(() -> new IllegalStateException("Student not found after update: " + existing.id()));
     }

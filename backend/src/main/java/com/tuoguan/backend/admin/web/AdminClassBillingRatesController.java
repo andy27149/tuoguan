@@ -1,5 +1,6 @@
 package com.tuoguan.backend.admin.web;
 
+import com.tuoguan.backend.audit.service.AuditLogService;
 import com.tuoguan.backend.auth.security.TeacherPrincipal;
 import com.tuoguan.backend.billing.service.BillGenerationService;
 import jakarta.validation.Valid;
@@ -19,9 +20,12 @@ import java.util.List;
 public class AdminClassBillingRatesController {
 
     private final BillGenerationService billGenerationService;
+    private final AuditLogService auditLogService;
 
-    public AdminClassBillingRatesController(BillGenerationService billGenerationService) {
+    public AdminClassBillingRatesController(BillGenerationService billGenerationService,
+                                             AuditLogService auditLogService) {
         this.billGenerationService = billGenerationService;
+        this.auditLogService = auditLogService;
     }
 
     @GetMapping
@@ -34,6 +38,9 @@ public class AdminClassBillingRatesController {
                                               @Valid @RequestBody BillingRateRequest request) {
         billGenerationService.bulkSetBillingRate(principal.institutionId(), request.tuitionRatePerMonth(),
                 request.mealRatePerDay());
+        auditLogService.record(principal.institutionId(), principal.teacherId(), "BILLING_RATE_BULK_SET",
+                "INSTITUTION", principal.institutionId(),
+                "tuitionRatePerMonth=" + request.tuitionRatePerMonth() + ", mealRatePerDay=" + request.mealRatePerDay());
         return billGenerationService.listAllClassBillingRates(principal.institutionId());
     }
 }

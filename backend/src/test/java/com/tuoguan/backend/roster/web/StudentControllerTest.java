@@ -20,6 +20,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MvcResult;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -74,6 +75,11 @@ class StudentControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.name").value("小明明"))
                 .andExpect(jsonPath("$.schoolClassName").value("三年级3班"))
                 .andExpect(jsonPath("$.enrolled").value(false));
+
+        Integer auditCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM audit_log WHERE action = 'STUDENT_DEACTIVATE' AND target_id = ?",
+                Integer.class, studentId);
+        assertThat(auditCount).isEqualTo(1);
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.tuoguan.backend.admin.web;
 
 import com.tuoguan.backend.admin.service.AdminTeacherService;
+import com.tuoguan.backend.audit.service.AuditLogService;
 import com.tuoguan.backend.auth.security.TeacherPrincipal;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -22,9 +23,11 @@ import java.util.List;
 public class AdminTeacherController {
 
     private final AdminTeacherService adminTeacherService;
+    private final AuditLogService auditLogService;
 
-    public AdminTeacherController(AdminTeacherService adminTeacherService) {
+    public AdminTeacherController(AdminTeacherService adminTeacherService, AuditLogService auditLogService) {
         this.adminTeacherService = adminTeacherService;
+        this.auditLogService = auditLogService;
     }
 
     @PostMapping("/api/admin/teachers")
@@ -68,5 +71,7 @@ public class AdminTeacherController {
                                @RequestParam AdminTeacherService.DeleteMode mode,
                                @RequestParam(required = false) Long targetTeacherId) {
         adminTeacherService.deleteTeacher(principal.institutionId(), id, mode, targetTeacherId);
+        auditLogService.record(principal.institutionId(), principal.teacherId(), "TEACHER_DELETE", "TEACHER", id,
+                "mode=" + mode + (targetTeacherId != null ? ", transferTo=" + targetTeacherId : ""));
     }
 }

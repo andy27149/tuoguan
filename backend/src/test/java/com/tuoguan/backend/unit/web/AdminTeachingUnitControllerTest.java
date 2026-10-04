@@ -16,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MvcResult;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -218,6 +219,11 @@ class AdminTeachingUnitControllerTest extends IntegrationTestBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.teacherId").value(teacherBId))
                 .andExpect(jsonPath("$.active").value(false));
+
+        Integer auditCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM audit_log WHERE action = 'TEACHING_UNIT_DEACTIVATE' AND target_id = ?",
+                Integer.class, courseId);
+        assertThat(auditCount).isEqualTo(1);
     }
 
     @Test
