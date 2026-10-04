@@ -8,6 +8,7 @@ import { CourseConsumptionPage } from './pages/CourseConsumptionPage'
 import { AdminDashboardPage } from './pages/AdminDashboardPage'
 import { PlatformAdminPage } from './pages/PlatformAdminPage'
 import { EmptyTeacherState } from './components/EmptyTeacherState'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import * as classesApi from './api/classes'
 import * as courseApi from './api/course'
 
@@ -46,27 +47,39 @@ function AuthenticatedApp() {
     setView('kanban')
   }
 
-  if (view === 'roster') {
-    return <RosterPage onBack={() => setView('kanban')} />
+  function renderView() {
+    if (view === 'roster') {
+      return <RosterPage onBack={() => setView('kanban')} />
+    }
+    if (view === 'consumption') {
+      return <CourseConsumptionPage onBack={() => setView('kanban')} />
+    }
+    if (view === 'admin') {
+      return <AdminDashboardPage onBack={() => setView('kanban')} onOpenClassKanban={handleOpenClassKanban} />
+    }
+    if (!isAdmin && !resourcesLoading && !hasClasses && !hasCourses) {
+      return <EmptyTeacherState onOpenRoster={() => setView('roster')} onLogout={logout} />
+    }
+    return (
+      <KanbanPage
+        onOpenRoster={() => setView('roster')}
+        onOpenConsumption={() => setView('consumption')}
+        onOpenAdmin={() => setView('admin')}
+        initialClassId={jumpToClassId ?? undefined}
+        hasClasses={isAdmin || hasClasses}
+        hasCourses={isAdmin || hasCourses}
+      />
+    )
   }
-  if (view === 'consumption') {
-    return <CourseConsumptionPage onBack={() => setView('kanban')} />
-  }
-  if (view === 'admin') {
-    return <AdminDashboardPage onBack={() => setView('kanban')} onOpenClassKanban={handleOpenClassKanban} />
-  }
-  if (!isAdmin && !resourcesLoading && !hasClasses && !hasCourses) {
-    return <EmptyTeacherState onOpenRoster={() => setView('roster')} onLogout={logout} />
-  }
+
   return (
-    <KanbanPage
-      onOpenRoster={() => setView('roster')}
-      onOpenConsumption={() => setView('consumption')}
-      onOpenAdmin={() => setView('admin')}
-      initialClassId={jumpToClassId ?? undefined}
-      hasClasses={isAdmin || hasClasses}
-      hasCourses={isAdmin || hasCourses}
-    />
+    <ErrorBoundary
+      key={view}
+      resetLabel={view === 'kanban' ? '刷新页面' : '返回看板'}
+      onReset={view === 'kanban' ? undefined : () => setView('kanban')}
+    >
+      {renderView()}
+    </ErrorBoundary>
   )
 }
 
@@ -95,7 +108,9 @@ function AppShell() {
 function App() {
   return (
     <AuthProvider>
-      <AppShell />
+      <ErrorBoundary>
+        <AppShell />
+      </ErrorBoundary>
     </AuthProvider>
   )
 }

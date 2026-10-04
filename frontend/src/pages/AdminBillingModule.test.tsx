@@ -134,12 +134,26 @@ describe('AdminBillingModule', () => {
     expect(screen.getByText('2026-08')).toBeInTheDocument()
   })
 
-  it('toggles paid status by clicking the pill', async () => {
+  it('asks for confirmation before toggling paid status, and does nothing on cancel', async () => {
+    render(<AdminBillingModule />)
+    await screen.findByText('小明')
+
+    fireEvent.click(screen.getByRole('button', { name: '未缴费' }))
+    expect(await screen.findByText(/标记为已缴费吗/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+
+    expect(screen.getByRole('button', { name: '未缴费' })).toBeInTheDocument()
+    expect(billingApi.setBillPaid).not.toHaveBeenCalled()
+  })
+
+  it('toggles paid status after confirming', async () => {
     vi.mocked(billingApi.setBillPaid).mockResolvedValue({} as billingApi.MonthlyBill)
     render(<AdminBillingModule />)
     await screen.findByText('小明')
 
     fireEvent.click(screen.getByRole('button', { name: '未缴费' }))
+    fireEvent.click(await screen.findByRole('button', { name: '确认' }))
 
     expect(screen.getByRole('button', { name: '已缴费' })).toBeInTheDocument()
     await waitFor(() => expect(billingApi.setBillPaid).toHaveBeenCalledWith(500, true))
@@ -151,6 +165,7 @@ describe('AdminBillingModule', () => {
     await screen.findByText('小明')
 
     fireEvent.click(screen.getByRole('button', { name: '未缴费' }))
+    fireEvent.click(await screen.findByRole('button', { name: '确认' }))
 
     await waitFor(() => expect(screen.getByRole('button', { name: '未缴费' })).toBeInTheDocument())
   })

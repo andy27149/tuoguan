@@ -4,7 +4,7 @@ import { compressImage } from '../utils/imageCompression'
 export interface Student {
   id: number
   name: string
-  schoolClassName: string
+  schoolClassName: string | null
   enrolled: boolean
   avatarUrl: string | null
   enrolledCourseNames: string[]
@@ -14,7 +14,7 @@ export function fetchStudents(classId: number): Promise<Student[]> {
   return apiFetch<Student[]>(`/classes/${classId}/students`)
 }
 
-export function createStudent(classId: number, name: string, schoolClassName: string): Promise<void> {
+export function createStudent(classId: number, name: string, schoolClassName: string | null): Promise<void> {
   return apiFetch<void>(`/classes/${classId}/students`, {
     method: 'POST',
     body: JSON.stringify({ name, schoolClassName }),
@@ -24,7 +24,7 @@ export function createStudent(classId: number, name: string, schoolClassName: st
 export function updateStudent(
   studentId: number,
   name: string,
-  schoolClassName: string,
+  schoolClassName: string | null,
   enrolled: boolean,
 ): Promise<void> {
   return apiFetch<void>(`/students/${studentId}`, {

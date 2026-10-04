@@ -1,6 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import * as billingApi from '../api/billing'
 import * as unitApi from '../api/unit'
+import { ConfirmDialog } from '../components/ConfirmDialog'
+import { Toast } from '../components/Toast'
+import { useToast } from '../hooks/useToast'
 
 interface AdminPricingModuleProps {
   custodyEnabled: boolean
@@ -16,6 +19,8 @@ export function AdminPricingModule({ custodyEnabled, offCampusEnabled }: AdminPr
   const [bulkMealInput, setBulkMealInput] = useState('')
   const [bulkSubmitting, setBulkSubmitting] = useState(false)
   const [bulkError, setBulkError] = useState<string | null>(null)
+  const [confirmingBulk, setConfirmingBulk] = useState<{ tuition: number; meal: number } | null>(null)
+  const { toastMessage, showToast } = useToast()
 
   const [editingClassId, setEditingClassId] = useState<number | null>(null)
   const [editTuitionInput, setEditTuitionInput] = useState('')
@@ -90,7 +95,7 @@ export function AdminPricingModule({ custodyEnabled, offCampusEnabled }: AdminPr
     }
   }
 
-  async function handleBulkSet(e: FormEvent) {
+  function handleBulkSet(e: FormEvent) {
     e.preventDefault()
     const tuition = Number(bulkTuitionInput)
     const meal = Number(bulkMealInput)
@@ -98,15 +103,23 @@ export function AdminPricingModule({ custodyEnabled, offCampusEnabled }: AdminPr
       setBulkError('请输入有效的单价')
       return
     }
+    setBulkError(null)
+    setConfirmingBulk({ tuition, meal })
+  }
+
+  async function applyBulkSet() {
+    if (!confirmingBulk) return
     setBulkSubmitting(true)
     setBulkError(null)
     try {
-      const updated = await billingApi.bulkSetClassBillingRate(tuition, meal)
+      const updated = await billingApi.bulkSetClassBillingRate(confirmingBulk.tuition, confirmingBulk.meal)
       setRates(updated)
+      showToast(`已为全部 ${updated.length} 个班级更新定价`)
     } catch {
       setBulkError('批量设置失败，请重试')
     } finally {
       setBulkSubmitting(false)
+      setConfirmingBulk(null)
     }
   }
 
@@ -355,6 +368,19 @@ export function AdminPricingModule({ custodyEnabled, offCampusEnabled }: AdminPr
           )}
         </div>
       )}
+
+      {confirmingBulk && (
+        <ConfirmDialog
+          title="批量设置所有班级定价"
+          message={`将把全部 ${rates.length} 个班级的托管费统一设置为 ¥${confirmingBulk.tuition.toFixed(2)}/月、餐费 ¥${confirmingBulk.meal.toFixed(2)}/天，已单独设置的班级也会被覆盖，确认继续吗？`}
+          confirmLabel="确认设置"
+          confirming={bulkSubmitting}
+          onConfirm={applyBulkSet}
+          onCancel={() => setConfirmingBulk(null)}
+        />
+      )}
+
+      <Toast message={toastMessage} />
     </div>
   )
 }

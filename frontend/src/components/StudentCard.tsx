@@ -12,6 +12,7 @@ import { SharePosterModal } from './SharePosterModal'
 import { MonthlyStatsModal } from './MonthlyStatsModal'
 import { ShareLinkModal } from './ShareLinkModal'
 import { ArrivalModal } from './ArrivalModal'
+import { ConfirmDialog } from './ConfirmDialog'
 
 interface StudentCardProps {
   student: Student
@@ -117,6 +118,7 @@ export function StudentCard({
   const [showingShareLink, setShowingShareLink] = useState(false)
   const [showingArrival, setShowingArrival] = useState(false)
   const [justCompleted, setJustCompleted] = useState(false)
+  const [deletingTask, setDeletingTask] = useState<DailyTask | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const status = computeCardStatus(tasks, dismissed)
   const completedCount = tasks.filter((t) => t.completed).length
@@ -128,6 +130,13 @@ export function StudentCard({
       tasks.every((t) => (t.id === taskId ? true : t.completed))
     if (willBeDone) setJustCompleted(true)
     onToggleTask?.(taskId, completed)
+  }
+
+  function handleConfirmDeleteTask() {
+    if (!deletingTask) return
+    onDeleteTask?.(deletingTask.id)
+    onShowToast(`已删除「${deletingTask.name}」`)
+    setDeletingTask(null)
   }
 
   function handleArrivalClick() {
@@ -194,7 +203,7 @@ export function StudentCard({
             {student.name}
             {status === 'dismissedIncomplete' && <span className="flag-chip">🚩 未完成</span>}
           </p>
-          <p className="card-head__class">{student.schoolClassName}</p>
+          <p className="card-head__class">{student.schoolClassName ?? '未填写学籍班'}</p>
         </div>
       </div>
 
@@ -225,7 +234,7 @@ export function StudentCard({
             {!readOnly && (
               <button
                 type="button"
-                onClick={() => onDeleteTask?.(task.id)}
+                onClick={() => setDeletingTask(task)}
                 aria-label={`删除${task.name}`}
                 className="task-del"
               >
@@ -324,6 +333,16 @@ export function StudentCard({
           onSave={(newArrivedAt) => onSetArrival?.(student.id, newArrivedAt)}
           onClear={() => onClearArrival?.(student.id)}
           onClose={() => setShowingArrival(false)}
+        />
+      )}
+
+      {deletingTask && (
+        <ConfirmDialog
+          title="删除任务"
+          message={`确认从今天的任务中删除「${deletingTask.name}」吗？已记录的完成/评价状态将一并删除。`}
+          confirmLabel="确认删除"
+          onConfirm={handleConfirmDeleteTask}
+          onCancel={() => setDeletingTask(null)}
         />
       )}
     </div>

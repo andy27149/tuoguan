@@ -61,7 +61,7 @@ describe('TaskTemplateManager', () => {
     fireEvent.click(screen.getByRole('button', { name: '删除模板口算练习' }))
     expect(screen.getByText('确认删除任务「口算练习」吗？')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: '否' }))
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
 
     expect(onDelete).not.toHaveBeenCalled()
     expect(screen.queryByText('确认删除任务「口算练习」吗？')).not.toBeInTheDocument()
@@ -73,7 +73,7 @@ describe('TaskTemplateManager', () => {
     fireEvent.click(screen.getByRole('button', { name: '任务库管理（2）展开' }))
 
     fireEvent.click(screen.getByRole('button', { name: '删除模板口算练习' }))
-    fireEvent.click(screen.getByRole('button', { name: '是' }))
+    fireEvent.click(screen.getByRole('button', { name: '确认删除' }))
 
     await waitFor(() => expect(onDelete).toHaveBeenCalledWith(1))
   })

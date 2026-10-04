@@ -113,3 +113,36 @@ describe('StudentCard arrival button', () => {
     expect(onClearArrival).toHaveBeenCalledWith(1)
   })
 })
+
+describe('StudentCard task deletion', () => {
+  const TASK = { id: 5, studentId: 1, subject: '数学', name: '口算练习', completed: false, date: '2026-08-23' }
+
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
+
+  it('asks for confirmation before deleting a task, and does nothing on cancel', () => {
+    const onDeleteTask = vi.fn()
+    setup({ tasks: [TASK], onDeleteTask })
+
+    fireEvent.click(screen.getByRole('button', { name: '删除口算练习' }))
+    expect(screen.getByText(/确认从今天的任务中删除/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+
+    expect(onDeleteTask).not.toHaveBeenCalled()
+    expect(screen.queryByText(/确认从今天的任务中删除/)).not.toBeInTheDocument()
+  })
+
+  it('deletes the task and shows a toast after confirming', () => {
+    const onDeleteTask = vi.fn()
+    const onShowToast = vi.fn()
+    setup({ tasks: [TASK], onDeleteTask, onShowToast })
+
+    fireEvent.click(screen.getByRole('button', { name: '删除口算练习' }))
+    fireEvent.click(screen.getByRole('button', { name: '确认删除' }))
+
+    expect(onDeleteTask).toHaveBeenCalledWith(5)
+    expect(onShowToast).toHaveBeenCalledWith('已删除「口算练习」')
+  })
+})

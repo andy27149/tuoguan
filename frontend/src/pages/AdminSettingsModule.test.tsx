@@ -50,7 +50,19 @@ describe('AdminSettingsModule', () => {
     expect(await screen.findByAltText('托管班 Logo')).toHaveAttribute('src', 'https://example.com/logo.png')
   })
 
-  it('toggles off the custody feature flag', async () => {
+  it('asks for confirmation before disabling the custody feature flag, and does nothing on cancel', async () => {
+    render(<AdminSettingsModule />)
+    await screen.findByDisplayValue('阳光托管班')
+
+    fireEvent.click(screen.getByRole('checkbox', { name: '启用托管功能' }))
+    expect(await screen.findByText(/关闭后，托管功能相关入口/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+
+    expect(institutionApi.updateFeatureFlags).not.toHaveBeenCalled()
+  })
+
+  it('disables the custody feature flag after confirming', async () => {
     const updated = { ...INSTITUTION, custodyEnabled: false }
     vi.mocked(institutionApi.updateFeatureFlags).mockResolvedValue(updated)
     const onInstitutionUpdated = vi.fn()
@@ -58,9 +70,24 @@ describe('AdminSettingsModule', () => {
     await screen.findByDisplayValue('阳光托管班')
 
     fireEvent.click(screen.getByRole('checkbox', { name: '启用托管功能' }))
+    fireEvent.click(await screen.findByRole('button', { name: '确认关闭' }))
 
     await waitFor(() => expect(institutionApi.updateFeatureFlags).toHaveBeenCalledWith(false, true))
     await waitFor(() => expect(onInstitutionUpdated).toHaveBeenCalledWith(updated))
+  })
+
+  it('re-enables a feature flag immediately without a confirmation dialog', async () => {
+    const disabled = { ...INSTITUTION, custodyEnabled: false }
+    const reEnabled = { ...INSTITUTION, custodyEnabled: true }
+    vi.mocked(institutionApi.fetchInstitutionSettings).mockResolvedValue(disabled)
+    vi.mocked(institutionApi.updateFeatureFlags).mockResolvedValue(reEnabled)
+    render(<AdminSettingsModule />)
+    await screen.findByDisplayValue('阳光托管班')
+
+    fireEvent.click(screen.getByRole('checkbox', { name: '启用托管功能' }))
+
+    await waitFor(() => expect(institutionApi.updateFeatureFlags).toHaveBeenCalledWith(true, true))
+    expect(screen.queryByText(/关闭后，托管功能相关入口/)).not.toBeInTheDocument()
   })
 
   it('shows an error when disabling both feature flags is rejected', async () => {
@@ -69,6 +96,7 @@ describe('AdminSettingsModule', () => {
     await screen.findByDisplayValue('阳光托管班')
 
     fireEvent.click(screen.getByRole('checkbox', { name: '启用托管功能' }))
+    fireEvent.click(await screen.findByRole('button', { name: '确认关闭' }))
 
     expect(await screen.findByText('至少需要保留一项业务功能')).toBeInTheDocument()
   })

@@ -1,4 +1,5 @@
 import type { StudentCourseStatement } from '../api/course'
+import { teacherLabel } from '../utils/teacherLabel'
 
 interface CourseStatementViewProps {
   statement: StudentCourseStatement
@@ -8,7 +9,7 @@ export function CourseStatementView({ statement }: CourseStatementViewProps) {
   const logEntries = [
     ...statement.consumptions.map((c) => ({
       date: c.consumptionDate,
-      label: `${c.courseName ?? '课程'} · ${c.teacherName ? `${c.teacherName}老师` : '老师'}`,
+      label: `${c.courseName ?? '课程'} · ${c.teacherName ? teacherLabel(c.teacherName) : '老师'}`,
       detail: '消课 1 课时',
       kind: 'consumption' as const,
     })),

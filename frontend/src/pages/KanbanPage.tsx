@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import * as classesApi from '../api/classes'
 import * as studentsApi from '../api/students'
 import * as templatesApi from '../api/taskTemplates'
@@ -16,6 +16,7 @@ import { AssignTaskBar } from '../components/AssignTaskBar'
 import { DismissButton } from '../components/DismissButton'
 import { TaskTemplateManager } from '../components/TaskTemplateManager'
 import { Toast } from '../components/Toast'
+import { useToast } from '../hooks/useToast'
 import { useAuth } from '../auth/AuthContext'
 import { BrandMark } from '../brand/BrandMark'
 
@@ -59,14 +60,7 @@ export function KanbanPage({
   const [dismissed, setDismissed] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [toastMessage, setToastMessage] = useState<string | null>(null)
-  const toastTimerRef = useRef<number | null>(null)
-
-  const showToast = useCallback((message: string) => {
-    setToastMessage(message)
-    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current)
-    toastTimerRef.current = window.setTimeout(() => setToastMessage(null), 2200)
-  }, [])
+  const { toastMessage, showToast } = useToast()
 
   useEffect(() => {
     const fetchClassList = isAdmin ? adminApi.fetchAdminClasses() : classesApi.fetchClasses()
@@ -150,7 +144,7 @@ export function KanbanPage({
     setTemplates((prev) => prev.filter((t) => t.id !== id))
   }
 
-  async function handleBatchAssign(schoolClassName: string, templateIds: number[]) {
+  async function handleBatchAssign(schoolClassName: string | null, templateIds: number[]) {
     const representative = students.find((s) => s.schoolClassName === schoolClassName)
     if (!representative) return
     await Promise.all(
@@ -159,7 +153,7 @@ export function KanbanPage({
       ),
     )
     await refreshTasks()
-    showToast(`已分配给${schoolClassName}`)
+    showToast(`已分配给${schoolClassName ?? '未分班'}`)
   }
 
   async function handleAddFromTemplate(studentId: number, templateId: number) {
@@ -240,6 +234,7 @@ export function KanbanPage({
     if (activeClassId === null) return
     await dismissalApi.dismissClass(activeClassId, date)
     setDismissed(true)
+    showToast('已放学')
   }
 
   async function handleUndoDismiss() {
@@ -432,10 +427,10 @@ export function KanbanPage({
 
             {schoolClassGroups.length > 1 ? (
               <div className="school-class-columns">
-                {schoolClassGroups.map((group) => (
-                  <div key={group.schoolClassName} className="school-class-column">
+                {schoolClassGroups.map((group, i) => (
+                  <div key={group.schoolClassName ?? `__unassigned_${i}`} className="school-class-column">
                     <h3 className="school-class-column__name">
-                      {group.schoolClassName}
+                      {group.schoolClassName ?? '未分班'}
                       <span className="school-class-column__count">{group.students.length}人</span>
                     </h3>
                     <div className="student-grid">{group.students.map(renderStudentCard)}</div>

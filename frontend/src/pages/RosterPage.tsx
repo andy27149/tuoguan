@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import * as classesApi from '../api/classes'
 import * as studentsApi from '../api/students'
 import { BrandMark } from '../brand/BrandMark'
+import { ConfirmDialog } from '../components/ConfirmDialog'
+import { Toast } from '../components/Toast'
+import { useToast } from '../hooks/useToast'
 
 interface RosterPageProps {
   onBack: () => void
@@ -20,6 +23,8 @@ export function RosterPage({ onBack }: RosterPageProps) {
   const [editName, setEditName] = useState('')
   const [editSchoolClass, setEditSchoolClass] = useState('')
   const [savingEdit, setSavingEdit] = useState(false)
+  const [confirmingDeactivate, setConfirmingDeactivate] = useState<studentsApi.Student | null>(null)
+  const { toastMessage, showToast } = useToast()
 
   useEffect(() => {
     loadClasses()
@@ -62,7 +67,7 @@ export function RosterPage({ onBack }: RosterPageProps) {
   function startEdit(student: studentsApi.Student) {
     setEditingStudentId(student.id)
     setEditName(student.name)
-    setEditSchoolClass(student.schoolClassName)
+    setEditSchoolClass(student.schoolClassName ?? '')
   }
 
   function cancelEdit() {
@@ -71,8 +76,8 @@ export function RosterPage({ onBack }: RosterPageProps) {
 
   async function handleSaveEdit(student: studentsApi.Student) {
     const name = editName.trim()
-    const schoolClassName = editSchoolClass.trim()
-    if (!name || !schoolClassName) return
+    const schoolClassName = editSchoolClass.trim() || null
+    if (!name) return
     setSavingEdit(true)
     try {
       await studentsApi.updateStudent(student.id, name, schoolClassName, student.enrolled)
@@ -85,13 +90,24 @@ export function RosterPage({ onBack }: RosterPageProps) {
     }
   }
 
-  async function handleToggleEnrolled(student: studentsApi.Student) {
+  function handleToggleEnrolled(student: studentsApi.Student) {
+    // 停用会让学生从看板上消失，需要确认；重新启用是安全的加法操作，直接生效。
+    if (student.enrolled) {
+      setConfirmingDeactivate(student)
+    } else {
+      void applyToggleEnrolled(student)
+    }
+  }
+
+  async function applyToggleEnrolled(student: studentsApi.Student) {
     const previous = students
     setStudents((prev) =>
       prev.map((s) => (s.id === student.id ? { ...s, enrolled: !s.enrolled } : s)),
     )
+    setConfirmingDeactivate(null)
     try {
       await studentsApi.updateStudent(student.id, student.name, student.schoolClassName, !student.enrolled)
+      showToast(student.enrolled ? `已停用${student.name}` : `已启用${student.name}`)
     } catch {
       setStudents(previous)
       setStudentError('操作失败，请重试')
@@ -152,12 +168,13 @@ export function RosterPage({ onBack }: RosterPageProps) {
                       <input
                         value={editSchoolClass}
                         onChange={(e) => setEditSchoolClass(e.target.value)}
+                        placeholder="学籍班（选填）"
                         className="w-28 rounded border px-2 py-1 text-sm"
                       />
                       <button
                         type="button"
                         onClick={() => handleSaveEdit(student)}
-                        disabled={savingEdit || !editName.trim() || !editSchoolClass.trim()}
+                        disabled={savingEdit || !editName.trim()}
                         className="rounded bg-blue-600 px-2 py-1 text-xs text-white disabled:opacity-50"
                       >
                         保存
@@ -173,7 +190,8 @@ export function RosterPage({ onBack }: RosterPageProps) {
                   ) : (
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span>
-                        {student.name} · {student.schoolClassName}
+                        {student.name}
+                        {student.schoolClassName ? ` · ${student.schoolClassName}` : ''}
                         {!student.enrolled && <span className="ml-2 text-xs text-gray-400">（已停用）</span>}
                         {student.enrolledCourseNames.length > 0 && (
                           <span className="ml-2 text-xs text-gray-400">
@@ -213,6 +231,18 @@ export function RosterPage({ onBack }: RosterPageProps) {
           </div>
         )}
       </main>
+
+      {confirmingDeactivate && (
+        <ConfirmDialog
+          title="停用学生"
+          message={`停用${confirmingDeactivate.name}后，该学生将从看板上隐藏，已产生的记录不会被删除，可随时重新启用。确认停用吗？`}
+          confirmLabel="确认停用"
+          onConfirm={() => applyToggleEnrolled(confirmingDeactivate)}
+          onCancel={() => setConfirmingDeactivate(null)}
+        />
+      )}
+
+      <Toast message={toastMessage} />
     </div>
   )
 }

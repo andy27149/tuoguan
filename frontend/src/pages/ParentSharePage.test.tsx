@@ -116,7 +116,8 @@ describe('ParentSharePage', () => {
     expect(await screen.findByText('小外')).toBeInTheDocument()
     expect(screen.getByText('书法课')).toBeInTheDocument()
     expect(screen.getByText('剩 7 课时')).toBeInTheDocument()
-    expect(screen.getByText(/王老师老师/)).toBeInTheDocument()
+    expect(screen.getByText(/王老师/)).toBeInTheDocument()
+    expect(screen.queryByText(/王老师老师/)).not.toBeInTheDocument()
     expect(screen.queryByText(/完成天数/)).not.toBeInTheDocument()
   })
 

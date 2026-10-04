@@ -17,6 +17,10 @@ const TWO_GROUPS: SchoolClassGroup[] = [
   { schoolClassName: '一年级2班', students: [{ id: 2 } as never, { id: 3 } as never] },
 ]
 
+const UNASSIGNED_GROUP: SchoolClassGroup[] = [
+  { schoolClassName: null, students: [{ id: 1 } as never] },
+]
+
 describe('AssignTaskBar', () => {
   it('shows a plain hint (no tabs) when there is only one school class', () => {
     render(<AssignTaskBar studentsBySchoolClass={ONE_GROUP} templates={TEMPLATES} onAssign={vi.fn()} />)
@@ -77,5 +81,20 @@ describe('AssignTaskBar', () => {
     fireEvent.click(screen.getByText('[数学] 口算练习'))
 
     expect(screen.getByRole('button', { name: '批量分配给一年级1班（1）' })).not.toBeDisabled()
+  })
+
+  it('still works when the only group has no school class name (null)', async () => {
+    const onAssign = vi.fn().mockResolvedValue(undefined)
+    render(<AssignTaskBar studentsBySchoolClass={UNASSIGNED_GROUP} templates={TEMPLATES} onAssign={onAssign} />)
+
+    expect(screen.getByText('分配对象：未分班（1人）')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('[数学] 口算练习'))
+    const button = screen.getByRole('button', { name: '批量分配给未分班（1）' })
+    expect(button).not.toBeDisabled()
+
+    fireEvent.click(button)
+
+    await waitFor(() => expect(onAssign).toHaveBeenCalledWith(null, [1]))
   })
 })

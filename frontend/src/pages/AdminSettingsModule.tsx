@@ -1,8 +1,16 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import * as institutionApi from '../api/institution'
+import { ConfirmDialog } from '../components/ConfirmDialog'
+import { Toast } from '../components/Toast'
+import { useToast } from '../hooks/useToast'
 
 interface AdminSettingsModuleProps {
   onInstitutionUpdated?: (institution: institutionApi.InstitutionSettings) => void
+}
+
+const FLAG_LABEL: Record<'custodyEnabled' | 'offCampusEnabled', string> = {
+  custodyEnabled: '托管功能',
+  offCampusEnabled: '课外课功能',
 }
 
 export function AdminSettingsModule({ onInstitutionUpdated }: AdminSettingsModuleProps) {
@@ -18,6 +26,8 @@ export function AdminSettingsModule({ onInstitutionUpdated }: AdminSettingsModul
 
   const [flagsSubmitting, setFlagsSubmitting] = useState(false)
   const [flagsError, setFlagsError] = useState<string | null>(null)
+  const [confirmingFlag, setConfirmingFlag] = useState<'custodyEnabled' | 'offCampusEnabled' | null>(null)
+  const { toastMessage, showToast } = useToast()
 
   function loadInstitution() {
     setLoadingInstitution(true)
@@ -68,7 +78,17 @@ export function AdminSettingsModule({ onInstitutionUpdated }: AdminSettingsModul
     }
   }
 
-  async function handleToggleFlag(field: 'custodyEnabled' | 'offCampusEnabled') {
+  function requestToggleFlag(field: 'custodyEnabled' | 'offCampusEnabled') {
+    if (!institution) return
+    // 关闭会让该业务线相关入口从教师端/家长端隐藏，先确认；重新打开是无风险的加法操作，直接生效。
+    if (institution[field]) {
+      setConfirmingFlag(field)
+    } else {
+      void applyToggleFlag(field)
+    }
+  }
+
+  async function applyToggleFlag(field: 'custodyEnabled' | 'offCampusEnabled') {
     if (!institution) return
     const next = {
       custodyEnabled: institution.custodyEnabled,
@@ -81,10 +101,12 @@ export function AdminSettingsModule({ onInstitutionUpdated }: AdminSettingsModul
       const updated = await institutionApi.updateFeatureFlags(next.custodyEnabled, next.offCampusEnabled)
       setInstitution(updated)
       onInstitutionUpdated?.(updated)
+      showToast(next[field] ? `已启用${FLAG_LABEL[field]}` : `已关闭${FLAG_LABEL[field]}`)
     } catch {
       setFlagsError('至少需要保留一项业务功能')
     } finally {
       setFlagsSubmitting(false)
+      setConfirmingFlag(null)
     }
   }
 
@@ -159,7 +181,7 @@ export function AdminSettingsModule({ onInstitutionUpdated }: AdminSettingsModul
                 <input
                   type="checkbox"
                   checked={institution.custodyEnabled}
-                  onChange={() => handleToggleFlag('custodyEnabled')}
+                  onChange={() => requestToggleFlag('custodyEnabled')}
                   disabled={flagsSubmitting}
                 />
                 启用托管功能
@@ -168,7 +190,7 @@ export function AdminSettingsModule({ onInstitutionUpdated }: AdminSettingsModul
                 <input
                   type="checkbox"
                   checked={institution.offCampusEnabled}
-                  onChange={() => handleToggleFlag('offCampusEnabled')}
+                  onChange={() => requestToggleFlag('offCampusEnabled')}
                   disabled={flagsSubmitting}
                 />
                 启用课外课功能
@@ -178,6 +200,19 @@ export function AdminSettingsModule({ onInstitutionUpdated }: AdminSettingsModul
           )
         )}
       </div>
+
+      {confirmingFlag && (
+        <ConfirmDialog
+          title={`关闭${FLAG_LABEL[confirmingFlag]}`}
+          message={`关闭后，${FLAG_LABEL[confirmingFlag]}相关入口将从教师端与家长端隐藏，已产生的数据不会被删除，可随时重新开启。确认关闭吗？`}
+          confirmLabel="确认关闭"
+          confirming={flagsSubmitting}
+          onConfirm={() => applyToggleFlag(confirmingFlag)}
+          onCancel={() => setConfirmingFlag(null)}
+        />
+      )}
+
+      <Toast message={toastMessage} />
     </div>
   )
 }

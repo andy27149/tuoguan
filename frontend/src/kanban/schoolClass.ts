@@ -1,13 +1,13 @@
 import type { Student } from '../api/students'
 
 export interface SchoolClassGroup {
-  schoolClassName: string
+  schoolClassName: string | null
   students: Student[]
 }
 
 export function groupBySchoolClass(students: Student[]): SchoolClassGroup[] {
   const groups: SchoolClassGroup[] = []
-  const indexByName = new Map<string, number>()
+  const indexByName = new Map<string | null, number>()
 
   for (const student of students) {
     const name = student.schoolClassName

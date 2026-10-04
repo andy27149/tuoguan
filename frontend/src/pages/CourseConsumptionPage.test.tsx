@@ -108,12 +108,25 @@ describe('CourseConsumptionPage', () => {
     expect(screen.getByText('暂无可添加的纯课外课学生')).toBeInTheDocument()
   })
 
-  it('unenrolls a student from the roster', async () => {
+  it('asks for confirmation before unenrolling a student, and does nothing on cancel', async () => {
+    setup()
+    await screen.findByText('小明')
+
+    fireEvent.click(screen.getAllByRole('button', { name: '移出' })[0])
+    expect(await screen.findByText(/从本课程花名册移出吗/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+
+    expect(courseApi.unenrollStudent).not.toHaveBeenCalled()
+  })
+
+  it('unenrolls a student from the roster after confirming', async () => {
     vi.mocked(courseApi.unenrollStudent).mockResolvedValue(undefined)
     setup()
     await screen.findByText('小明')
 
     fireEvent.click(screen.getAllByRole('button', { name: '移出' })[0])
+    fireEvent.click(await screen.findByRole('button', { name: '确认移出' }))
 
     await waitFor(() => expect(courseApi.unenrollStudent).toHaveBeenCalledWith(1, 100))
   })

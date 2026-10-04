@@ -114,6 +114,7 @@ export function TaskTemplateManager({ templates, onCreate, onDelete }: TaskTempl
         <ConfirmDialog
           title="删除任务模板"
           message={`确认删除任务「${confirmingTemplate.name}」吗？`}
+          confirmLabel="确认删除"
           onConfirm={handleConfirmDelete}
           onCancel={() => setConfirmingTemplate(null)}
         />

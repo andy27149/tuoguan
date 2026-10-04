@@ -5,25 +5,33 @@ import type { SchoolClassGroup } from '../kanban/schoolClass'
 interface AssignTaskBarProps {
   studentsBySchoolClass: SchoolClassGroup[]
   templates: TaskTemplate[]
-  onAssign: (schoolClassName: string, templateIds: number[]) => Promise<void>
+  onAssign: (schoolClassName: string | null, templateIds: number[]) => Promise<void>
+}
+
+const UNASSIGNED_LABEL = '未分班'
+
+function groupLabel(group: SchoolClassGroup): string {
+  return group.schoolClassName ?? UNASSIGNED_LABEL
 }
 
 export function AssignTaskBar({ studentsBySchoolClass, templates, onAssign }: AssignTaskBarProps) {
-  const [target, setTarget] = useState<string | null>(studentsBySchoolClass[0]?.schoolClassName ?? null)
+  // 用下标而非班级名表示当前选中的分组：班级名可能为 null（学籍班选填且未填写），
+  // 不能用 "名字是否为假值" 来判断"是否选中了一个分组"。
+  const [targetIndex, setTargetIndex] = useState<number | null>(studentsBySchoolClass.length > 0 ? 0 : null)
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    if (!studentsBySchoolClass.some((g) => g.schoolClassName === target)) {
-      setTarget(studentsBySchoolClass[0]?.schoolClassName ?? null)
+    if (targetIndex === null || targetIndex >= studentsBySchoolClass.length) {
+      setTargetIndex(studentsBySchoolClass.length > 0 ? 0 : null)
       setSelected(new Set())
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentsBySchoolClass])
 
-  function selectTarget(name: string) {
-    if (name === target) return
-    setTarget(name)
+  function selectTarget(index: number) {
+    if (index === targetIndex) return
+    setTargetIndex(index)
     setSelected(new Set())
   }
 
@@ -40,18 +48,20 @@ export function AssignTaskBar({ studentsBySchoolClass, templates, onAssign }: As
   }
 
   async function handleAssign() {
-    if (selected.size === 0 || !target) return
+    if (selected.size === 0 || targetIndex === null) return
+    const target = studentsBySchoolClass[targetIndex]
     setSubmitting(true)
     try {
-      await onAssign(target, [...selected])
+      await onAssign(target.schoolClassName, [...selected])
       setSelected(new Set())
     } finally {
       setSubmitting(false)
     }
   }
 
-  const targetGroup = studentsBySchoolClass.find((g) => g.schoolClassName === target)
+  const targetGroup = targetIndex !== null ? studentsBySchoolClass[targetIndex] : undefined
   const targetCount = targetGroup?.students.length ?? 0
+  const targetLabel = targetGroup ? groupLabel(targetGroup) : ''
   const multiGroup = studentsBySchoolClass.length > 1
 
   return (
@@ -60,23 +70,23 @@ export function AssignTaskBar({ studentsBySchoolClass, templates, onAssign }: As
 
       {multiGroup ? (
         <div className="assign-target-tabs" role="tablist" aria-label="分配对象">
-          {studentsBySchoolClass.map((g) => (
+          {studentsBySchoolClass.map((g, i) => (
             <button
-              key={g.schoolClassName}
+              key={g.schoolClassName ?? `__unassigned_${i}`}
               type="button"
               role="tab"
-              aria-selected={g.schoolClassName === target}
+              aria-selected={i === targetIndex}
               className="assign-target-tab"
-              onClick={() => selectTarget(g.schoolClassName)}
+              onClick={() => selectTarget(i)}
             >
-              {g.schoolClassName}（{g.students.length}人）
+              {groupLabel(g)}（{g.students.length}人）
             </button>
           ))}
         </div>
       ) : (
-        target && (
+        targetGroup && (
           <p className="assign-target-hint">
-            分配对象：{target}（{targetCount}人）
+            分配对象：{targetLabel}（{targetCount}人）
           </p>
         )
       )}
@@ -97,10 +107,10 @@ export function AssignTaskBar({ studentsBySchoolClass, templates, onAssign }: As
       <button
         type="button"
         onClick={handleAssign}
-        disabled={submitting || selected.size === 0 || !target}
+        disabled={submitting || selected.size === 0 || targetIndex === null}
         className="btn-primary"
       >
-        批量分配给{target ?? ''}（{selected.size}）
+        批量分配给{targetLabel}（{selected.size}）
       </button>
     </div>
   )

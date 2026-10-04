@@ -19,7 +19,11 @@ export function DeleteTeacherModal({
   onClose,
   submitting,
 }: DeleteTeacherModalProps) {
-  const [mode, setMode] = useState<'DELETE_ALL' | 'TRANSFER'>('DELETE_ALL')
+  // 默认选中更安全的"转移给其他老师"，避免误触直接选中"删除全部（不可恢复）"；
+  // 只有在没有其他老师可转移时才退回"删除全部"。
+  const [mode, setMode] = useState<'DELETE_ALL' | 'TRANSFER'>(
+    otherTeachers.length > 0 ? 'TRANSFER' : 'DELETE_ALL',
+  )
   const [targetTeacherId, setTargetTeacherId] = useState<string>('')
 
   useEffect(() => {
@@ -116,7 +120,7 @@ export function DeleteTeacherModal({
             <button type="button" className="btn-secondary" onClick={onClose} disabled={submitting}>
               取消
             </button>
-            <button type="button" className="btn-small" onClick={handleConfirm} disabled={confirmDisabled}>
+            <button type="button" className="btn-danger" onClick={handleConfirm} disabled={confirmDisabled}>
               确认删除
             </button>
           </div>

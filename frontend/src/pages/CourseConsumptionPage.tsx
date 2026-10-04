@@ -4,6 +4,7 @@ import * as classesApi from '../api/classes'
 import * as studentsApi from '../api/students'
 import { ApiError } from '../api/client'
 import { BrandMark } from '../brand/BrandMark'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 
 interface CourseConsumptionPageProps {
   onBack: () => void
@@ -37,6 +38,8 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
   const [rollCallSubmitting, setRollCallSubmitting] = useState(false)
   const [rollCallError, setRollCallError] = useState<string | null>(null)
   const [rollCallSuccess, setRollCallSuccess] = useState<string | null>(null)
+
+  const [confirmingUnenroll, setConfirmingUnenroll] = useState<courseApi.CourseRosterEntry | null>(null)
 
   useEffect(() => {
     loadCourses()
@@ -130,8 +133,9 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
     }
   }
 
-  async function handleUnenroll(studentId: number) {
-    if (activeCourseId === null) return
+  async function handleConfirmUnenroll() {
+    if (activeCourseId === null || !confirmingUnenroll) return
+    const studentId = confirmingUnenroll.studentId
     const previous = roster
     setRoster((prev) => prev.filter((r) => r.studentId !== studentId))
     setPresentStudentIds((prev) => {
@@ -139,6 +143,7 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
       next.delete(studentId)
       return next
     })
+    setConfirmingUnenroll(null)
     try {
       await courseApi.unenrollStudent(activeCourseId, studentId)
       courseApi.fetchOffCampusCandidates(activeCourseId).then(setOffCampusCandidates).catch(() => {})
@@ -263,7 +268,7 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
                     </label>
                     <button
                       type="button"
-                      onClick={() => handleUnenroll(entry.studentId)}
+                      onClick={() => setConfirmingUnenroll(entry)}
                       className="rounded border px-2 py-1 text-xs text-gray-600"
                     >
                       移出
@@ -391,6 +396,16 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
           </div>
         )}
       </main>
+
+      {confirmingUnenroll && (
+        <ConfirmDialog
+          title="移出花名册"
+          message={`确认将${confirmingUnenroll.name}从本课程花名册移出吗？移出后需要重新添加才能继续消课。`}
+          confirmLabel="确认移出"
+          onConfirm={handleConfirmUnenroll}
+          onCancel={() => setConfirmingUnenroll(null)}
+        />
+      )}
     </div>
   )
 }

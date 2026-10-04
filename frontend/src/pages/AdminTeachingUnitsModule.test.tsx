@@ -185,8 +185,24 @@ describe('AdminTeachingUnitsModule', () => {
     fireEvent.click(screen.getByRole('tab', { name: '课外课' }))
     await screen.findByText('书法课')
     fireEvent.click(screen.getByRole('button', { name: '停用书法课' }))
+    expect(unitApi.updateTeachingUnit).not.toHaveBeenCalled()
+    fireEvent.click(await screen.findByRole('button', { name: '确认停用' }))
 
     await waitFor(() => expect(unitApi.updateTeachingUnit).toHaveBeenCalledWith(20, { active: false }))
+  })
+
+  it('re-enables a unit immediately without asking for confirmation', async () => {
+    mockUnits([CLASS_ROOM], [{ ...COURSE, active: false }])
+    vi.mocked(unitApi.updateTeachingUnit).mockResolvedValue({ ...COURSE, active: true })
+    render(<AdminTeachingUnitsModule custodyEnabled offCampusEnabled />)
+    await screen.findByText('一班')
+
+    fireEvent.click(screen.getByRole('tab', { name: '课外课' }))
+    await screen.findByText('书法课')
+    fireEvent.click(screen.getByRole('button', { name: '启用书法课' }))
+
+    await waitFor(() => expect(unitApi.updateTeachingUnit).toHaveBeenCalledWith(20, { active: true }))
+    expect(screen.queryByRole('button', { name: '确认停用' })).not.toBeInTheDocument()
   })
 
   it('deletes a unit after confirming the impact dialog', async () => {
@@ -197,7 +213,7 @@ describe('AdminTeachingUnitsModule', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '删除一班' }))
     expect(await screen.findByText(/下有 3 名学生/)).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: '是' }))
+    fireEvent.click(screen.getByRole('button', { name: '确认删除' }))
 
     await waitFor(() => expect(unitApi.deleteTeachingUnit).toHaveBeenCalledWith(10))
   })

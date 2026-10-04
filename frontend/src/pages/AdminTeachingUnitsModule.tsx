@@ -3,6 +3,8 @@ import * as unitApi from '../api/unit'
 import * as adminApi from '../api/admin'
 import { ApiError } from '../api/client'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { Toast } from '../components/Toast'
+import { useToast } from '../hooks/useToast'
 
 interface AdminTeachingUnitsModuleProps {
   custodyEnabled: boolean
@@ -42,6 +44,8 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled }: A
   const [editError, setEditError] = useState<string | null>(null)
 
   const [togglingId, setTogglingId] = useState<number | null>(null)
+  const [confirmingDeactivate, setConfirmingDeactivate] = useState<unitApi.TeachingUnit | null>(null)
+  const { toastMessage, showToast } = useToast()
 
   const [deletingUnit, setDeletingUnit] = useState<unitApi.TeachingUnit | null>(null)
   const [deletionImpact, setDeletionImpact] = useState<unitApi.TeachingUnitDeletionImpact | null>(null)
@@ -163,15 +167,26 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled }: A
     }
   }
 
-  async function handleToggleActive(unit: unitApi.TeachingUnit) {
+  function handleToggleActive(unit: unitApi.TeachingUnit) {
+    // 停用会立刻影响教师端/家长端的可见性，需要确认；重新启用是安全的加法操作，直接生效。
+    if (unit.active) {
+      setConfirmingDeactivate(unit)
+    } else {
+      void applyToggleActive(unit)
+    }
+  }
+
+  async function applyToggleActive(unit: unitApi.TeachingUnit) {
     setTogglingId(unit.id)
     try {
       await unitApi.updateTeachingUnit(unit.id, { active: !unit.active })
       loadUnits(activeTab)
+      showToast(unit.active ? `已停用「${unit.name}」` : `已启用「${unit.name}」`)
     } catch {
       setLoadError('操作失败，请重试')
     } finally {
       setTogglingId(null)
+      setConfirmingDeactivate(null)
     }
   }
 
@@ -481,6 +496,7 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled }: A
                 ? `「${deletingUnit.name}」下有 ${deletionImpact.studentCount} 名学生，删除后相关记录将全部清空，且不可恢复，确认删除吗？`
                 : `确认删除「${deletingUnit.name}」吗？此操作不可恢复。`
           }
+          confirmLabel="确认删除"
           onConfirm={handleConfirmDelete}
           onCancel={() => {
             setDeletingUnit(null)
@@ -489,6 +505,19 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled }: A
           confirming={deleteSubmitting}
         />
       )}
+
+      {confirmingDeactivate && (
+        <ConfirmDialog
+          title={`停用${TAB_LABEL[confirmingDeactivate.billingMode]}`}
+          message={`停用「${confirmingDeactivate.name}」后，教师端与家长端将不再显示该${TAB_LABEL[confirmingDeactivate.billingMode]}的相关入口，已产生的记录不会被删除，可随时重新启用。确认停用吗？`}
+          confirmLabel="确认停用"
+          confirming={togglingId === confirmingDeactivate.id}
+          onConfirm={() => applyToggleActive(confirmingDeactivate)}
+          onCancel={() => setConfirmingDeactivate(null)}
+        />
+      )}
+
+      <Toast message={toastMessage} />
     </div>
   )
 }

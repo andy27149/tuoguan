@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import * as courseApi from '../api/course'
 import * as unitApi from '../api/unit'
 import { ApiError } from '../api/client'
+import { teacherLabel } from '../utils/teacherLabel'
 
 interface AdminCourseStatementModalProps {
   studentId: number
@@ -177,7 +178,7 @@ export function AdminCourseStatementModal({ studentId, studentName, onClose }: A
                     <li key={c.id} className="flex justify-between border-b border-[#ece7de] py-1">
                       <span>
                         {c.consumptionDate} · {c.courseName ?? `课程#${c.courseId}`}
-                        {c.teacherName && ` · ${c.teacherName}老师`}
+                        {c.teacherName && ` · ${teacherLabel(c.teacherName)}`}
                       </span>
                       <span className="font-medium text-[#241f3d]">-1 课时</span>
                     </li>

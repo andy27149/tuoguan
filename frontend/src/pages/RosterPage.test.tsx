@@ -12,6 +12,9 @@ const STUDENTS = [
   { id: 10, name: '小明', schoolClassName: '三年一班', enrolled: true, avatarUrl: null, enrolledCourseNames: [] },
   { id: 11, name: '小红', schoolClassName: '三年二班', enrolled: false, avatarUrl: null, enrolledCourseNames: ['书法课'] },
 ]
+const STUDENT_WITHOUT_SCHOOL_CLASS = [
+  { id: 12, name: '小刚', schoolClassName: null, enrolled: true, avatarUrl: null, enrolledCourseNames: [] },
+]
 
 describe('RosterPage', () => {
   beforeEach(() => {
@@ -67,15 +70,57 @@ describe('RosterPage', () => {
     )
   })
 
-  it('toggles enrolled status', async () => {
+  it('asks for confirmation before deactivating a student, and does nothing on cancel', async () => {
+    render(<RosterPage onBack={vi.fn()} />)
+    await screen.findByText(/小明/)
+
+    fireEvent.click(screen.getAllByRole('button', { name: '停用' })[0])
+    expect(await screen.findByText(/停用小明后/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+
+    expect(studentsApi.updateStudent).not.toHaveBeenCalled()
+  })
+
+  it('deactivates a student after confirming', async () => {
     vi.mocked(studentsApi.updateStudent).mockResolvedValue(undefined)
     render(<RosterPage onBack={vi.fn()} />)
     await screen.findByText(/小明/)
 
     fireEvent.click(screen.getAllByRole('button', { name: '停用' })[0])
+    fireEvent.click(await screen.findByRole('button', { name: '确认停用' }))
 
     await waitFor(() =>
       expect(studentsApi.updateStudent).toHaveBeenCalledWith(10, '小明', '三年一班', false),
+    )
+  })
+
+  it('re-enables a student immediately without a confirmation dialog', async () => {
+    vi.mocked(studentsApi.updateStudent).mockResolvedValue(undefined)
+    render(<RosterPage onBack={vi.fn()} />)
+    await screen.findByText(/小红/)
+
+    fireEvent.click(screen.getByRole('button', { name: '启用' }))
+
+    await waitFor(() =>
+      expect(studentsApi.updateStudent).toHaveBeenCalledWith(11, '小红', '三年二班', true),
+    )
+    expect(screen.queryByText(/确认停用吗/)).not.toBeInTheDocument()
+  })
+
+  it('edits a student with no school class filled in without crashing', async () => {
+    vi.mocked(studentsApi.fetchStudents).mockResolvedValue(STUDENT_WITHOUT_SCHOOL_CLASS)
+    vi.mocked(studentsApi.updateStudent).mockResolvedValue(undefined)
+    render(<RosterPage onBack={vi.fn()} />)
+    await screen.findByText(/小刚/)
+
+    fireEvent.click(screen.getByRole('button', { name: '编辑' }))
+    expect(screen.getByRole('button', { name: '保存' })).not.toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+
+    await waitFor(() =>
+      expect(studentsApi.updateStudent).toHaveBeenCalledWith(12, '小刚', null, true),
     )
   })
 

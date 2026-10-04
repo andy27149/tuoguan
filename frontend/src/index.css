@@ -721,9 +721,14 @@
     border: none;
     background: none;
     color: var(--ink-soft);
-    font-size: 16px;
+    font-size: 18px;
     line-height: 1;
-    padding: 2px 4px;
+    width: 44px;
+    height: 44px;
+    margin-left: 2px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     border-radius: 50%;
     flex-shrink: 0;
   }
@@ -809,6 +814,16 @@
     border-radius: var(--radius-pill);
   }
   .btn-small:disabled { background: rgba(0, 0, 0, 0.15); color: #fff; }
+  .btn-danger {
+    border: none;
+    background: #E0434B;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 6px 14px;
+    border-radius: var(--radius-pill);
+  }
+  .btn-danger:disabled { background: rgba(224, 67, 75, 0.35); color: #fff; cursor: not-allowed; }
   .btn-secondary {
     flex: 1;
     border: 1.5px solid rgba(0, 0, 0, 0.1);

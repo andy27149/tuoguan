@@ -67,9 +67,23 @@ describe('AdminPricingModule', () => {
     fireEvent.change(screen.getByLabelText('托管费（元/月）'), { target: { value: '400' } })
     fireEvent.change(screen.getByLabelText('餐费（元/天）'), { target: { value: '15' } })
     fireEvent.click(screen.getByRole('button', { name: '一键设置所有班级' }))
+    expect(billingApi.bulkSetClassBillingRate).not.toHaveBeenCalled()
+    fireEvent.click(await screen.findByRole('button', { name: '确认设置' }))
 
     await waitFor(() => expect(billingApi.bulkSetClassBillingRate).toHaveBeenCalledWith(400, 15))
     expect(await screen.findAllByText('¥400.00')).toHaveLength(2)
+  })
+
+  it('does nothing when the bulk-set confirmation is cancelled', async () => {
+    render(<AdminPricingModule custodyEnabled offCampusEnabled={false} />)
+    await screen.findByText('一班')
+
+    fireEvent.change(screen.getByLabelText('托管费（元/月）'), { target: { value: '400' } })
+    fireEvent.change(screen.getByLabelText('餐费（元/天）'), { target: { value: '15' } })
+    fireEvent.click(screen.getByRole('button', { name: '一键设置所有班级' }))
+    fireEvent.click(await screen.findByRole('button', { name: '取消' }))
+
+    expect(billingApi.bulkSetClassBillingRate).not.toHaveBeenCalled()
   })
 
   it('edits the billing rate for a single class', async () => {

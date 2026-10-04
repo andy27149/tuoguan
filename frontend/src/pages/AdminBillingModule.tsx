@@ -4,6 +4,9 @@ import * as billingApi from '../api/billing'
 import { currentMonthString } from '../kanban/date'
 import { FeeManagementModal } from '../components/FeeManagementModal'
 import { BillDetailModal } from '../components/BillDetailModal'
+import { ConfirmDialog } from '../components/ConfirmDialog'
+import { Toast } from '../components/Toast'
+import { useToast } from '../hooks/useToast'
 
 export function AdminBillingModule() {
   const [classes, setClasses] = useState<adminApi.AdminClassRoom[]>([])
@@ -31,6 +34,8 @@ export function AdminBillingModule() {
     className: string
   } | null>(null)
   const [billLoadError, setBillLoadError] = useState<string | null>(null)
+  const [confirmingPaidToggle, setConfirmingPaidToggle] = useState<billingApi.BillOverviewRow | null>(null)
+  const { toastMessage, showToast } = useToast()
 
   useEffect(() => {
     adminApi
@@ -54,12 +59,20 @@ export function AdminBillingModule() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month, selectedClassId, studentName])
 
-  async function handleTogglePaid(row: billingApi.BillOverviewRow) {
+  function handleTogglePaid(row: billingApi.BillOverviewRow) {
     if (row.billId === null) return
+    setConfirmingPaidToggle(row)
+  }
+
+  async function applyTogglePaid() {
+    const row = confirmingPaidToggle
+    if (!row || row.billId === null) return
     const nextPaid = !row.isPaid
     setRows((prev) => prev.map((r) => (r.billId === row.billId ? { ...r, isPaid: nextPaid } : r)))
+    setConfirmingPaidToggle(null)
     try {
       await billingApi.setBillPaid(row.billId, nextPaid)
+      showToast(nextPaid ? `已标记${row.studentName}的账单为已缴费` : `已标记${row.studentName}的账单为未缴费`)
     } catch {
       setRows((prev) => prev.map((r) => (r.billId === row.billId ? { ...r, isPaid: row.isPaid } : r)))
     }
@@ -225,6 +238,23 @@ export function AdminBillingModule() {
           onClose={() => setViewingBill(null)}
         />
       )}
+
+      {confirmingPaidToggle && (
+        <ConfirmDialog
+          title={confirmingPaidToggle.isPaid ? '标记为未缴费' : '标记为已缴费'}
+          message={
+            confirmingPaidToggle.isPaid
+              ? `确认将${confirmingPaidToggle.studentName}（${confirmingPaidToggle.yearMonth}）的账单标记为未缴费吗？`
+              : `确认将${confirmingPaidToggle.studentName}（${confirmingPaidToggle.yearMonth}）的账单标记为已缴费吗？`
+          }
+          confirmLabel="确认"
+          danger={false}
+          onConfirm={applyTogglePaid}
+          onCancel={() => setConfirmingPaidToggle(null)}
+        />
+      )}
+
+      <Toast message={toastMessage} />
     </div>
   )
 }

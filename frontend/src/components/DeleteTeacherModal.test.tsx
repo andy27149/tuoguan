@@ -113,7 +113,7 @@ describe('DeleteTeacherModal', () => {
     expect(onConfirm).toHaveBeenCalledWith('TRANSFER', 3)
   })
 
-  it('confirms DELETE_ALL when a student-having teacher keeps the default mode', () => {
+  it('defaults to the safer TRANSFER mode when other teachers exist, requiring a target before confirming', () => {
     const onConfirm = vi.fn()
     render(
       <DeleteTeacherModal
@@ -125,6 +125,28 @@ describe('DeleteTeacherModal', () => {
         submitting={false}
       />,
     )
+
+    expect(screen.getByLabelText(/转移给其他老师/)).toBeChecked()
+    expect(screen.getByRole('button', { name: '确认删除' })).toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: '确认删除' }))
+    expect(onConfirm).not.toHaveBeenCalled()
+  })
+
+  it('falls back to DELETE_ALL as the default when there are no other teachers to transfer to', () => {
+    const onConfirm = vi.fn()
+    render(
+      <DeleteTeacherModal
+        teacherName="王老师"
+        impact={{ classCount: 1, studentCount: 3, templateCount: 2, hasStudents: true }}
+        otherTeachers={[]}
+        onConfirm={onConfirm}
+        onClose={vi.fn()}
+        submitting={false}
+      />,
+    )
+
+    expect(screen.getByLabelText(/删除全部/)).toBeChecked()
 
     fireEvent.click(screen.getByRole('button', { name: '确认删除' }))
 
