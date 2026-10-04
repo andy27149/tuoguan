@@ -68,6 +68,13 @@ public class JdbcMonthlyBillDao implements MonthlyBillDao {
     }
 
     @Override
+    public List<MonthlyBill> findAllByStudentId(Long studentId) {
+        return jdbcTemplate.query(
+                SELECT_COLUMNS + " WHERE student_id = ? ORDER BY bill_month DESC",
+                ROW_MAPPER, studentId);
+    }
+
+    @Override
     public Long upsert(Long institutionId, Long studentId, Long teachingUnitId, YearMonth yearMonth,
                         int totalWeekdays, int leaveDays, int attendanceDays, BigDecimal tuitionAmount,
                         BigDecimal mealAmount, BigDecimal extraFeeTotal, BigDecimal totalAmount) {

@@ -7,7 +7,8 @@ import { ApiError } from '../api/client'
 interface FeeManagementModalProps {
   studentId: number
   studentName: string
-  classRoomId: number
+  // null：纯课外课学生，没有托管班——跳过托管费单价查询和输入框，只处理课外课消课账单。
+  classRoomId: number | null
   className: string
   month: string
   onClose: () => void
@@ -41,10 +42,14 @@ export function FeeManagementModal({
   const [saveError, setSaveError] = useState<string | null>(null)
 
   useEffect(() => {
-    billingApi
-      .fetchClassBillingRate(classRoomId)
-      .then((rate) => setTuitionInput(rate ? String(rate.tuitionRatePerMonth) : ''))
-      .finally(() => setLoadingRate(false))
+    if (classRoomId === null) {
+      setLoadingRate(false)
+    } else {
+      billingApi
+        .fetchClassBillingRate(classRoomId)
+        .then((rate) => setTuitionInput(rate ? String(rate.tuitionRatePerMonth) : ''))
+        .finally(() => setLoadingRate(false))
+    }
     billingApi
       .fetchStudentLeaveRecords(studentId, month)
       .then(setLeaveRecords)
@@ -79,10 +84,13 @@ export function FeeManagementModal({
   }
 
   async function handleSave() {
-    const tuition = Number(tuitionInput)
-    if (!Number.isFinite(tuition) || tuition < 0) {
-      setSaveError('请输入有效的托管费金额')
-      return
+    let tuition: number | undefined
+    if (classRoomId !== null) {
+      tuition = Number(tuitionInput)
+      if (!Number.isFinite(tuition) || tuition < 0) {
+        setSaveError('请输入有效的托管费金额')
+        return
+      }
     }
     setSaving(true)
     setSaveError(null)
@@ -119,23 +127,25 @@ export function FeeManagementModal({
         </div>
 
         <div className="space-y-4 p-4">
-          <section>
-            <h3 className="text-sm font-semibold text-[#241f3d]">本月托管费金额</h3>
-            {loadingRate ? (
-              <p className="mt-1 text-xs text-[#7c7391]">加载中...</p>
-            ) : (
-              <div className="mt-2 flex items-center gap-2 text-sm">
-                <span>¥</span>
-                <input
-                  aria-label="本月托管费金额"
-                  value={tuitionInput}
-                  onChange={(e) => setTuitionInput(e.target.value)}
-                  className="w-24 rounded-lg border border-[#ece7de] px-2 py-1 text-sm"
-                />
-                <span className="text-xs text-[#7c7391]">默认取班级托管费单价，仅本月生效</span>
-              </div>
-            )}
-          </section>
+          {classRoomId !== null && (
+            <section>
+              <h3 className="text-sm font-semibold text-[#241f3d]">本月托管费金额</h3>
+              {loadingRate ? (
+                <p className="mt-1 text-xs text-[#7c7391]">加载中...</p>
+              ) : (
+                <div className="mt-2 flex items-center gap-2 text-sm">
+                  <span>¥</span>
+                  <input
+                    aria-label="本月托管费金额"
+                    value={tuitionInput}
+                    onChange={(e) => setTuitionInput(e.target.value)}
+                    className="w-24 rounded-lg border border-[#ece7de] px-2 py-1 text-sm"
+                  />
+                  <span className="text-xs text-[#7c7391]">默认取班级托管费单价，仅本月生效</span>
+                </div>
+              )}
+            </section>
+          )}
 
           <section>
             <h3 className="text-sm font-semibold text-[#241f3d]">请假管理</h3>
@@ -196,6 +206,9 @@ export function FeeManagementModal({
 
           <section>
             <h3 className="text-sm font-semibold text-[#241f3d]">课外课消课（本月，只读）</h3>
+            <p className="mt-1 text-xs text-[#7c7391]">
+              已用预充值余额抵扣的消课不会重复计入账单，只有余额覆盖不了的部分才会收费。
+            </p>
             {loadingCourseConsumption ? (
               <p className="mt-1 text-xs text-[#7c7391]">加载中...</p>
             ) : (
@@ -204,8 +217,8 @@ export function FeeManagementModal({
                   <tr className="text-[#7c7391]">
                     <th className="py-1 font-normal">课程名称</th>
                     <th className="py-1 font-normal">当前单价</th>
-                    <th className="py-1 font-normal">本月消课数</th>
-                    <th className="py-1 font-normal">金额</th>
+                    <th className="py-1 font-normal">本月消课</th>
+                    <th className="py-1 font-normal">金额（需入账单）</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -215,7 +228,12 @@ export function FeeManagementModal({
                       <td className="py-1.5">
                         {row.pricePerLesson !== null ? `¥${row.pricePerLesson.toFixed(2)}` : '未配置'}
                       </td>
-                      <td className="py-1.5">{row.lessonCount}</td>
+                      <td className="py-1.5">
+                        {row.lessonCount + row.coveredByBalanceCount} 次
+                        {row.coveredByBalanceCount > 0 && (
+                          <span className="text-[#7c7391]">（其中 {row.coveredByBalanceCount} 次已用预充值抵扣）</span>
+                        )}
+                      </td>
                       <td className="py-1.5">¥{row.amount.toFixed(2)}</td>
                     </tr>
                   ))}

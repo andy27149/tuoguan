@@ -26,6 +26,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -274,6 +275,71 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.tuitionAmount").value(0.00))
                 .andExpect(jsonPath("$.mealAmount").value(0.00))
                 .andExpect(jsonPath("$.totalAmount").value(0.00));
+    }
+
+    @Test
+    void pureOffCampusStudentBillOnlyChargesConsumptionNotCoveredByPrepaidBalance() throws Exception {
+        Long institutionId = institutionDao.insert("账单测试机构L");
+        teacherDao.insert(new Teacher(null, institutionId, "13900013021",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900013022",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, null, "学生子", null, true, null, null));
+        String adminToken = login("13900013021", "admin-password");
+        String teacherToken = login("13900013022", "teacher-password");
+
+        MvcResult courseResult = mockMvc.perform(post("/api/admin/teaching-units")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"billingMode\":\"LESSON_COUNT\",\"name\":\"围棋课\",\"lessonDurationMinutes\":60,\"teacherId\":" + teacherId + "}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        Long courseId = objectMapper.readTree(courseResult.getResponse().getContentAsString()).get("id").asLong();
+        mockMvc.perform(patch("/api/admin/teaching-units/" + courseId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"pricePerLesson\":50.00}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/courses/" + courseId + "/enrollments")
+                        .header("Authorization", "Bearer " + teacherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"studentId\":" + studentId + "}"))
+                .andExpect(status().isCreated());
+
+        // 先充 2 课时，再消 4 次课：前 2 次被预充值覆盖，后 2 次需要计入账单。充值的
+        // created_at 由数据库在"现在"自动生成，消课日期必须晚于"现在"才能被这笔充值覆盖
+        // （充值没法倒追回去覆盖发生在它之前的消课），因此这里用安全的未来月份而不是常见
+        // 测试惯用的 2024-01——那会落在充值之前，导致 4 次消课全部判定为未覆盖。
+        mockMvc.perform(post("/api/admin/students/" + studentId + "/recharges")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"courseId\":" + courseId + ",\"lessonCount\":2}"))
+                .andExpect(status().isCreated());
+        for (String date : List.of("2030-01-02", "2030-01-03", "2030-01-04", "2030-01-05")) {
+            mockMvc.perform(post("/api/courses/" + courseId + "/consumption")
+                            .header("Authorization", "Bearer " + teacherToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"studentId\":" + studentId + ",\"date\":\"" + date + "\",\"confirm\":false}"))
+                    .andExpect(status().isCreated());
+        }
+
+        mockMvc.perform(get("/api/admin/students/" + studentId + "/course-consumption?month=2030-01")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].lessonCount").value(2))
+                .andExpect(jsonPath("$[0].coveredByBalanceCount").value(2))
+                .andExpect(jsonPath("$[0].amount").value(100.00));
+
+        mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=2030-01")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tuitionAmount").value(0.00))
+                .andExpect(jsonPath("$.mealAmount").value(0.00))
+                .andExpect(jsonPath("$.extraFeeTotal").value(100.00))
+                .andExpect(jsonPath("$.totalAmount").value(100.00))
+                .andExpect(jsonPath("$.extraFeeLines.length()").value(1))
+                .andExpect(jsonPath("$.extraFeeLines[0].lessonCount").value(2))
+                .andExpect(jsonPath("$.extraFeeLines[0].amount").value(100.00));
     }
 
     @Test

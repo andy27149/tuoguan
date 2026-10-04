@@ -139,6 +139,34 @@ class AdminBillOverviewControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void generatedBillForPureOffCampusStudentShowsUpInOverviewWithAndWithoutMonthFilter() throws Exception {
+        // 回归测试：此前 getBillOverview/getBillOverviewAllMonths 按 teaching_unit_id 遍历
+        // 教学单元再反查账单，纯课外课学生的账单 teaching_unit_id 是 NULL，永远查不到——
+        // 账单明明已经生成，总览列表却一直显示"未生成"。
+        Long institutionId = institutionDao.insert("账单总览测试机构M");
+        teacherDao.insert(new Teacher(null, institutionId, "13900014020",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, null, "纯课外学生", null, true, null, null));
+        String adminToken = login("13900014020", "admin-password");
+
+        mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=2024-01")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/admin/bills?month=2024-01")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.studentId == " + studentId + ")].billId").value(
+                        org.hamcrest.Matchers.contains(org.hamcrest.Matchers.notNullValue())));
+
+        mockMvc.perform(get("/api/admin/bills")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.studentId == " + studentId + ")].billId").value(
+                        org.hamcrest.Matchers.contains(org.hamcrest.Matchers.notNullValue())));
+    }
+
+    @Test
     void getBillForNonExistentIdReturnsNotFound() throws Exception {
         Long institutionId = institutionDao.insert("账单详情测试机构B");
         teacherDao.insert(new Teacher(null, institutionId, "13900014003",

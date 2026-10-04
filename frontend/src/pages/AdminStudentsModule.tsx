@@ -3,6 +3,8 @@ import * as courseApi from '../api/course'
 import * as unitApi from '../api/unit'
 import { ApiError } from '../api/client'
 import { AdminCourseStatementModal } from '../components/AdminCourseStatementModal'
+import { FeeManagementModal } from '../components/FeeManagementModal'
+import { currentMonthString } from '../kanban/date'
 
 export function AdminStudentsModule() {
   const [students, setStudents] = useState<courseApi.AdminStudent[]>([])
@@ -18,6 +20,7 @@ export function AdminStudentsModule() {
   const [createError, setCreateError] = useState<string | null>(null)
 
   const [statementStudent, setStatementStudent] = useState<{ id: number; name: string } | null>(null)
+  const [managingStudent, setManagingStudent] = useState<{ id: number; name: string } | null>(null)
 
   function loadStudents() {
     setLoading(true)
@@ -175,13 +178,22 @@ export function AdminStudentsModule() {
                   </td>
                   <td className="px-4 py-3">
                     {student.offCampusOnly && (
-                      <button
-                        type="button"
-                        onClick={() => setStatementStudent({ id: student.id, name: student.name })}
-                        className="rounded-full border border-[#ece7de] px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]"
-                      >
-                        对账单/充值
-                      </button>
+                      <span className="flex flex-wrap gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setStatementStudent({ id: student.id, name: student.name })}
+                          className="rounded-full border border-[#ece7de] px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]"
+                        >
+                          对账单/充值
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setManagingStudent({ id: student.id, name: student.name })}
+                          className="rounded-full border border-[#ece7de] px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]"
+                        >
+                          费用管理
+                        </button>
+                      </span>
                     )}
                   </td>
                 </tr>
@@ -203,6 +215,18 @@ export function AdminStudentsModule() {
           studentId={statementStudent.id}
           studentName={statementStudent.name}
           onClose={() => setStatementStudent(null)}
+        />
+      )}
+
+      {managingStudent && (
+        <FeeManagementModal
+          studentId={managingStudent.id}
+          studentName={managingStudent.name}
+          classRoomId={null}
+          className="—"
+          month={currentMonthString()}
+          onClose={() => setManagingStudent(null)}
+          onSaved={() => setManagingStudent(null)}
         />
       )}
     </div>

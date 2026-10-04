@@ -14,8 +14,8 @@ import com.tuoguan.backend.billing.dao.StudentLeaveRecordDao;
 import com.tuoguan.backend.billing.domain.ClassBillingRate;
 import com.tuoguan.backend.billing.domain.MonthlyBill;
 import com.tuoguan.backend.billing.domain.StudentLeaveRecord;
-import com.tuoguan.backend.course.dao.CourseConsumptionRecordDao;
-import com.tuoguan.backend.course.domain.CourseConsumptionRecord;
+import com.tuoguan.backend.course.service.CourseAccountService;
+import com.tuoguan.backend.course.web.ConsumptionCoverage;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.roster.web.NotFoundException;
@@ -39,7 +39,7 @@ import java.util.stream.Collectors;
 public class BillGenerationService {
 
     private final ClassBillingRateDao classBillingRateDao;
-    private final CourseConsumptionRecordDao courseConsumptionRecordDao;
+    private final CourseAccountService courseAccountService;
     private final StudentLeaveRecordDao studentLeaveRecordDao;
     private final MonthlyBillDao monthlyBillDao;
     private final MonthlyBillExtraFeeLineDao monthlyBillExtraFeeLineDao;
@@ -48,12 +48,12 @@ public class BillGenerationService {
     private final TeacherDao teacherDao;
 
     public BillGenerationService(ClassBillingRateDao classBillingRateDao,
-                                  CourseConsumptionRecordDao courseConsumptionRecordDao,
+                                  CourseAccountService courseAccountService,
                                   StudentLeaveRecordDao studentLeaveRecordDao, MonthlyBillDao monthlyBillDao,
                                   MonthlyBillExtraFeeLineDao monthlyBillExtraFeeLineDao, StudentDao studentDao,
                                   TeachingUnitDao teachingUnitDao, TeacherDao teacherDao) {
         this.classBillingRateDao = classBillingRateDao;
-        this.courseConsumptionRecordDao = courseConsumptionRecordDao;
+        this.courseAccountService = courseAccountService;
         this.studentLeaveRecordDao = studentLeaveRecordDao;
         this.monthlyBillDao = monthlyBillDao;
         this.monthlyBillExtraFeeLineDao = monthlyBillExtraFeeLineDao;
@@ -99,19 +99,29 @@ public class BillGenerationService {
         return computeCourseConsumptionRows(studentId, month);
     }
 
+    // 产品诊断 #02 统一方案：消课是否计费取决于当时是否被预充值余额覆盖，不再是
+    // "只要发生过消课就全额计入账单"。覆盖判定的唯一权威来源是
+    // CourseAccountService.classifyConsumptions——它对任何学生都适用，有托管班的学生
+    // 从不充值所以天然恒为未覆盖，和改造前的行为完全一致，这里不需要再区分学生类型。
     private List<CourseConsumptionSummaryRow> computeCourseConsumptionRows(Long studentId, YearMonth month) {
-        List<CourseConsumptionRecord> records = courseConsumptionRecordDao
-                .findAllByStudentIdAndDateRange(studentId, month.atDay(1), month.atEndOfMonth());
-        Map<Long, List<CourseConsumptionRecord>> byCourse = records.stream()
-                .collect(Collectors.groupingBy(CourseConsumptionRecord::teachingUnitId));
+        LocalDate start = month.atDay(1);
+        LocalDate end = month.atEndOfMonth();
+        List<ConsumptionCoverage> coverageThisMonth = courseAccountService.classifyConsumptions(studentId).stream()
+                .filter(c -> !c.record().consumptionDate().isBefore(start) && !c.record().consumptionDate().isAfter(end))
+                .toList();
+        Map<Long, List<ConsumptionCoverage>> byCourse = coverageThisMonth.stream()
+                .collect(Collectors.groupingBy(c -> c.record().teachingUnitId()));
+
         List<CourseConsumptionSummaryRow> rows = new ArrayList<>();
-        for (Map.Entry<Long, List<CourseConsumptionRecord>> entry : byCourse.entrySet()) {
-            List<CourseConsumptionRecord> courseRecords = entry.getValue();
+        for (Map.Entry<Long, List<ConsumptionCoverage>> entry : byCourse.entrySet()) {
+            List<ConsumptionCoverage> courseCoverage = entry.getValue();
             TeachingUnit unit = teachingUnitDao.findById(entry.getKey()).orElse(null);
-            BigDecimal amount = courseRecords.stream().map(CourseConsumptionRecord::priceSnapshot)
+            List<ConsumptionCoverage> billable = courseCoverage.stream().filter(c -> !c.coveredByBalance()).toList();
+            int coveredByBalanceCount = courseCoverage.size() - billable.size();
+            BigDecimal amount = billable.stream().map(c -> c.record().priceSnapshot())
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             rows.add(new CourseConsumptionSummaryRow(entry.getKey(), unit != null ? unit.name() : "-",
-                    unit != null ? unit.pricePerLesson() : null, courseRecords.size(), amount));
+                    unit != null ? unit.pricePerLesson() : null, billable.size(), amount, coveredByBalanceCount));
         }
         return rows;
     }
@@ -174,8 +184,12 @@ public class BillGenerationService {
         Long billId = monthlyBillDao.upsert(institutionId, studentId, teachingUnitId, month, totalWeekdays,
                 leaveDays, attendanceDays, tuitionAmount, mealAmount, extraFeeTotal, totalAmount);
         monthlyBillExtraFeeLineDao.deleteAllByBillId(billId);
-        extraFeeRows.forEach(row -> monthlyBillExtraFeeLineDao.insert(billId, row.courseName(), row.pricePerLesson(),
-                row.lessonCount(), row.amount()));
+        // 本月消课全部被预充值覆盖的课程（lessonCount=0）不生成账单明细行——那是「费用管理」
+        // 弹窗才需要展示的透明度信息，不是真实欠费，出现在账单明细里反而容易让人误解。
+        extraFeeRows.stream()
+                .filter(row -> row.lessonCount() > 0)
+                .forEach(row -> monthlyBillExtraFeeLineDao.insert(billId, row.courseName(), row.pricePerLesson(),
+                        row.lessonCount(), row.amount()));
 
         return monthlyBillDao.findById(billId)
                 .map(this::enrich)
@@ -223,12 +237,6 @@ public class BillGenerationService {
 
         Map<Long, TeachingUnit> unitsById = teachingUnitDao.findAllByInstitutionId(institutionId).stream()
                 .collect(Collectors.toMap(TeachingUnit::id, u -> u));
-        Map<Long, MonthlyBill> billsByStudentId = new java.util.HashMap<>();
-        for (TeachingUnit unit : unitsById.values()) {
-            for (MonthlyBill bill : monthlyBillDao.findAllByTeachingUnitIdAndYearMonth(unit.id(), month)) {
-                billsByStudentId.put(bill.studentId(), bill);
-            }
-        }
 
         List<BillOverviewRow> rows = new ArrayList<>();
         for (Student student : studentDao.findAllByInstitutionId(institutionId)) {
@@ -241,7 +249,10 @@ public class BillGenerationService {
             TeachingUnit unit = student.teachingUnitId() != null ? unitsById.get(student.teachingUnitId()) : null;
             String teacherName = unit != null
                     ? teacherDao.findById(unit.teacherId()).map(Teacher::name).orElse("-") : "-";
-            MonthlyBill bill = billsByStudentId.get(student.id());
+            // 账单按 student_id 直接查（而不是按 teaching_unit_id 遍历再反查），纯课外课
+            // 学生的账单 teaching_unit_id 是 NULL，按单元遍历永远查不到——曾经导致这类学生
+            // 明明已经生成了账单，账单管理总览却一直显示"未生成"。
+            MonthlyBill bill = monthlyBillDao.findByStudentIdAndYearMonth(student.id(), month).orElse(null);
             rows.add(new BillOverviewRow(student.id(), student.name(), unit != null ? unit.id() : null,
                     unit != null ? unit.name() : "—", teacherName, bill != null ? bill.id() : null,
                     bill != null ? bill.totalAmount() : null, bill != null && bill.isPaid(), month.toString()));
@@ -277,12 +288,6 @@ public class BillGenerationService {
 
         Map<Long, TeachingUnit> unitsById = teachingUnitDao.findAllByInstitutionId(institutionId).stream()
                 .collect(Collectors.toMap(TeachingUnit::id, u -> u));
-        Map<Long, List<MonthlyBill>> billsByStudentId = new java.util.HashMap<>();
-        for (TeachingUnit unit : unitsById.values()) {
-            for (MonthlyBill bill : monthlyBillDao.findAllByTeachingUnitId(unit.id())) {
-                billsByStudentId.computeIfAbsent(bill.studentId(), k -> new ArrayList<>()).add(bill);
-            }
-        }
 
         List<BillOverviewRow> rows = new ArrayList<>();
         for (Student student : studentDao.findAllByInstitutionId(institutionId)) {
@@ -295,7 +300,9 @@ public class BillGenerationService {
             TeachingUnit unit = student.teachingUnitId() != null ? unitsById.get(student.teachingUnitId()) : null;
             String teacherName = unit != null
                     ? teacherDao.findById(unit.teacherId()).map(Teacher::name).orElse("-") : "-";
-            List<MonthlyBill> bills = billsByStudentId.get(student.id());
+            // 同上：按 student_id 直接查全部账单，不按 teaching_unit_id 遍历——纯课外课
+            // 学生的账单 teaching_unit_id 是 NULL。
+            List<MonthlyBill> bills = monthlyBillDao.findAllByStudentId(student.id());
             if (bills == null || bills.isEmpty()) {
                 rows.add(new BillOverviewRow(student.id(), student.name(), unit != null ? unit.id() : null,
                         unit != null ? unit.name() : "—", teacherName, null, null, false, "-"));

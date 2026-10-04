@@ -17,6 +17,8 @@ public interface MonthlyBillDao {
 
     List<MonthlyBill> findAllByTeachingUnitId(Long teachingUnitId);
 
+    List<MonthlyBill> findAllByStudentId(Long studentId);
+
     Long upsert(Long institutionId, Long studentId, Long teachingUnitId, YearMonth yearMonth, int totalWeekdays,
                 int leaveDays, int attendanceDays, BigDecimal tuitionAmount, BigDecimal mealAmount,
                 BigDecimal extraFeeTotal, BigDecimal totalAmount);

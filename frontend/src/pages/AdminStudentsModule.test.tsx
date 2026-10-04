@@ -3,9 +3,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { AdminStudentsModule } from './AdminStudentsModule'
 import * as courseApi from '../api/course'
 import * as unitApi from '../api/unit'
+import * as billingApi from '../api/billing'
 
 vi.mock('../api/course')
 vi.mock('../api/unit')
+vi.mock('../api/billing')
 
 const STUDENTS: courseApi.AdminStudent[] = [
   {
@@ -52,6 +54,8 @@ describe('AdminStudentsModule', () => {
       consumptions: [],
     })
     vi.mocked(unitApi.fetchTeachingUnits).mockResolvedValue(CLASS_ROOMS)
+    vi.mocked(courseApi.fetchStudentCourseConsumption).mockResolvedValue([])
+    vi.mocked(billingApi.fetchStudentLeaveRecords).mockResolvedValue([])
   })
 
   it('lists students read-only with 托管/课外 badges', async () => {
@@ -73,7 +77,7 @@ describe('AdminStudentsModule', () => {
     expect(rowFor小红?.textContent).toContain('—')
   })
 
-  it('only shows the 对账单/充值 action for pure off-campus students', async () => {
+  it('only shows the 对账单/充值 and 费用管理 actions for pure off-campus students', async () => {
     render(<AdminStudentsModule />)
     await screen.findByText('小明')
 
@@ -82,7 +86,7 @@ describe('AdminStudentsModule', () => {
     const rowFor小红 = rows.find((r) => r.textContent?.includes('小红'))
 
     expect(rowFor小明 && Array.from(rowFor小明.querySelectorAll('button'))).toHaveLength(0)
-    expect(rowFor小红 && Array.from(rowFor小红.querySelectorAll('button'))).toHaveLength(1)
+    expect(rowFor小红 && Array.from(rowFor小红.querySelectorAll('button'))).toHaveLength(2)
   })
 
   it('opens the course statement modal with the correct student when clicked', async () => {
@@ -93,6 +97,18 @@ describe('AdminStudentsModule', () => {
 
     expect(await screen.findByText('课外账户对账单 - 小红')).toBeInTheDocument()
     await waitFor(() => expect(courseApi.fetchStudentCourseStatement).toHaveBeenCalledWith(2))
+  })
+
+  it('opens the fee management modal (no class, no tuition section) for a pure off-campus student', async () => {
+    render(<AdminStudentsModule />)
+    await screen.findByText('小红')
+
+    fireEvent.click(screen.getByRole('button', { name: '费用管理' }))
+
+    expect(await screen.findByText(/费用管理 - 小红/)).toBeInTheDocument()
+    expect(screen.queryByLabelText('本月托管费金额')).not.toBeInTheDocument()
+    expect(billingApi.fetchClassBillingRate).not.toHaveBeenCalled()
+    expect(courseApi.fetchStudentCourseConsumption).toHaveBeenCalledWith(2, expect.any(String))
   })
 
   it('shows an empty state when there are no students', async () => {

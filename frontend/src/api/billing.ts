@@ -56,7 +56,8 @@ export interface MonthlyBill {
 export interface BillOverviewRow {
   studentId: number
   studentName: string
-  classRoomId: number
+  // null：纯课外课学生，没有托管班。
+  classRoomId: number | null
   className: string
   teacherName: string
   billId: number | null

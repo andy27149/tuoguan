@@ -73,8 +73,11 @@ export interface CourseConsumptionSummaryRow {
   courseId: number
   courseName: string
   pricePerLesson: number | null
+  // lessonCount/amount 只统计「未被预充值覆盖、需要计入账单」的消课。
   lessonCount: number
   amount: number
+  // 同月里已经被预充值余额覆盖、不需要再收费的消课次数（仅展示用，不计入 amount）。
+  coveredByBalanceCount: number
 }
 
 // 教师端

@@ -20,7 +20,7 @@ export function AdminBillingModule() {
   const [managingStudent, setManagingStudent] = useState<{
     studentId: number
     studentName: string
-    classRoomId: number
+    classRoomId: number | null
     className: string
     month: string
   } | null>(null)

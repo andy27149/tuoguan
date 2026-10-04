@@ -36,18 +36,19 @@ const COURSE_CONSUMPTION: courseApi.CourseConsumptionSummaryRow[] = [
     pricePerLesson: 50,
     lessonCount: 4,
     amount: 200,
+    coveredByBalanceCount: 0,
   },
 ]
 
-function setup() {
+function setup(classRoomId: number | null = 20) {
   const onClose = vi.fn()
   const onSaved = vi.fn()
   render(
     <FeeManagementModal
       studentId={100}
       studentName="小明"
-      classRoomId={20}
-      className="一班"
+      classRoomId={classRoomId}
+      className={classRoomId === null ? '—' : '一班'}
       month="2026-09"
       onClose={onClose}
       onSaved={onSaved}
@@ -134,18 +135,51 @@ describe('FeeManagementModal', () => {
 
     expect(await screen.findByText('数学课')).toBeInTheDocument()
     expect(screen.getByText('¥50.00')).toBeInTheDocument()
-    expect(screen.getByText('4')).toBeInTheDocument()
+    expect(screen.getByText('4 次')).toBeInTheDocument()
     expect(screen.getByText('¥200.00')).toBeInTheDocument()
   })
 
   it('shows an unconfigured-price placeholder when a course has no price set', async () => {
     vi.mocked(courseApi.fetchStudentCourseConsumption).mockResolvedValue([
-      { courseId: 2, courseName: '未定价课', pricePerLesson: null, lessonCount: 2, amount: 0 },
+      { courseId: 2, courseName: '未定价课', pricePerLesson: null, lessonCount: 2, amount: 0, coveredByBalanceCount: 0 },
     ])
     setup()
 
     expect(await screen.findByText('未定价课')).toBeInTheDocument()
     expect(screen.getByText('未配置')).toBeInTheDocument()
+  })
+
+  it('shows the coverage breakdown when some consumption was covered by prepaid balance', async () => {
+    vi.mocked(courseApi.fetchStudentCourseConsumption).mockResolvedValue([
+      { courseId: 1, courseName: '围棋课', pricePerLesson: 50, lessonCount: 1, amount: 50, coveredByBalanceCount: 2 },
+    ])
+    setup(null)
+
+    expect(await screen.findByText('围棋课')).toBeInTheDocument()
+    expect(screen.getByText('3 次')).toBeInTheDocument()
+    expect(screen.getByText('（其中 2 次已用预充值抵扣）')).toBeInTheDocument()
+    // 单价和应收金额在这组测试数据里恰好都是 ¥50.00（1 次未覆盖 × 单价 50），两格都应渲染。
+    expect(screen.getAllByText('¥50.00')).toHaveLength(2)
+  })
+
+  it('does not show the tuition section or query the class billing rate for a pure off-campus student', async () => {
+    setup(null)
+    await screen.findByText('数学课')
+
+    expect(screen.queryByLabelText('本月托管费金额')).not.toBeInTheDocument()
+    expect(screen.queryByText('本月托管费金额')).not.toBeInTheDocument()
+    expect(billingApi.fetchClassBillingRate).not.toHaveBeenCalled()
+  })
+
+  it('generates the bill for a pure off-campus student without a tuition override', async () => {
+    vi.mocked(billingApi.generateStudentBill).mockResolvedValue({} as billingApi.MonthlyBill)
+    const { onSaved } = setup(null)
+    await screen.findByText('数学课')
+
+    fireEvent.click(screen.getByRole('button', { name: '保存并生成账单' }))
+
+    await waitFor(() => expect(billingApi.generateStudentBill).toHaveBeenCalledWith(100, '2026-09', undefined))
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
   })
 
   it('shows an empty-state message when there is no course consumption this month', async () => {
