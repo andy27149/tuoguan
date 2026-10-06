@@ -110,7 +110,7 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
       await refreshRoster()
       setPickStudentId(null)
     } catch (err) {
-      setEnrollError(err instanceof ApiError && err.status === 409 ? '该学生已在花名册中' : '添加失败，请重试')
+      setEnrollError(err instanceof ApiError && err.status === 409 ? '该学生已在花名册中！' : '添加失败，请重试')
     } finally {
       setEnrolling(false)
     }
@@ -126,7 +126,7 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
       setPickOffCampusStudentId(null)
     } catch (err) {
       setEnrollOffCampusError(
-        err instanceof ApiError && err.status === 409 ? '该学生已在花名册中' : '添加失败，请重试',
+        err instanceof ApiError && err.status === 409 ? '该学生已在花名册中！' : '添加失败，请重试',
       )
     } finally {
       setEnrollingOffCampus(false)

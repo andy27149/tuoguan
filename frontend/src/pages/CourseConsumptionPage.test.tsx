@@ -86,6 +86,23 @@ describe('CourseConsumptionPage', () => {
     await waitFor(() => expect(courseApi.enrollExistingStudent).toHaveBeenCalledWith(1, 300))
   })
 
+  it('shows a friendly error when enrolling a student who is already on the roster', async () => {
+    vi.mocked(classesApi.fetchClasses).mockResolvedValue([{ id: 5, name: '一班', teacherId: 1 } as classesApi.ClassRoom])
+    vi.mocked(studentsApi.fetchStudents).mockResolvedValue([
+      { id: 100, name: '小明' } as studentsApi.Student,
+    ])
+    vi.mocked(courseApi.enrollExistingStudent).mockRejectedValue(new ApiError(409, 'already enrolled'))
+    setup()
+    await screen.findByText('小明')
+
+    fireEvent.change(screen.getByText('选择班级').closest('select')!, { target: { value: '5' } })
+    await waitFor(() => expect(studentsApi.fetchStudents).toHaveBeenCalledWith(5))
+    fireEvent.change(screen.getAllByText('选择学生')[0].closest('select')!, { target: { value: '100' } })
+    fireEvent.click(screen.getAllByRole('button', { name: '添加到花名册' })[0])
+
+    expect(await screen.findByText('该学生已在花名册中！')).toBeInTheDocument()
+  })
+
   it('shows off-campus candidates and enrolls one into the roster', async () => {
     vi.mocked(courseApi.fetchOffCampusCandidates).mockResolvedValue([
       { studentId: 400, name: '小芳', schoolClassName: '四年级二班' },

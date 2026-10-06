@@ -109,6 +109,63 @@ class CourseEnrollmentControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void enrollingAnAlreadyEnrolledStudentReturnsConflict() throws Exception {
+        Long institutionId = institutionDao.insert("报名控制器测试机构B2");
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900031030",
+                passwordEncoder.encode("password"), Role.TEACHER, false, null));
+        Long courseId = courseDao.insert(new TeachingUnit(null, institutionId, teacherId, "英语课", BillingMode.LESSON_COUNT, 45, null, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, null, "小托", null, true, null, null));
+        String token = login("13900031030", "password");
+
+        mockMvc.perform(post("/api/courses/" + courseId + "/enrollments")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"studentId\":" + studentId + "}"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/courses/" + courseId + "/enrollments")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"studentId\":" + studentId + "}"))
+                .andExpect(status().isConflict());
+
+        mockMvc.perform(get("/api/courses/" + courseId + "/roster")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
+    void reEnrollingAfterUnenrollSucceeds() throws Exception {
+        Long institutionId = institutionDao.insert("报名控制器测试机构B3");
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900031031",
+                passwordEncoder.encode("password"), Role.TEACHER, false, null));
+        Long courseId = courseDao.insert(new TeachingUnit(null, institutionId, teacherId, "英语课", BillingMode.LESSON_COUNT, 45, null, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, null, "小托", null, true, null, null));
+        String token = login("13900031031", "password");
+
+        mockMvc.perform(post("/api/courses/" + courseId + "/enrollments")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"studentId\":" + studentId + "}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(delete("/api/courses/" + courseId + "/enrollments/" + studentId)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(post("/api/courses/" + courseId + "/enrollments")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"studentId\":" + studentId + "}"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/courses/" + courseId + "/roster")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
     void unenrollingRemovesStudentFromRoster() throws Exception {
         Long institutionId = institutionDao.insert("报名控制器测试机构C");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900031003",

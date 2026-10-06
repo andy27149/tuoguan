@@ -1,5 +1,6 @@
 package com.tuoguan.backend.course.service;
 
+import com.tuoguan.backend.course.web.DuplicateEnrollmentException;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.roster.web.NotFoundException;
@@ -31,7 +32,13 @@ public class CourseEnrollmentService {
         Student student = requireStudentInInstitution(course.institutionId(), studentId);
         enrollmentDao.findByStudentIdAndTeachingUnitId(student.id(), course.id())
                 .ifPresentOrElse(
-                        existing -> enrollmentDao.setActive(existing.id(), true),
+                        existing -> {
+                            if (existing.active()) {
+                                throw new DuplicateEnrollmentException(
+                                        "Student already enrolled in course: " + studentId);
+                            }
+                            enrollmentDao.setActive(existing.id(), true);
+                        },
                         () -> enrollmentDao.insert(new StudentUnitEnrollment(null, course.institutionId(),
                                 student.id(), course.id(), true, null)));
     }
