@@ -165,6 +165,17 @@ describe('CourseConsumptionPage', () => {
     )
   })
 
+  it('rejects submitting a roll call for a future date', async () => {
+    setup()
+    await screen.findByText('小明')
+
+    fireEvent.change(screen.getByLabelText('消课日期'), { target: { value: '2099-01-01' } })
+    fireEvent.click(screen.getByRole('button', { name: '确认消课（2人）' }))
+
+    expect(await screen.findByText('无法对未来日期进行消课处理！')).toBeInTheDocument()
+    expect(courseApi.recordBatchConsumption).not.toHaveBeenCalled()
+  })
+
   it('unchecking a student excludes them from the submitted roll call', async () => {
     vi.mocked(courseApi.recordBatchConsumption).mockResolvedValue([])
     setup()

@@ -167,9 +167,13 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
 
   async function submitRollCall() {
     if (activeCourseId === null) return
-    setRollCallSubmitting(true)
     setRollCallError(null)
     setRollCallSuccess(null)
+    if (rollCallDate > todayDateString()) {
+      setRollCallError('无法对未来日期进行消课处理！')
+      return
+    }
+    setRollCallSubmitting(true)
     try {
       const created = await courseApi.recordBatchConsumption(activeCourseId, rollCallDate, Array.from(presentStudentIds))
       setRollCallSuccess(created.length > 0 ? `已确认消课，新增 ${created.length} 条记录` : '该日期已全部确认过，无新增记录')
@@ -283,6 +287,7 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
               <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
                 <input
                   type="date"
+                  aria-label="消课日期"
                   value={rollCallDate}
                   onChange={(e) => setRollCallDate(e.target.value)}
                   className="rounded border px-2 py-1 text-sm"
