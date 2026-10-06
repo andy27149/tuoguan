@@ -14,7 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Objects;
 
 @Service
 public class DailyTaskService {
@@ -53,11 +52,6 @@ public class DailyTaskService {
                 .toList();
     }
 
-    // 之前没加事务：target 学生的任务已经 insert 成功之后，广播给同学籍班同学的循环里一旦抛异常
-    // （例如此前 peer.schoolClassName() 为 null 时的 NPE），target 的插入已经提交，但接口对调用方
-    // 返回的是错误——调用方看到报错以为没成功，重试后产生重复任务。加 @Transactional 保证要么全部
-    // 成功要么全部回滚。
-    @Transactional
     public DailyTask addForStudent(Long teacherId, Long studentId, Long taskTemplateId, String subject, String name,
                                     LocalDate date) {
         Student student = findStudentOwnedByTeacher(teacherId, studentId);
@@ -79,17 +73,8 @@ public class DailyTaskService {
             custom = true;
         }
 
-        DailyTask created = insertDailyTask(student.institutionId(), student.teachingUnitId(), student.id(), date,
+        return insertDailyTask(student.institutionId(), student.teachingUnitId(), student.id(), date,
                 taskTemplateId, taskSubject, taskName, custom);
-
-        studentDao.findAllByTeachingUnitId(student.teachingUnitId()).stream()
-                .filter(Student::enrolled)
-                .filter(peer -> !peer.id().equals(student.id()))
-                .filter(peer -> Objects.equals(peer.schoolClassName(), student.schoolClassName()))
-                .forEach(peer -> insertDailyTask(peer.institutionId(), peer.teachingUnitId(), peer.id(), date,
-                        taskTemplateId, taskSubject, taskName, custom));
-
-        return created;
     }
 
     public List<DailyTask> listForClass(Long teacherId, Long teachingUnitId, LocalDate date) {
