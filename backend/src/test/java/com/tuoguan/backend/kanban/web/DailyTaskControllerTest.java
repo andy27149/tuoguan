@@ -131,6 +131,50 @@ class DailyTaskControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void addForStudentDoesNotCrashWhenAPeerHasNoSchoolClassNameAndTreatsNullAsItsOwnGroup() throws Exception {
+        // 回归测试：学籍班是选填字段，peer.schoolClassName() 为 null 时，此前用
+        // peer.schoolClassName().equals(...) 直接 NPE。改成 Objects.equals 后，
+        // null 应被当作独立的"未分班"分组——与目标学生学籍班不同（非 null）的不广播，
+        // 都是 null 的则视为同组会广播，和前端 groupBySchoolClass 的分组口径一致。
+        Long institutionId = institutionDao.insert("每日任务控制器测试机构H");
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900005020",
+                passwordEncoder.encode("password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long studentAId = studentDao.insert(new Student(null, institutionId, classRoomId, "小明", "三年级2班",
+                true, null, null));
+        studentDao.insert(new Student(null, institutionId, classRoomId, "小刚", null, true, null, null));
+        Long studentCId = studentDao.insert(new Student(null, institutionId, classRoomId, "小丽", null,
+                true, null, null));
+        String token = login("13900005020", "password");
+
+        // 目标学生学籍班非空，班里有一个学籍班为空的同学：请求不应 NPE，空学籍班同学不应被广播。
+        mockMvc.perform(post("/api/students/" + studentAId + "/daily-tasks")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"subject\":\"语文\",\"name\":\"阅读打卡\",\"date\":\"2026-08-06\"}"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/classes/" + classRoomId + "/daily-tasks?date=2026-08-06")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].studentId").value(studentAId));
+
+        // 目标学生自己学籍班也为空：和另一个学籍班同样为空的同学视为同组，应被广播。
+        mockMvc.perform(post("/api/students/" + studentCId + "/daily-tasks")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"subject\":\"数学\",\"name\":\"口算练习\",\"date\":\"2026-08-07\"}"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/classes/" + classRoomId + "/daily-tasks?date=2026-08-07")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2));
+    }
+
+    @Test
     void completingATaskUpdatesItsStatus() throws Exception {
         Long institutionId = institutionDao.insert("每日任务控制器测试机构C");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900005003",

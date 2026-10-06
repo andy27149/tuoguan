@@ -39,11 +39,13 @@ export function AdminDashboardPage({ onBack, onOpenClassKanban }: AdminDashboard
     <div className="flex h-screen flex-col overflow-hidden">
       <header className="app-header">
         <div className="app-header__top">
-          <div className="flex items-center gap-2">
+          <div className="app-header__brand flex items-center gap-2">
             {institution?.logoUrl && (
-              <img src={institution.logoUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />
+              <img src={institution.logoUrl} alt="" className="h-8 w-8 shrink-0 rounded-lg object-cover" />
             )}
-            <h1 className="app-header__title">{institution?.name || '机构管理'}</h1>
+            <h1 className="app-header__title" title={institution?.name || '机构管理'}>
+              {institution?.name || '机构管理'}
+            </h1>
           </div>
           <div className="flex items-center gap-2">
             <button type="button" onClick={onBack} className="logout-btn">

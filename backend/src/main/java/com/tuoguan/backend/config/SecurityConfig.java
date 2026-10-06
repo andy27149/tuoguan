@@ -32,6 +32,10 @@ public class SecurityConfig {
         http.csrf(csrf -> csrf.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // Spring Boot 对 ERROR dispatcher 也会重新走一遍安全过滤链：未捕获异常转发到
+                        // /error 时，如果这里不放行，会被 authenticationEntryPoint 拦成一个掩盖真实
+                        // 500 的空白 401，调用方完全看不出后端真正发生了什么。
+                        .requestMatchers("/error").permitAll()
                         .requestMatchers("/api/health", "/api/auth/login", "/api/public/**").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(handling -> handling

@@ -97,7 +97,10 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    min-width: 0;
+    overflow: hidden;
     white-space: nowrap;
+    text-overflow: ellipsis;
     font-family: var(--font-display);
     font-size: clamp(18px, 2.6vw, 26px);
     font-weight: 800;
@@ -106,6 +109,12 @@
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
+  }
+
+  /* 机构名称长度不可控：让这个 flex item 能够在窄屏下收缩而不是把其他按钮挤出视口，
+     配合 .app-header__title 的 ellipsis 截断，而不是像纯 nowrap 那样直接溢出到屏幕外不可见。 */
+  .app-header__brand {
+    min-width: 0;
   }
 
   .logout-btn {

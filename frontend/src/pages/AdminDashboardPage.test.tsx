@@ -47,6 +47,22 @@ describe('AdminDashboardPage', () => {
     expect(await screen.findByText('阳光托管班')).toBeInTheDocument()
     expect(screen.getByText('TeachersModuleStub')).toBeInTheDocument()
     expect(screen.queryByText('UnitsModuleStub')).not.toBeInTheDocument()
+  })
+
+  it('truncates a very long institution name instead of letting it overflow the header', async () => {
+    const longName = '阳光彩虹未来希望文化传播有限公司课后托管服务中心'
+    vi.mocked(institutionApi.fetchInstitutionSettings).mockResolvedValue({
+      id: 1,
+      name: longName,
+      logoUrl: null,
+      custodyEnabled: true,
+      offCampusEnabled: true,
+    })
+    render(<AdminDashboardPage onBack={vi.fn()} />)
+
+    const title = await screen.findByText(longName)
+    expect(title).toHaveClass('app-header__title')
+    expect(title).toHaveAttribute('title', longName)
     expect(screen.getByRole('button', { name: '教师列表' })).toHaveAttribute('aria-current', 'page')
   })
 
