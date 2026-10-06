@@ -116,7 +116,7 @@ describe('App', () => {
 
     render(<App />)
 
-    expect(await screen.findByText('暂无托管班级，请联系管理员创建')).toBeInTheDocument()
+    expect(await screen.findByText(/暂无托管班级，请联系管理员创建/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '前往消课' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '学生管理' })).not.toBeInTheDocument()
   })
@@ -128,7 +128,7 @@ describe('App', () => {
 
     render(<App />)
 
-    expect(await screen.findByText('您还未被分配托管班或课外课，请联系管理员')).toBeInTheDocument()
-    await waitFor(() => expect(screen.queryByText('暂无托管班级，请联系管理员创建')).not.toBeInTheDocument())
+    expect(await screen.findByText(/管理员还没有把你安排进任何托管班或课外课/)).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText(/暂无托管班级/)).not.toBeInTheDocument())
   })
 })

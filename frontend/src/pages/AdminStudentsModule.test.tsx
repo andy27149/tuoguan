@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { AdminStudentsModule } from './AdminStudentsModule'
 import * as courseApi from '../api/course'
@@ -26,6 +26,15 @@ const STUDENTS: courseApi.AdminStudent[] = [
     classRoomId: null,
     classRoomName: null,
     offCampusOnly: true,
+    enrolledCourseNames: [],
+  },
+  {
+    id: 3,
+    name: '小刚',
+    schoolClassName: '五年级一班',
+    classRoomId: 20,
+    classRoomName: '托管一班',
+    offCampusOnly: false,
     enrolledCourseNames: [],
   },
 ]
@@ -56,6 +65,7 @@ describe('AdminStudentsModule', () => {
     vi.mocked(unitApi.fetchTeachingUnits).mockResolvedValue(CLASS_ROOMS)
     vi.mocked(courseApi.fetchStudentCourseConsumption).mockResolvedValue([])
     vi.mocked(billingApi.fetchStudentLeaveRecords).mockResolvedValue([])
+    vi.mocked(billingApi.fetchClassBillingRate).mockResolvedValue(null)
   })
 
   it('lists students read-only with 托管/课外 badges', async () => {
@@ -64,7 +74,7 @@ describe('AdminStudentsModule', () => {
     expect(await screen.findByText('小明')).toBeInTheDocument()
     expect(screen.getByText('小红')).toBeInTheDocument()
     expect(screen.getAllByText('托管一班').length).toBeGreaterThan(0)
-    expect(screen.getByText('托管')).toBeInTheDocument()
+    expect(screen.getAllByText('托管').length).toBe(2)
     expect(screen.getByText('纯课外')).toBeInTheDocument()
   })
 
@@ -77,23 +87,26 @@ describe('AdminStudentsModule', () => {
     expect(rowFor小红?.textContent).toContain('—')
   })
 
-  it('only shows the 对账单/充值 and 费用管理 actions for pure off-campus students', async () => {
+  it('shows actions for off-campus and dual-identity students, but a dash placeholder for pure custody students', async () => {
     render(<AdminStudentsModule />)
     await screen.findByText('小明')
 
     const rows = screen.getAllByRole('row')
-    const rowFor小明 = rows.find((r) => r.textContent?.includes('小明'))
-    const rowFor小红 = rows.find((r) => r.textContent?.includes('小红'))
+    const rowFor小明 = rows.find((r) => r.textContent?.includes('小明')) as HTMLElement
+    const rowFor小红 = rows.find((r) => r.textContent?.includes('小红')) as HTMLElement
+    const rowFor小刚 = rows.find((r) => r.textContent?.includes('小刚')) as HTMLElement
 
-    expect(rowFor小明 && Array.from(rowFor小明.querySelectorAll('button'))).toHaveLength(0)
-    expect(rowFor小红 && Array.from(rowFor小红.querySelectorAll('button'))).toHaveLength(2)
+    expect(within(rowFor小明).getAllByRole('button')).toHaveLength(2)
+    expect(within(rowFor小红).getAllByRole('button')).toHaveLength(2)
+    expect(within(rowFor小刚).queryAllByRole('button')).toHaveLength(0)
+    expect(rowFor小刚.textContent).toContain('—')
   })
 
   it('opens the course statement modal with the correct student when clicked', async () => {
     render(<AdminStudentsModule />)
-    await screen.findByText('小红')
+    const rowFor小红 = (await screen.findAllByRole('row')).find((r) => r.textContent?.includes('小红')) as HTMLElement
 
-    fireEvent.click(screen.getByRole('button', { name: '对账单/充值' }))
+    fireEvent.click(within(rowFor小红).getByRole('button', { name: '对账单/充值' }))
 
     expect(await screen.findByText('课外账户对账单 - 小红')).toBeInTheDocument()
     await waitFor(() => expect(courseApi.fetchStudentCourseStatement).toHaveBeenCalledWith(2))
@@ -101,14 +114,26 @@ describe('AdminStudentsModule', () => {
 
   it('opens the fee management modal (no class, no tuition section) for a pure off-campus student', async () => {
     render(<AdminStudentsModule />)
-    await screen.findByText('小红')
+    const rowFor小红 = (await screen.findAllByRole('row')).find((r) => r.textContent?.includes('小红')) as HTMLElement
 
-    fireEvent.click(screen.getByRole('button', { name: '费用管理' }))
+    fireEvent.click(within(rowFor小红).getByRole('button', { name: '费用管理' }))
 
     expect(await screen.findByText(/费用管理 - 小红/)).toBeInTheDocument()
     expect(screen.queryByLabelText('本月托管费金额')).not.toBeInTheDocument()
     expect(billingApi.fetchClassBillingRate).not.toHaveBeenCalled()
     expect(courseApi.fetchStudentCourseConsumption).toHaveBeenCalledWith(2, expect.any(String))
+  })
+
+  it('opens the fee management modal with the real class room for a dual-identity student', async () => {
+    render(<AdminStudentsModule />)
+    const rowFor小明 = (await screen.findAllByRole('row')).find((r) => r.textContent?.includes('小明')) as HTMLElement
+
+    fireEvent.click(within(rowFor小明).getByRole('button', { name: '费用管理' }))
+
+    expect(await screen.findByText(/费用管理 - 小明/)).toBeInTheDocument()
+    expect(screen.getByLabelText('本月托管费金额')).toBeInTheDocument()
+    await waitFor(() => expect(billingApi.fetchClassBillingRate).toHaveBeenCalledWith(20))
+    expect(courseApi.fetchStudentCourseConsumption).toHaveBeenCalledWith(1, expect.any(String))
   })
 
   it('shows an empty state when there are no students', async () => {

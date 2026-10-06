@@ -70,7 +70,11 @@ export function AdminDashboardPage({ onBack, onOpenClassKanban }: AdminDashboard
           <main className="m-0 min-h-0 w-full min-w-0 max-w-none flex-1 overflow-y-auto p-0">
             {activeModule === 'teachers' && <AdminTeachersModule onOpenClassKanban={onOpenClassKanban} />}
             {activeModule === 'units' && (
-              <AdminTeachingUnitsModule custodyEnabled={custodyEnabled} offCampusEnabled={offCampusEnabled} />
+              <AdminTeachingUnitsModule
+                custodyEnabled={custodyEnabled}
+                offCampusEnabled={offCampusEnabled}
+                onOpenPricing={() => setActiveModule('pricing')}
+              />
             )}
             {activeModule === 'students' && <AdminStudentsModule />}
             {activeModule === 'taskStats' && <AdminTaskStatsModule />}

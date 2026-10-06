@@ -16,6 +16,7 @@ import { AssignTaskBar } from '../components/AssignTaskBar'
 import { DismissButton } from '../components/DismissButton'
 import { TaskTemplateManager } from '../components/TaskTemplateManager'
 import { Toast } from '../components/Toast'
+import { EmptyState } from '../components/EmptyState'
 import { useToast } from '../hooks/useToast'
 import { UpdatesButton } from '../components/UpdatesButton'
 import { useAuth } from '../auth/AuthContext'
@@ -256,38 +257,33 @@ export function KanbanPage({
   if (!loading && classes.length === 0) {
     if (isAdmin) {
       return (
-        <div className="no-class-screen">
-          <p>本机构暂无托管班级</p>
-          <div className="flex gap-2">
-            {onOpenAdmin && (
-              <button type="button" onClick={onOpenAdmin} className="logout-btn">
-                前往机构管理查看教师
-              </button>
-            )}
-            <button type="button" onClick={logout} className="logout-btn">
-              退出登录
+        <EmptyState icon="🏫" message="本机构暂无托管班级，前往机构管理可以创建班级、添加教师。">
+          {onOpenAdmin && (
+            <button type="button" onClick={onOpenAdmin} className="logout-btn">
+              前往机构管理查看教师
             </button>
-          </div>
-        </div>
+          )}
+          <button type="button" onClick={logout} className="logout-btn">
+            退出登录
+          </button>
+        </EmptyState>
       )
     }
     if (!hasClasses && hasCourses) {
       return (
-        <div className="no-class-screen">
-          <p>暂无托管班级，请联系管理员创建</p>
+        <EmptyState icon="📋" message="暂无托管班级，请联系管理员创建。你已经有课外课可以消课。">
           <button type="button" onClick={onOpenConsumption} className="logout-btn">
             前往消课
           </button>
-        </div>
+        </EmptyState>
       )
     }
     return (
-      <div className="no-class-screen">
-        <p>暂无托管班级，请联系管理员创建</p>
+      <EmptyState icon="📋" message="暂无托管班级，请联系管理员创建。">
         <button type="button" onClick={onOpenRoster} className="logout-btn">
           前往学生管理
         </button>
-      </div>
+      </EmptyState>
     )
   }
 

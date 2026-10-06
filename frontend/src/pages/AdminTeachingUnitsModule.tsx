@@ -9,6 +9,7 @@ import { useToast } from '../hooks/useToast'
 interface AdminTeachingUnitsModuleProps {
   custodyEnabled: boolean
   offCampusEnabled: boolean
+  onOpenPricing?: () => void
 }
 
 const TAB_LABEL: Record<unitApi.BillingMode, string> = {
@@ -16,7 +17,7 @@ const TAB_LABEL: Record<unitApi.BillingMode, string> = {
   LESSON_COUNT: '课外课',
 }
 
-export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled }: AdminTeachingUnitsModuleProps) {
+export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled, onOpenPricing }: AdminTeachingUnitsModuleProps) {
   const availableTabs: unitApi.BillingMode[] = [
     ...(custodyEnabled ? (['MONTHLY'] as const) : []),
     ...(offCampusEnabled ? (['LESSON_COUNT'] as const) : []),
@@ -403,7 +404,17 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled }: A
                         <span className="text-[#241f3d]">
                           {unit.pricePerLesson !== null ? `¥${unit.pricePerLesson.toFixed(2)}` : '未配置'}
                         </span>
-                        <span className="ml-2 text-xs text-[#a79fc2]">（在定价中心设置）</span>
+                        {onOpenPricing ? (
+                          <button
+                            type="button"
+                            onClick={onOpenPricing}
+                            className="ml-2 text-xs text-[#6d5bd0] underline-offset-2 hover:underline"
+                          >
+                            前往定价中心设置
+                          </button>
+                        ) : (
+                          <span className="ml-2 text-xs text-[#a79fc2]">（在定价中心设置）</span>
+                        )}
                       </td>
                     )}
                     {isLessonCount && (

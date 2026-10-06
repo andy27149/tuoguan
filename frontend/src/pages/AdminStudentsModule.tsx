@@ -20,7 +20,12 @@ export function AdminStudentsModule() {
   const [createError, setCreateError] = useState<string | null>(null)
 
   const [statementStudent, setStatementStudent] = useState<{ id: number; name: string } | null>(null)
-  const [managingStudent, setManagingStudent] = useState<{ id: number; name: string } | null>(null)
+  const [managingStudent, setManagingStudent] = useState<{
+    id: number
+    name: string
+    classRoomId: number | null
+    className: string
+  } | null>(null)
 
   function loadStudents() {
     setLoading(true)
@@ -177,7 +182,7 @@ export function AdminStudentsModule() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    {student.offCampusOnly && (
+                    {student.offCampusOnly || student.enrolledCourseNames.length > 0 ? (
                       <span className="flex flex-wrap gap-1.5">
                         <button
                           type="button"
@@ -188,12 +193,21 @@ export function AdminStudentsModule() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => setManagingStudent({ id: student.id, name: student.name })}
+                          onClick={() =>
+                            setManagingStudent({
+                              id: student.id,
+                              name: student.name,
+                              classRoomId: student.classRoomId,
+                              className: student.classRoomName ?? '—',
+                            })
+                          }
                           className="rounded-full border border-[#ece7de] px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]"
                         >
                           费用管理
                         </button>
                       </span>
+                    ) : (
+                      <span className="text-xs text-[#a79fc2]">—</span>
                     )}
                   </td>
                 </tr>
@@ -222,8 +236,8 @@ export function AdminStudentsModule() {
         <FeeManagementModal
           studentId={managingStudent.id}
           studentName={managingStudent.name}
-          classRoomId={null}
-          className="—"
+          classRoomId={managingStudent.classRoomId}
+          className={managingStudent.className}
           month={currentMonthString()}
           onClose={() => setManagingStudent(null)}
           onSaved={() => setManagingStudent(null)}

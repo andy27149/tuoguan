@@ -174,6 +174,19 @@ describe('AdminTeachingUnitsModule', () => {
     expect(screen.queryByRole('button', { name: '设置单价' })).not.toBeInTheDocument()
   })
 
+  it('shows a jump link to the pricing center when onOpenPricing is provided', async () => {
+    const onOpenPricing = vi.fn()
+    render(<AdminTeachingUnitsModule custodyEnabled offCampusEnabled onOpenPricing={onOpenPricing} />)
+    await screen.findByText('一班')
+    fireEvent.click(screen.getByRole('tab', { name: '课外课' }))
+    await screen.findByText('书法课')
+
+    expect(screen.queryByText('（在定价中心设置）')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '前往定价中心设置' }))
+
+    expect(onOpenPricing).toHaveBeenCalled()
+  })
+
   it('toggles active status for a 课外课 row but not for 托管班', async () => {
     vi.mocked(unitApi.updateTeachingUnit).mockResolvedValue({ ...COURSE, active: false })
     render(<AdminTeachingUnitsModule custodyEnabled offCampusEnabled />)

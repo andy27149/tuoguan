@@ -163,4 +163,12 @@ describe('AdminPricingModule', () => {
     expect(await screen.findByText('请输入有效的单价')).toBeInTheDocument()
     expect(unitApi.updateTeachingUnit).not.toHaveBeenCalled()
   })
+
+  it('explains that "未配置" does not mean there is no billing history', async () => {
+    render(<AdminPricingModule custodyEnabled offCampusEnabled />)
+    await screen.findByText('一班')
+
+    expect(screen.getByText(/该班级还没有默认单价/)).toBeInTheDocument()
+    expect(screen.getByText(/这门课没有历史账单/)).toBeInTheDocument()
+  })
 })

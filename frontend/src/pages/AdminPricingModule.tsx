@@ -166,6 +166,9 @@ export function AdminPricingModule({ custodyEnabled, offCampusEnabled }: AdminPr
       {custodyEnabled && (
         <div className="rounded-2xl border border-[#ece7de] bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
           <h2 className="font-['Sora'] text-base font-semibold text-[#241f3d]">托管班级定价</h2>
+          <p className="mt-1 text-xs text-[#a79fc2]">
+            "未配置"只代表该班级还没有默认单价，用于以后自动生成账单；不代表这个班级没有历史账单——账单也可能是通过"费用管理"手动录入的。
+          </p>
           <form onSubmit={handleBulkSet} className="mt-3 flex flex-wrap items-center gap-2">
             <label className="text-sm text-[#5d5480]">
               托管费（元/月）
@@ -289,6 +292,9 @@ export function AdminPricingModule({ custodyEnabled, offCampusEnabled }: AdminPr
       {offCampusEnabled && (
         <div className="rounded-2xl border border-[#ece7de] bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
           <h2 className="font-['Sora'] text-base font-semibold text-[#241f3d]">课外课定价</h2>
+          <p className="mt-1 text-xs text-[#a79fc2]">
+            "未配置"只代表该课程还没有默认单价，用于以后自动生成账单；不代表这门课没有历史账单——账单也可能是通过"费用管理"手动录入的。
+          </p>
           {coursesError && <p className="mt-3 text-sm text-[#b7591f]">{coursesError}</p>}
           {coursePriceError && <p className="mt-3 text-sm text-[#b7591f]">{coursePriceError}</p>}
           {loadingCourses && <p className="mt-3 text-sm text-[#7c7391]">加载中...</p>}
