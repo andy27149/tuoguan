@@ -4,9 +4,11 @@ import com.tuoguan.backend.kanban.dao.ClassDismissalDao;
 import com.tuoguan.backend.kanban.dao.DailyTaskDao;
 import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
 import com.tuoguan.backend.kanban.dao.StudentDailyNoteDao;
+import com.tuoguan.backend.kanban.dao.StudentMealRecordDao;
 import com.tuoguan.backend.kanban.domain.DailyTask;
 import com.tuoguan.backend.kanban.domain.StudentArrivalCheckin;
 import com.tuoguan.backend.kanban.domain.StudentDailyNote;
+import com.tuoguan.backend.kanban.domain.StudentMealRecord;
 import com.tuoguan.backend.kanban.service.MonthlyStatsService;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
@@ -27,11 +29,13 @@ public class AdminKanbanService {
     private final ClassDismissalDao classDismissalDao;
     private final StudentDailyNoteDao studentDailyNoteDao;
     private final StudentArrivalCheckinDao studentArrivalCheckinDao;
+    private final StudentMealRecordDao studentMealRecordDao;
     private final MonthlyStatsService monthlyStatsService;
 
     public AdminKanbanService(TeachingUnitDao teachingUnitDao, StudentDao studentDao, DailyTaskDao dailyTaskDao,
                                ClassDismissalDao classDismissalDao, StudentDailyNoteDao studentDailyNoteDao,
                                StudentArrivalCheckinDao studentArrivalCheckinDao,
+                               StudentMealRecordDao studentMealRecordDao,
                                MonthlyStatsService monthlyStatsService) {
         this.teachingUnitDao = teachingUnitDao;
         this.studentDao = studentDao;
@@ -39,6 +43,7 @@ public class AdminKanbanService {
         this.classDismissalDao = classDismissalDao;
         this.studentDailyNoteDao = studentDailyNoteDao;
         this.studentArrivalCheckinDao = studentArrivalCheckinDao;
+        this.studentMealRecordDao = studentMealRecordDao;
         this.monthlyStatsService = monthlyStatsService;
     }
 
@@ -65,6 +70,11 @@ public class AdminKanbanService {
     public List<StudentArrivalCheckin> listArrivals(Long institutionId, Long teachingUnitId, LocalDate date) {
         requireUnitInInstitution(institutionId, teachingUnitId);
         return studentArrivalCheckinDao.findAllByTeachingUnitIdAndDate(teachingUnitId, date);
+    }
+
+    public List<StudentMealRecord> listMeals(Long institutionId, Long teachingUnitId, LocalDate date) {
+        requireUnitInInstitution(institutionId, teachingUnitId);
+        return studentMealRecordDao.findAllByTeachingUnitIdAndDate(teachingUnitId, date);
     }
 
     public MonthlyStatsService.MonthlyStatsResult getMonthlyStats(Long institutionId, Long studentId, YearMonth month) {

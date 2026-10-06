@@ -14,6 +14,7 @@ import com.tuoguan.backend.kanban.dao.ClassDismissalDao;
 import com.tuoguan.backend.kanban.dao.DailyTaskDao;
 import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
 import com.tuoguan.backend.kanban.dao.StudentDailyNoteDao;
+import com.tuoguan.backend.kanban.dao.StudentMealRecordDao;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.roster.web.DuplicateClassNameException;
@@ -47,6 +48,7 @@ public class AdminTeachingUnitService {
     private final DailyTaskDao dailyTaskDao;
     private final StudentDailyNoteDao studentDailyNoteDao;
     private final StudentArrivalCheckinDao studentArrivalCheckinDao;
+    private final StudentMealRecordDao studentMealRecordDao;
     private final ClassDismissalDao classDismissalDao;
     private final ClassBillingRateDao classBillingRateDao;
     private final CourseConsumptionRecordDao courseConsumptionRecordDao;
@@ -59,6 +61,7 @@ public class AdminTeachingUnitService {
                                      StudentUnitEnrollmentDao enrollmentDao, DailyTaskDao dailyTaskDao,
                                      StudentDailyNoteDao studentDailyNoteDao,
                                      StudentArrivalCheckinDao studentArrivalCheckinDao,
+                                     StudentMealRecordDao studentMealRecordDao,
                                      ClassDismissalDao classDismissalDao, ClassBillingRateDao classBillingRateDao,
                                      CourseConsumptionRecordDao courseConsumptionRecordDao,
                                      CourseRechargeRecordDao courseRechargeRecordDao,
@@ -71,6 +74,7 @@ public class AdminTeachingUnitService {
         this.dailyTaskDao = dailyTaskDao;
         this.studentDailyNoteDao = studentDailyNoteDao;
         this.studentArrivalCheckinDao = studentArrivalCheckinDao;
+        this.studentMealRecordDao = studentMealRecordDao;
         this.classDismissalDao = classDismissalDao;
         this.classBillingRateDao = classBillingRateDao;
         this.courseConsumptionRecordDao = courseConsumptionRecordDao;
@@ -161,6 +165,7 @@ public class AdminTeachingUnitService {
             dailyTaskDao.deleteAllByTeachingUnitId(unit.id());
             studentDailyNoteDao.deleteAllByTeachingUnitId(unit.id());
             studentArrivalCheckinDao.deleteAllByTeachingUnitId(unit.id());
+            studentMealRecordDao.deleteAllByTeachingUnitId(unit.id());
             classDismissalDao.deleteAllByTeachingUnitId(unit.id());
             classBillingRateDao.deleteAllByTeachingUnitId(unit.id());
             monthlyBillDao.deleteAllByTeachingUnitId(unit.id());

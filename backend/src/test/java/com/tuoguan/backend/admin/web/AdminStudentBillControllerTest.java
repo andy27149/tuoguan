@@ -81,16 +81,27 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                 BillingMode.MONTHLY, null, null, true, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "学生乙", "一班", true, null, null));
         String adminToken = login("13900013003", "admin-password");
+        String teacherToken = login("13900013004", "teacher-password");
 
         mockMvc.perform(put("/api/admin/classes/" + classRoomId + "/billing-rate")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"tuitionRatePerMonth\":50.00,\"mealRatePerDay\":10.00}"))
                 .andExpect(status().isOk());
+        // 出勤（attendanceDays）继续按工作日-请假天数推算，不受这次改动影响；餐费
+        // 改成只认老师实际标记的用餐记录，这里特意只记 3 天，远少于当月工作日数，
+        // 用来证明两者已经彻底解耦。
+        for (String date : List.of("2024-01-02", "2024-01-03", "2024-01-04")) {
+            mockMvc.perform(patch("/api/students/" + studentId + "/meal")
+                            .header("Authorization", "Bearer " + teacherToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"date\":\"" + date + "\"}"))
+                    .andExpect(status().isNoContent());
+        }
 
         int weekdays = countWeekdays(YearMonth.of(2024, 1));
         double expectedTuition = 50.00;
-        double expectedMeal = weekdays * 10.00;
+        double expectedMeal = 3 * 10.00;
 
         mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=2024-01")
                         .header("Authorization", "Bearer " + adminToken))
@@ -100,6 +111,7 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.attendanceDays").value(weekdays))
                 .andExpect(jsonPath("$.tuitionAmount").value(expectedTuition))
                 .andExpect(jsonPath("$.mealAmount").value(expectedMeal))
+                .andExpect(jsonPath("$.mealRecordDates.length()").value(3))
                 .andExpect(jsonPath("$.totalAmount").value(expectedTuition + expectedMeal));
     }
 
@@ -184,8 +196,9 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                     .andExpect(status().isCreated());
         }
 
-        int weekdays = countWeekdays(YearMonth.of(2024, 1));
-        double baseAmount = 50.00 + weekdays * 10.00;
+        // 没有老师标记任何用餐记录，餐费按新公式应该是 0——这个测试本身关心的是课外课
+        // 附加费有没有正确计入总额，不是餐费，所以这里不特意造用餐记录。
+        double baseAmount = 50.00;
 
         mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=2024-01")
                         .header("Authorization", "Bearer " + adminToken))

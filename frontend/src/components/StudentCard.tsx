@@ -22,6 +22,7 @@ interface StudentCardProps {
   rating: number
   comment: string
   arrivedAt: string
+  hasMeal: boolean
   date: string
   readOnly?: boolean
   onToggleTask?: (taskId: number, completed: boolean) => void
@@ -33,6 +34,8 @@ interface StudentCardProps {
   onSetComment?: (studentId: number, comment: string) => void
   onSetArrival?: (studentId: number, arrivedAt: string) => void
   onClearArrival?: (studentId: number) => void
+  onSetMeal?: (studentId: number) => void
+  onClearMeal?: (studentId: number) => void
   onShowToast: (message: string) => void
   statsFetchFn?: (studentId: number, month?: string) => Promise<MonthlyStats>
   shareLinkFetchFn?: (studentId: number) => Promise<{ token: string }>
@@ -96,6 +99,7 @@ export function StudentCard({
   rating,
   comment,
   arrivedAt,
+  hasMeal,
   date,
   readOnly = false,
   onToggleTask,
@@ -107,6 +111,8 @@ export function StudentCard({
   onSetComment,
   onSetArrival,
   onClearArrival,
+  onSetMeal,
+  onClearMeal,
   onShowToast,
   statsFetchFn,
   shareLinkFetchFn,
@@ -144,6 +150,14 @@ export function StudentCard({
       setShowingArrival(true)
     } else {
       onSetArrival?.(student.id, currentTimeString())
+    }
+  }
+
+  function handleMealClick() {
+    if (hasMeal) {
+      onClearMeal?.(student.id)
+    } else {
+      onSetMeal?.(student.id)
     }
   }
 
@@ -290,6 +304,14 @@ export function StudentCard({
       ) : (
         <button type="button" className="share-btn" onClick={handleArrivalClick}>
           {arrivedAt ? `到了 · ${arrivedAt}` : '到了'}
+        </button>
+      )}
+
+      {readOnly ? (
+        hasMeal && <p className="share-btn share-btn--static">今日已用餐</p>
+      ) : (
+        <button type="button" className="share-btn" onClick={handleMealClick}>
+          {hasMeal ? '已用餐' : '用餐'}
         </button>
       )}
 

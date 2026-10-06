@@ -28,6 +28,7 @@ public class JdbcMonthlyBillDao implements MonthlyBillDao {
             rs.getBigDecimal("total_amount"),
             rs.getBoolean("is_paid"),
             rs.getTimestamp("generated_at").toInstant(),
+            List.of(),
             List.of());
 
     private static final String SELECT_COLUMNS = "SELECT id, institution_id, student_id, teaching_unit_id, bill_month, "

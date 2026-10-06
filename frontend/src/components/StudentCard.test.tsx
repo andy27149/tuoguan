@@ -30,6 +30,7 @@ function setup(overrides: Partial<ComponentProps<typeof StudentCard>> = {}) {
       rating={0}
       comment=""
       arrivedAt=""
+      hasMeal={false}
       date="2026-08-23"
       onToggleTask={vi.fn()}
       onDeleteTask={vi.fn()}
@@ -40,6 +41,8 @@ function setup(overrides: Partial<ComponentProps<typeof StudentCard>> = {}) {
       onSetComment={vi.fn()}
       onSetArrival={vi.fn()}
       onClearArrival={vi.fn()}
+      onSetMeal={vi.fn()}
+      onClearMeal={vi.fn()}
       onShowToast={vi.fn()}
       {...overrides}
     />,
@@ -111,6 +114,59 @@ describe('StudentCard arrival button', () => {
     fireEvent.click(screen.getByRole('button', { name: '清除签到' }))
 
     expect(onClearArrival).toHaveBeenCalledWith(1)
+  })
+})
+
+describe('StudentCard meal button', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
+
+  it('shows a plain label when meal is not recorded yet', () => {
+    setup()
+
+    expect(screen.getByRole('button', { name: '用餐' })).toBeInTheDocument()
+  })
+
+  it('marks the meal immediately on click when not yet recorded', () => {
+    const onSetMeal = vi.fn()
+    setup({ onSetMeal })
+
+    fireEvent.click(screen.getByRole('button', { name: '用餐' }))
+
+    expect(onSetMeal).toHaveBeenCalledWith(1)
+  })
+
+  it('shows 已用餐 and clears on click when meal is already recorded', () => {
+    const onClearMeal = vi.fn()
+    setup({ hasMeal: true, onClearMeal })
+
+    const button = screen.getByRole('button', { name: '已用餐' })
+    fireEvent.click(button)
+
+    expect(onClearMeal).toHaveBeenCalledWith(1)
+  })
+
+  it('shows a static label in read-only mode when meal is recorded, and nothing when it is not', () => {
+    const { rerender } = setup({ readOnly: true, hasMeal: true })
+    expect(screen.getByText('今日已用餐')).toBeInTheDocument()
+
+    rerender(
+      <StudentCard
+        student={STUDENT}
+        tasks={[]}
+        dismissed={false}
+        templates={[]}
+        rating={0}
+        comment=""
+        arrivedAt=""
+        hasMeal={false}
+        date="2026-08-23"
+        readOnly
+        onShowToast={vi.fn()}
+      />,
+    )
+    expect(screen.queryByText('今日已用餐')).not.toBeInTheDocument()
   })
 })
 

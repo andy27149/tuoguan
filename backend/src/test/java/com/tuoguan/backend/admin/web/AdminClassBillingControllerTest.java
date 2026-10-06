@@ -21,6 +21,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -167,6 +168,105 @@ class AdminClassBillingControllerTest extends IntegrationTestBase {
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
+    void mealFeeIsCalculatedFromActualMealRecordsNotAttendance() throws Exception {
+        // 验证核心设计变更：餐费不再按"出勤天数"（工作日-请假天数，通常一个月 20+ 天）推算，
+        // 改成按老师实际标记的用餐记录天数算。这里只记 3 天用餐、不请假，如果账单金额
+        // 还是按旧的出勤公式算，mealAmount 会是接近 20 天的量级而不是 3 天。
+        Long institutionId = institutionDao.insert("用餐账单测试机构A");
+        teacherDao.insert(new Teacher(null, institutionId, "13900015001",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900015002",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "用餐一班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小明", "一班",
+                true, null, null));
+        String adminToken = login("13900015001", "admin-password");
+        String teacherToken = login("13900015002", "teacher-password");
+
+        mockMvc.perform(put("/api/admin/classes/" + classRoomId + "/billing-rate")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tuitionRatePerMonth\":500.00,\"mealRatePerDay\":10.00}"))
+                .andExpect(status().isOk());
+
+        for (String date : java.util.List.of("2024-01-06", "2024-01-07", "2024-01-08")) {
+            mockMvc.perform(patch("/api/students/" + studentId + "/meal")
+                            .header("Authorization", "Bearer " + teacherToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"date\":\"" + date + "\"}"))
+                    .andExpect(status().isNoContent());
+        }
+
+        mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=2024-01")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mealAmount").value(30.00))
+                .andExpect(jsonPath("$.mealRecordDates.length()").value(3))
+                .andExpect(jsonPath("$.mealRecordDates", org.hamcrest.Matchers.containsInAnyOrder(
+                        "2024-01-06", "2024-01-07", "2024-01-08")));
+    }
+
+    @Test
+    void generatedBillStaysFixedAfterMealRecordsChangeUntilRegenerated() throws Exception {
+        Long institutionId = institutionDao.insert("用餐账单测试机构B");
+        teacherDao.insert(new Teacher(null, institutionId, "13900015003",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900015004",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "用餐二班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小红", "二班",
+                true, null, null));
+        String adminToken = login("13900015003", "admin-password");
+        String teacherToken = login("13900015004", "teacher-password");
+
+        mockMvc.perform(put("/api/admin/classes/" + classRoomId + "/billing-rate")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tuitionRatePerMonth\":500.00,\"mealRatePerDay\":10.00}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(patch("/api/students/" + studentId + "/meal")
+                        .header("Authorization", "Bearer " + teacherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2024-02-05\"}"))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(patch("/api/students/" + studentId + "/meal")
+                        .header("Authorization", "Bearer " + teacherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2024-02-06\"}"))
+                .andExpect(status().isNoContent());
+
+        MvcResult generateResult = mockMvc.perform(
+                        post("/api/admin/students/" + studentId + "/bills/generate?month=2024-02")
+                                .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mealAmount").value(20.00))
+                .andReturn();
+        Long billId = objectMapper.readTree(generateResult.getResponse().getContentAsString()).get("id").asLong();
+
+        // 账单生成之后，老师又补记了一天用餐——已生成的账单不应该跟着变。
+        mockMvc.perform(patch("/api/students/" + studentId + "/meal")
+                        .header("Authorization", "Bearer " + teacherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2024-02-07\"}"))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/admin/bills/" + billId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mealAmount").value(20.00))
+                .andExpect(jsonPath("$.mealRecordDates.length()").value(2));
+
+        // 管理员手动重新生成，才会用上最新的用餐记录。
+        mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=2024-02")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mealAmount").value(30.00))
+                .andExpect(jsonPath("$.mealRecordDates.length()").value(3));
     }
 
     private String login(String phone, String password) throws Exception {

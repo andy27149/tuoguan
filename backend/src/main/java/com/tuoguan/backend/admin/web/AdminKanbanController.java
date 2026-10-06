@@ -6,6 +6,7 @@ import com.tuoguan.backend.kanban.web.DailyTaskResponse;
 import com.tuoguan.backend.kanban.web.DismissalStatusResponse;
 import com.tuoguan.backend.kanban.web.StudentArrivalCheckinResponse;
 import com.tuoguan.backend.kanban.web.StudentDailyNoteResponse;
+import com.tuoguan.backend.kanban.web.StudentMealRecordResponse;
 import com.tuoguan.backend.roster.service.StudentService;
 import com.tuoguan.backend.roster.web.StudentResponse;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -81,6 +82,15 @@ public class AdminKanbanController {
                                                           @RequestParam LocalDate date) {
         return adminKanbanService.listArrivals(principal.institutionId(), classId, date).stream()
                 .map(StudentArrivalCheckinResponse::from)
+                .toList();
+    }
+
+    @GetMapping("/meals")
+    public List<StudentMealRecordResponse> meals(@AuthenticationPrincipal TeacherPrincipal principal,
+                                                  @PathVariable Long classId,
+                                                  @RequestParam LocalDate date) {
+        return adminKanbanService.listMeals(principal.institutionId(), classId, date).stream()
+                .map(StudentMealRecordResponse::from)
                 .toList();
     }
 }

@@ -25,6 +25,8 @@ export function BillDetailModal({ bill, studentName, className, onClose }: BillD
   const cardRef = useRef<HTMLDivElement>(null)
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
+  const isPureOffCampus = bill.teachingUnitId === null
+  const hasMealDates = !isPureOffCampus && bill.mealRecordDates.length > 0
 
   async function handleExport() {
     if (!cardRef.current) return
@@ -55,6 +57,23 @@ export function BillDetailModal({ bill, studentName, className, onClose }: BillD
         <div className="flex justify-center border-b border-[#ece7de] p-3">
           <BillCard ref={cardRef} bill={bill} studentName={studentName} className={className} />
         </div>
+        {hasMealDates && (
+          <div className="border-b border-[#ece7de] px-4 py-3">
+            <p className="text-xs font-medium text-[#5d5480]">用餐日期（共{bill.mealRecordDates.length}天）</p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {[...bill.mealRecordDates]
+                .sort()
+                .map((d) => (
+                  <span
+                    key={d}
+                    className="rounded-full bg-[#faf7ff] px-2 py-0.5 text-xs text-[#5d5480]"
+                  >
+                    {d}
+                  </span>
+                ))}
+            </div>
+          </div>
+        )}
         {exportError && <p className="px-4 pt-2 text-xs text-[#b7591f]">{exportError}</p>}
         <div className="flex justify-end gap-2 p-3">
           <button

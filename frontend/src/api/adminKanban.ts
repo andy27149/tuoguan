@@ -3,6 +3,7 @@ import type { Student } from './students'
 import type { DailyTask } from './dailyTasks'
 import type { StudentDailyNote } from './studentNotes'
 import type { StudentArrival } from './arrival'
+import type { StudentMealRecord } from './meal'
 import type { MonthlyStats } from './monthlyStats'
 
 export function fetchStudents(classId: number): Promise<Student[]> {
@@ -23,6 +24,10 @@ export function fetchStudentNotes(classId: number, date: string): Promise<Studen
 
 export function fetchArrivals(classId: number, date: string): Promise<StudentArrival[]> {
   return apiFetch<StudentArrival[]>(`/admin/classes/${classId}/arrivals?date=${date}`)
+}
+
+export function fetchMeals(classId: number, date: string): Promise<StudentMealRecord[]> {
+  return apiFetch<StudentMealRecord[]>(`/admin/classes/${classId}/meals?date=${date}`)
 }
 
 export function fetchShareLink(studentId: number): Promise<{ token: string }> {

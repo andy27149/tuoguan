@@ -15,6 +15,7 @@ import com.tuoguan.backend.kanban.dao.ClassDismissalDao;
 import com.tuoguan.backend.kanban.dao.DailyTaskDao;
 import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
 import com.tuoguan.backend.kanban.dao.StudentDailyNoteDao;
+import com.tuoguan.backend.kanban.dao.StudentMealRecordDao;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.dao.TaskTemplateDao;
 import com.tuoguan.backend.roster.web.NotFoundException;
@@ -44,6 +45,7 @@ public class AdminTeacherService {
     private final DailyTaskDao dailyTaskDao;
     private final StudentDailyNoteDao studentDailyNoteDao;
     private final StudentArrivalCheckinDao studentArrivalCheckinDao;
+    private final StudentMealRecordDao studentMealRecordDao;
     private final ClassDismissalDao classDismissalDao;
     private final TaskTemplateDao taskTemplateDao;
     private final ClassBillingRateDao classBillingRateDao;
@@ -57,6 +59,7 @@ public class AdminTeacherService {
                                 TeachingUnitDao teachingUnitDao, StudentDao studentDao, DailyTaskDao dailyTaskDao,
                                 StudentDailyNoteDao studentDailyNoteDao,
                                 StudentArrivalCheckinDao studentArrivalCheckinDao,
+                                StudentMealRecordDao studentMealRecordDao,
                                 ClassDismissalDao classDismissalDao, TaskTemplateDao taskTemplateDao,
                                 ClassBillingRateDao classBillingRateDao,
                                 StudentUnitEnrollmentDao studentUnitEnrollmentDao,
@@ -70,6 +73,7 @@ public class AdminTeacherService {
         this.dailyTaskDao = dailyTaskDao;
         this.studentDailyNoteDao = studentDailyNoteDao;
         this.studentArrivalCheckinDao = studentArrivalCheckinDao;
+        this.studentMealRecordDao = studentMealRecordDao;
         this.classDismissalDao = classDismissalDao;
         this.taskTemplateDao = taskTemplateDao;
         this.classBillingRateDao = classBillingRateDao;
@@ -138,6 +142,7 @@ public class AdminTeacherService {
                     dailyTaskDao.deleteAllByTeachingUnitId(unit.id());
                     studentDailyNoteDao.deleteAllByTeachingUnitId(unit.id());
                     studentArrivalCheckinDao.deleteAllByTeachingUnitId(unit.id());
+                    studentMealRecordDao.deleteAllByTeachingUnitId(unit.id());
                     classDismissalDao.deleteAllByTeachingUnitId(unit.id());
                     classBillingRateDao.deleteAllByTeachingUnitId(unit.id());
                     monthlyBillDao.deleteAllByTeachingUnitId(unit.id());

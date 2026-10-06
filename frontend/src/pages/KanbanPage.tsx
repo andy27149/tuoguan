@@ -6,6 +6,7 @@ import * as dailyTasksApi from '../api/dailyTasks'
 import * as dismissalApi from '../api/dismissal'
 import * as studentNotesApi from '../api/studentNotes'
 import * as arrivalApi from '../api/arrival'
+import * as mealApi from '../api/meal'
 import * as adminApi from '../api/admin'
 import * as adminKanbanApi from '../api/adminKanban'
 import type { DailyTask } from '../api/dailyTasks'
@@ -59,6 +60,7 @@ export function KanbanPage({
   const [templates, setTemplates] = useState<templatesApi.TaskTemplate[]>([])
   const [notesByStudent, setNotesByStudent] = useState<Map<number, StudentNote>>(new Map())
   const [arrivalByStudent, setArrivalByStudent] = useState<Map<number, string>>(new Map())
+  const [mealByStudent, setMealByStudent] = useState<Set<number>>(new Set())
   const [dismissed, setDismissed] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -95,13 +97,14 @@ export function KanbanPage({
         // 管理员分支只调用 adminKanbanApi 的只读接口——这是前端层面的约定，不是后端强制
         // 的权限边界：管理员账号同时满足教师接口的鉴权条件，理论上能绕开这里调用写接口。
         // 新增功能时不要假设「管理员等于只读」，详见 AdminKanbanController 的类注释（产品诊断 #09）。
-        const [studentList, taskList, dismissalStatus, noteList, arrivalList] = isAdmin
+        const [studentList, taskList, dismissalStatus, noteList, arrivalList, mealList] = isAdmin
           ? await Promise.all([
               adminKanbanApi.fetchStudents(classId),
               adminKanbanApi.listDailyTasksForClass(classId, date),
               adminKanbanApi.fetchDismissalStatus(classId, date),
               adminKanbanApi.fetchStudentNotes(classId, date),
               adminKanbanApi.fetchArrivals(classId, date),
+              adminKanbanApi.fetchMeals(classId, date),
             ])
           : await Promise.all([
               studentsApi.fetchStudents(classId),
@@ -109,12 +112,14 @@ export function KanbanPage({
               dismissalApi.fetchDismissalStatus(classId, date),
               studentNotesApi.fetchStudentNotes(classId, date),
               arrivalApi.fetchArrivals(classId, date),
+              mealApi.fetchMeals(classId, date),
             ])
         setStudents(studentList.filter((s) => s.enrolled))
         setTasks(taskList)
         setDismissed(dismissalStatus.dismissed)
         setNotesByStudent(new Map(noteList.map((n) => [n.studentId, { rating: n.rating, comment: n.comment }])))
         setArrivalByStudent(new Map(arrivalList.map((a) => [a.studentId, a.arrivedAt])))
+        setMealByStudent(new Set(mealList.map((m) => m.studentId)))
       } catch {
         setError('加载班级数据失败，请刷新重试')
       } finally {
@@ -232,6 +237,32 @@ export function KanbanPage({
     }
   }
 
+  async function handleSetMeal(studentId: number) {
+    setMealByStudent((prev) => new Set(prev).add(studentId))
+    try {
+      await mealApi.setMeal(studentId, date)
+    } catch {
+      setMealByStudent((prev) => {
+        const next = new Set(prev)
+        next.delete(studentId)
+        return next
+      })
+    }
+  }
+
+  async function handleClearMeal(studentId: number) {
+    setMealByStudent((prev) => {
+      const next = new Set(prev)
+      next.delete(studentId)
+      return next
+    })
+    try {
+      await mealApi.clearMeal(studentId, date)
+    } catch {
+      setMealByStudent((prev) => new Set(prev).add(studentId))
+    }
+  }
+
   async function handleDismiss() {
     if (activeClassId === null) return
     await dismissalApi.dismissClass(activeClassId, date)
@@ -296,6 +327,7 @@ export function KanbanPage({
   function renderStudentCard(student: studentsApi.Student) {
     const note = notesByStudent.get(student.id) ?? EMPTY_NOTE
     const arrivedAt = arrivalByStudent.get(student.id) ?? EMPTY_ARRIVAL
+    const hasMeal = mealByStudent.has(student.id)
     if (isAdmin) {
       return (
         <StudentCard
@@ -307,6 +339,7 @@ export function KanbanPage({
           rating={note.rating}
           comment={note.comment}
           arrivedAt={arrivedAt}
+          hasMeal={hasMeal}
           date={date}
           readOnly
           onShowToast={showToast}
@@ -325,6 +358,7 @@ export function KanbanPage({
         rating={note.rating}
         comment={note.comment}
         arrivedAt={arrivedAt}
+        hasMeal={hasMeal}
         date={date}
         onToggleTask={handleToggleTask}
         onDeleteTask={handleDeleteTask}
@@ -335,6 +369,8 @@ export function KanbanPage({
         onSetComment={handleSetComment}
         onSetArrival={handleSetArrival}
         onClearArrival={handleClearArrival}
+        onSetMeal={handleSetMeal}
+        onClearMeal={handleClearMeal}
         onShowToast={showToast}
       />
     )

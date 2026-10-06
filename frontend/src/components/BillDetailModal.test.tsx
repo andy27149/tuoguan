@@ -22,6 +22,7 @@ const BILL: MonthlyBill = {
   isPaid: false,
   generatedAt: '2026-09-05T00:00:00Z',
   extraFeeLines: [{ id: 1, monthlyBillId: 500, name: '数学课', pricePerLesson: 50, lessonCount: 4, amount: 200 }],
+  mealRecordDates: ['2026-09-03', '2026-09-01', '2026-09-02'],
 }
 
 describe('BillDetailModal', () => {
@@ -38,6 +39,27 @@ describe('BillDetailModal', () => {
     expect(screen.getAllByText('¥200.00')).toHaveLength(2)
     expect(screen.getByText('数学课')).toBeInTheDocument()
     expect(screen.getByText('¥1000.00')).toBeInTheDocument()
+  })
+
+  it('lists meal record dates in ascending order with a count', () => {
+    render(<BillDetailModal bill={BILL} studentName="小明" className="一班" onClose={vi.fn()} />)
+
+    expect(screen.getByText('用餐日期（共3天）')).toBeInTheDocument()
+    const dateEls = screen.getAllByText(/^2026-09-0[123]$/)
+    expect(dateEls.map((el) => el.textContent)).toEqual(['2026-09-01', '2026-09-02', '2026-09-03'])
+  })
+
+  it('does not show a meal date section when there are none', () => {
+    render(
+      <BillDetailModal
+        bill={{ ...BILL, mealRecordDates: [] }}
+        studentName="小明"
+        className="一班"
+        onClose={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByText(/用餐日期/)).not.toBeInTheDocument()
   })
 
   it('calls onClose when the close button is clicked', () => {

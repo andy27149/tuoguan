@@ -53,6 +53,7 @@ export interface MonthlyBill {
   isPaid: boolean
   generatedAt: string
   extraFeeLines: MonthlyBillExtraFeeLine[]
+  mealRecordDates: string[]
 }
 
 export interface BillOverviewRow {
