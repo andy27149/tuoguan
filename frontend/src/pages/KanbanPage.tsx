@@ -275,6 +275,9 @@ export function KanbanPage({
           <button type="button" onClick={onOpenConsumption} className="logout-btn">
             前往消课
           </button>
+          <button type="button" onClick={logout} className="logout-btn">
+            退出登录
+          </button>
         </EmptyState>
       )
     }
@@ -282,6 +285,9 @@ export function KanbanPage({
       <EmptyState icon="📋" message="暂无托管班级，请联系管理员创建。">
         <button type="button" onClick={onOpenRoster} className="logout-btn">
           前往学生管理
+        </button>
+        <button type="button" onClick={logout} className="logout-btn">
+          退出登录
         </button>
       </EmptyState>
     )

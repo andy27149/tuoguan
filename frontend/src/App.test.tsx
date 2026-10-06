@@ -119,6 +119,9 @@ describe('App', () => {
     expect(await screen.findByText(/暂无托管班级，请联系管理员创建/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '前往消课' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '学生管理' })).not.toBeInTheDocument()
+    // 回归测试：这个空状态曾经没有退出登录按钮——一个纯课外课教师点"前往消课"后，
+    // 消课页只有"返回看板"，会在两个页面之间来回跳转但永远没有地方能退出登录。
+    expect(screen.getByRole('button', { name: '退出登录' })).toBeInTheDocument()
   })
 
   it('shows the empty-teacher state for a teacher with neither a class nor courses', async () => {
