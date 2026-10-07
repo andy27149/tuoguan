@@ -7,6 +7,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -35,5 +37,13 @@ public class AdminStudentController {
     public AdminStudentResponse create(@AuthenticationPrincipal TeacherPrincipal principal,
                                         @Valid @RequestBody AdminCreateStudentRequest request) {
         return adminStudentService.createStudent(principal.institutionId(), request);
+    }
+
+    @PatchMapping("/api/admin/students/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public AdminStudentResponse update(@AuthenticationPrincipal TeacherPrincipal principal,
+                                        @PathVariable Long id,
+                                        @Valid @RequestBody AdminUpdateStudentRequest request) {
+        return adminStudentService.updateStudent(principal.institutionId(), principal.teacherId(), id, request);
     }
 }

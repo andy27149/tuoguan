@@ -66,6 +66,8 @@ export interface AdminStudent {
   classRoomId: number | null
   classRoomName: string | null
   offCampusOnly: boolean
+  enrolled: boolean
+  teacherName: string | null
   enrolledCourseNames: string[]
 }
 
@@ -144,6 +146,19 @@ export function createAdminStudent(
   return apiFetch<AdminStudent>('/admin/students', {
     method: 'POST',
     body: JSON.stringify({ name, schoolClassName, teachingUnitId }),
+  })
+}
+
+export function updateAdminStudent(
+  studentId: number,
+  name: string,
+  schoolClassName: string | null,
+  teachingUnitId: number | null,
+  enrolled: boolean,
+): Promise<AdminStudent> {
+  return apiFetch<AdminStudent>(`/admin/students/${studentId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name, schoolClassName, teachingUnitId, enrolled }),
   })
 }
 

@@ -79,9 +79,13 @@ public class JdbcStudentDao implements StudentDao {
 
     @Override
     public void update(Student student) {
+        // teaching_unit_id 也要跟着存——老师端调用这里时一直传 existing.teachingUnitId()
+        // 不变，所以之前没加这一列也看不出问题；管理员端的"转班"需要真的改这个字段，
+        // 漏了它会导致转班接口悄悄不生效。
         jdbcTemplate.update(
-                "UPDATE student SET name = ?, school_class_name = ?, enrolled = ? WHERE id = ?",
-                student.name(), student.schoolClassName(), student.enrolled(), student.id());
+                "UPDATE student SET name = ?, school_class_name = ?, enrolled = ?, teaching_unit_id = ? WHERE id = ?",
+                student.name(), student.schoolClassName(), student.enrolled(), student.teachingUnitId(),
+                student.id());
     }
 
     @Override

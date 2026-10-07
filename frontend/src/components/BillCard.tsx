@@ -28,18 +28,10 @@ export const BillCard = forwardRef<HTMLDivElement, BillCardProps>(function BillC
       </div>
 
       {!isPureOffCampus && (
-        <div className="grid grid-cols-4 gap-2 text-center text-xs text-[#7c7391]">
-          <div>
-            <p className="font-['Sora'] text-base font-semibold text-[#241f3d]">{bill.totalWeekdays}</p>
-            <p>应出勤天数</p>
-          </div>
+        <div className="grid grid-cols-2 gap-2 text-center text-xs text-[#7c7391]">
           <div>
             <p className="font-['Sora'] text-base font-semibold text-[#241f3d]">{bill.leaveDays}</p>
             <p>请假天数</p>
-          </div>
-          <div>
-            <p className="font-['Sora'] text-base font-semibold text-[#241f3d]">{bill.attendanceDays}</p>
-            <p>实际出勤天数</p>
           </div>
           <div>
             <p className="font-['Sora'] text-base font-semibold text-[#241f3d]">{bill.mealRecordDates.length}</p>

@@ -18,6 +18,8 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -236,6 +238,57 @@ class AdminBillOverviewControllerTest extends IntegrationTestBase {
         mockMvc.perform(get("/api/admin/bills/" + billId)
                         .header("Authorization", "Bearer " + institutionAAdminToken))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void overviewOrdersCustodyStudentsByTeacherThenPureOffCampusStudentsByFirstCourseName() throws Exception {
+        Long institutionId = institutionDao.insert("账单总览排序测试机构");
+        teacherDao.insert(new Teacher(null, institutionId, "13900014030",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherAId = teacherDao.insert(new Teacher(null, institutionId, "13900014031", "A老师",
+                passwordEncoder.encode("teacher-password-a"), Role.TEACHER, false, null));
+        Long teacherBId = teacherDao.insert(new Teacher(null, institutionId, "13900014032", "B老师",
+                passwordEncoder.encode("teacher-password-b"), Role.TEACHER, false, null));
+        Long classRoomAId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherAId, "A班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long classRoomBId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherBId, "B班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long mathCourseId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherAId, "数学课",
+                BillingMode.LESSON_COUNT, 60, null, true, null));
+        Long chineseCourseId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherAId, "语文课",
+                BillingMode.LESSON_COUNT, 60, null, true, null));
+        String adminToken = login("13900014030", "admin-password");
+        String teacherAToken = login("13900014031", "teacher-password-a");
+
+        studentDao.insert(new Student(null, institutionId, classRoomBId, "托管乙", "一班", true, null, null));
+        studentDao.insert(new Student(null, institutionId, classRoomAId, "托管甲", "一班", true, null, null));
+        Long offCampusChineseId = studentDao.insert(
+                new Student(null, institutionId, null, "课外乙", null, true, null, null));
+        Long offCampusMathId = studentDao.insert(
+                new Student(null, institutionId, null, "课外甲", null, true, null, null));
+        mockMvc.perform(post("/api/courses/" + chineseCourseId + "/enrollments")
+                        .header("Authorization", "Bearer " + teacherAToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"studentId\":" + offCampusChineseId + "}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/api/courses/" + mathCourseId + "/enrollments")
+                        .header("Authorization", "Bearer " + teacherAToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"studentId\":" + offCampusMathId + "}"))
+                .andExpect(status().isCreated());
+
+        MvcResult result = mockMvc.perform(get("/api/admin/bills")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn();
+        // 显式指定 UTF-8——默认的 getContentAsString() 按 ISO-8859-1 解码会把中文拆成乱码。
+        List<String> order = new java.util.ArrayList<>();
+        objectMapper.readTree(result.getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8))
+                .forEach(node -> order.add(node.get("studentName").asText()));
+
+        assertThat(order.indexOf("托管甲")).isLessThan(order.indexOf("托管乙"));
+        assertThat(order.indexOf("托管乙")).isLessThan(order.indexOf("课外甲"));
+        assertThat(order.indexOf("课外甲")).isLessThan(order.indexOf("课外乙"));
     }
 
     private String login(String phone, String password) throws Exception {

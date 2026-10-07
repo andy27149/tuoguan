@@ -38,7 +38,9 @@ describe('BillCard', () => {
     render(<BillCard bill={CUSTODY_BILL} studentName="小明" className="一班" />)
 
     expect(screen.getByText('一班 · 小明')).toBeInTheDocument()
-    expect(screen.getByText('应出勤天数')).toBeInTheDocument()
+    expect(screen.queryByText('应出勤天数')).not.toBeInTheDocument()
+    expect(screen.queryByText('实际出勤天数')).not.toBeInTheDocument()
+    expect(screen.getByText('请假天数')).toBeInTheDocument()
     expect(screen.getByText('托管费')).toBeInTheDocument()
     expect(screen.getByText('餐费')).toBeInTheDocument()
     const mealDaysLabel = screen.getByText('用餐天数')

@@ -23,7 +23,9 @@ import com.tuoguan.backend.kanban.dao.StudentMealRecordDao;
 import com.tuoguan.backend.kanban.domain.StudentMealRecord;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
+import com.tuoguan.backend.roster.service.StudentOverviewOrder;
 import com.tuoguan.backend.roster.web.NotFoundException;
+import com.tuoguan.backend.unit.dao.StudentUnitEnrollmentDao;
 import com.tuoguan.backend.unit.dao.TeachingUnitDao;
 import com.tuoguan.backend.unit.domain.BillingMode;
 import com.tuoguan.backend.unit.domain.TeachingUnit;
@@ -35,6 +37,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -54,6 +57,7 @@ public class BillGenerationService {
     private final StudentDao studentDao;
     private final TeachingUnitDao teachingUnitDao;
     private final TeacherDao teacherDao;
+    private final StudentUnitEnrollmentDao enrollmentDao;
 
     public BillGenerationService(ClassBillingRateDao classBillingRateDao,
                                   CourseAccountService courseAccountService,
@@ -62,7 +66,8 @@ public class BillGenerationService {
                                   MonthlyBillMealLineDao monthlyBillMealLineDao,
                                   MonthlyBillLeaveLineDao monthlyBillLeaveLineDao,
                                   StudentMealRecordDao studentMealRecordDao, StudentDao studentDao,
-                                  TeachingUnitDao teachingUnitDao, TeacherDao teacherDao) {
+                                  TeachingUnitDao teachingUnitDao, TeacherDao teacherDao,
+                                  StudentUnitEnrollmentDao enrollmentDao) {
         this.classBillingRateDao = classBillingRateDao;
         this.courseAccountService = courseAccountService;
         this.studentLeaveRecordDao = studentLeaveRecordDao;
@@ -74,6 +79,7 @@ public class BillGenerationService {
         this.studentDao = studentDao;
         this.teachingUnitDao = teachingUnitDao;
         this.teacherDao = teacherDao;
+        this.enrollmentDao = enrollmentDao;
     }
 
     public Optional<ClassBillingRate> getBillingRate(Long institutionId, Long classRoomId) {
@@ -247,13 +253,7 @@ public class BillGenerationService {
                 .collect(Collectors.toMap(TeachingUnit::id, u -> u));
 
         List<BillOverviewRow> rows = new ArrayList<>();
-        for (Student student : studentDao.findAllByInstitutionId(institutionId)) {
-            if (!student.enrolled()) {
-                continue;
-            }
-            if (studentName != null && !studentName.isBlank() && !student.name().contains(studentName)) {
-                continue;
-            }
+        for (Student student : sortForOverview(studentDao.findAllByInstitutionId(institutionId), studentName, unitsById)) {
             TeachingUnit unit = student.teachingUnitId() != null ? unitsById.get(student.teachingUnitId()) : null;
             String teacherName = unit != null
                     ? teacherDao.findById(unit.teacherId()).map(Teacher::name).orElse("-") : "-";
@@ -268,24 +268,45 @@ public class BillGenerationService {
         return rows;
     }
 
+    // 学生总览/账单管理共用排序口径：托管学生按托管教师排，纯课外课学生按首门课程名排，
+    // 见 StudentOverviewOrder 的说明。这里顺带做 enrolled 过滤和姓名模糊搜索。
+    private List<Student> sortForOverview(List<Student> students, String studentName,
+                                           Map<Long, TeachingUnit> unitsById) {
+        List<Student> filtered = students.stream()
+                .filter(Student::enrolled)
+                .filter(s -> studentName == null || studentName.isBlank() || s.name().contains(studentName))
+                .toList();
+        Map<Long, String> courseNameByUnitId = unitsById.values().stream()
+                .filter(u -> u.billingMode() == BillingMode.LESSON_COUNT)
+                .collect(Collectors.toMap(TeachingUnit::id, TeachingUnit::name));
+        Map<Long, String> firstCourseNameByStudentId =
+                StudentOverviewOrder.computeFirstCourseNames(filtered, courseNameByUnitId, enrollmentDao);
+        return filtered.stream()
+                .sorted(StudentOverviewOrder.comparator(unitsById, firstCourseNameByStudentId, teacherDao))
+                .toList();
+    }
+
     private List<BillOverviewRow> buildOverviewRowsForUnit(TeachingUnit unit, Long institutionId, String studentName,
                                                              Map<Long, MonthlyBill> billsByStudentId,
                                                              String yearMonth) {
         String teacherName = teacherDao.findById(unit.teacherId()).map(Teacher::name).orElse("-");
         List<BillOverviewRow> rows = new ArrayList<>();
-        for (Student student : studentDao.findAllByTeachingUnitId(unit.id())) {
-            if (!student.enrolled()) {
-                continue;
-            }
-            if (studentName != null && !studentName.isBlank() && !student.name().contains(studentName)) {
-                continue;
-            }
+        for (Student student : studentsInUnitSortedByName(unit.id(), studentName)) {
             MonthlyBill bill = billsByStudentId.get(student.id());
             rows.add(new BillOverviewRow(student.id(), student.name(), unit.id(), unit.name(), teacherName,
                     bill != null ? bill.id() : null, bill != null ? bill.totalAmount() : null,
                     bill != null && bill.isPaid(), yearMonth));
         }
         return rows;
+    }
+
+    // 单个班级内部都是同一个托管教师，分组/按教师排序没有意义，按学生姓名排序即可。
+    private List<Student> studentsInUnitSortedByName(Long teachingUnitId, String studentName) {
+        return studentDao.findAllByTeachingUnitId(teachingUnitId).stream()
+                .filter(Student::enrolled)
+                .filter(s -> studentName == null || studentName.isBlank() || s.name().contains(studentName))
+                .sorted(Comparator.comparing(Student::name))
+                .toList();
     }
 
     public List<BillOverviewRow> getBillOverviewAllMonths(Long institutionId, Long classRoomId, String studentName) {
@@ -298,13 +319,7 @@ public class BillGenerationService {
                 .collect(Collectors.toMap(TeachingUnit::id, u -> u));
 
         List<BillOverviewRow> rows = new ArrayList<>();
-        for (Student student : studentDao.findAllByInstitutionId(institutionId)) {
-            if (!student.enrolled()) {
-                continue;
-            }
-            if (studentName != null && !studentName.isBlank() && !student.name().contains(studentName)) {
-                continue;
-            }
+        for (Student student : sortForOverview(studentDao.findAllByInstitutionId(institutionId), studentName, unitsById)) {
             TeachingUnit unit = student.teachingUnitId() != null ? unitsById.get(student.teachingUnitId()) : null;
             String teacherName = unit != null
                     ? teacherDao.findById(unit.teacherId()).map(Teacher::name).orElse("-") : "-";
@@ -330,13 +345,7 @@ public class BillGenerationService {
         Map<Long, List<MonthlyBill>> billsByStudentId = monthlyBillDao.findAllByTeachingUnitId(unit.id())
                 .stream().collect(Collectors.groupingBy(MonthlyBill::studentId));
         List<BillOverviewRow> rows = new ArrayList<>();
-        for (Student student : studentDao.findAllByTeachingUnitId(unit.id())) {
-            if (!student.enrolled()) {
-                continue;
-            }
-            if (studentName != null && !studentName.isBlank() && !student.name().contains(studentName)) {
-                continue;
-            }
+        for (Student student : studentsInUnitSortedByName(unit.id(), studentName)) {
             List<MonthlyBill> bills = billsByStudentId.get(student.id());
             if (bills == null || bills.isEmpty()) {
                 rows.add(new BillOverviewRow(student.id(), student.name(), unit.id(), unit.name(), teacherName,
