@@ -55,7 +55,10 @@ class AdminStudentAccountControllerTest extends IntegrationTestBase {
     private ObjectMapper objectMapper;
 
     @Test
-    void rechargingClassRoomStudentIsRejected() throws Exception {
+    void rechargingDualIdentityStudentNowSucceedsAndCoversLaterConsumption() throws Exception {
+        // 托管班学生（同时报了课外课）现在也允许预充值：充值之后发生的消课应该被覆盖，
+        // 不再全额计入账单——覆盖判定逻辑本来就不区分学生身份，这里验证开放之后确实
+        // 按预期工作。
         Long institutionId = institutionDao.insert("充值控制器测试机构A");
         teacherDao.insert(new Teacher(null, institutionId, "13800013001",
                 passwordEncoder.encode("password"), Role.ADMIN, false, null));
@@ -71,8 +74,24 @@ class AdminStudentAccountControllerTest extends IntegrationTestBase {
         mockMvc.perform(post("/api/admin/students/" + studentId + "/recharges")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"courseId\":" + courseId + ",\"lessonCount\":10,\"note\":\"微信转账\"}"))
-                .andExpect(status().isBadRequest());
+                        .content("{\"courseId\":" + courseId + ",\"lessonCount\":2,\"note\":\"微信转账\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.lessonCount").value(2));
+
+        consumptionRecordDao.insert(new CourseConsumptionRecord(null, institutionId, studentId, courseId,
+                LocalDate.of(2030, 1, 2), new BigDecimal("50.00"), teacherId, null));
+        consumptionRecordDao.insert(new CourseConsumptionRecord(null, institutionId, studentId, courseId,
+                LocalDate.of(2030, 1, 3), new BigDecimal("50.00"), teacherId, null));
+        consumptionRecordDao.insert(new CourseConsumptionRecord(null, institutionId, studentId, courseId,
+                LocalDate.of(2030, 1, 4), new BigDecimal("50.00"), teacherId, null));
+
+        mockMvc.perform(get("/api/admin/students/" + studentId + "/course-consumption")
+                        .header("Authorization", "Bearer " + token)
+                        .param("month", "2030-01"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].lessonCount").value(1))
+                .andExpect(jsonPath("$[0].coveredByBalanceCount").value(2))
+                .andExpect(jsonPath("$[0].amount").value(50.00));
     }
 
     @Test

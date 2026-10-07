@@ -61,4 +61,9 @@ public class JdbcCourseRechargeRecordDao implements CourseRechargeRecordDao {
     public void deleteAllByStudentId(Long studentId) {
         jdbcTemplate.update("DELETE FROM course_recharge_record WHERE student_id = ?", studentId);
     }
+
+    @Override
+    public void deleteAllByTeachingUnitId(Long teachingUnitId) {
+        jdbcTemplate.update("DELETE FROM course_recharge_record WHERE teaching_unit_id = ?", teachingUnitId);
+    }
 }

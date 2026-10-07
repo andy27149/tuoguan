@@ -190,6 +190,10 @@ public class AdminTeachingUnitService {
             }
             enrollmentDao.deleteAllByTeachingUnitId(unit.id());
             courseConsumptionRecordDao.deleteAllByTeachingUnitId(unit.id());
+            // 双重身份学生（同时在托管班）不会被上面的循环硬删除，之前这里漏了充值记录的
+            // 按单元清理——现在托管学生也能充值了，留着不清会变成指向已删除教学单元的
+            // 孤儿数据。
+            courseRechargeRecordDao.deleteAllByTeachingUnitId(unit.id());
             teachingUnitDao.deleteById(unit.id());
         }
     }

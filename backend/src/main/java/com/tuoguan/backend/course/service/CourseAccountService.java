@@ -10,7 +10,6 @@ import com.tuoguan.backend.course.web.ConsumptionCoverage;
 import com.tuoguan.backend.course.web.ConsumptionRecordResponse;
 import com.tuoguan.backend.course.web.CourseActivityRow;
 import com.tuoguan.backend.course.web.CourseBalanceRow;
-import com.tuoguan.backend.course.web.RechargeNotAllowedException;
 import com.tuoguan.backend.course.web.RechargeRecordResponse;
 import com.tuoguan.backend.course.web.StudentCourseStatement;
 import com.tuoguan.backend.roster.dao.StudentDao;
@@ -59,10 +58,10 @@ public class CourseAccountService {
 
     public CourseRechargeRecord recharge(Long institutionId, Long studentId, Long recordedByTeacherId,
                                           Long courseId, Integer lessonCount, String note) {
-        Student student = requireStudentInInstitution(institutionId, studentId);
-        if (student.teachingUnitId() != null) {
-            throw new RechargeNotAllowedException("Student is enrolled in a class room: " + studentId);
-        }
+        // 托管班学生（同时报了课外课）现在也允许预充值——覆盖判定
+        // （classifyConsumptions）本来就是按 (学生, 课程) 维度通用处理的，不区分学生
+        // 身份，开放充值不需要改计费逻辑本身。
+        requireStudentInInstitution(institutionId, studentId);
         requireCourseInInstitution(institutionId, courseId);
         Long id = rechargeRecordDao.insert(new CourseRechargeRecord(null, institutionId, studentId, courseId,
                 lessonCount, note, recordedByTeacherId, null));

@@ -6,6 +6,8 @@ import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.auth.web.LoginResponse;
+import com.tuoguan.backend.roster.dao.StudentDao;
+import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.support.IntegrationTestBase;
 import com.tuoguan.backend.unit.dao.TeachingUnitDao;
 import com.tuoguan.backend.unit.domain.BillingMode;
@@ -34,6 +36,9 @@ class AdminTeachingUnitControllerTest extends IntegrationTestBase {
 
     @Autowired
     private TeachingUnitDao teachingUnitDao;
+
+    @Autowired
+    private StudentDao studentDao;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -353,6 +358,43 @@ class AdminTeachingUnitControllerTest extends IntegrationTestBase {
         mockMvc.perform(get("/api/admin/teaching-units/" + courseId + "/deletion-impact")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deletingCourseCleansUpRechargeRecordsForDualIdentityStudentsWhoSurvive() throws Exception {
+        // 双重身份学生（同时在托管班）删课程时不会被硬删除，之前这里漏了按教学单元清理
+        // 充值记录——现在托管学生也能充值了，这条回归要守住，否则会留下指向已删除教学
+        // 单元的孤儿充值记录。
+        Long institutionId = institutionDao.insert("教学单元测试机构R");
+        teacherDao.insert(new Teacher(null, institutionId, "13900041034",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900041035",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long courseId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "数学课",
+                BillingMode.LESSON_COUNT, 45, new java.math.BigDecimal("50.00"), true, null));
+        Long studentId = studentDao.insert(
+                new Student(null, institutionId, classRoomId, "双重身份生", "一班", true, null, null));
+        String adminToken = login("13900041034", "admin-password");
+
+        mockMvc.perform(post("/api/admin/students/" + studentId + "/recharges")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"courseId\":" + courseId + ",\"lessonCount\":5,\"note\":\"微信转账\"}"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(delete("/api/admin/teaching-units/" + courseId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNoContent());
+
+        Integer rechargeCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM course_recharge_record WHERE teaching_unit_id = ?", Integer.class, courseId);
+        assertThat(rechargeCount).isZero();
+        // 学生本人是托管生，课程删除不应该把人也删了。
+        mockMvc.perform(get("/api/admin/students").header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == " + studentId + ")]").exists());
     }
 
     @Test

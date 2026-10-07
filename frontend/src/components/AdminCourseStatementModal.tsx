@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import * as courseApi from '../api/course'
 import * as unitApi from '../api/unit'
-import { ApiError } from '../api/client'
 import { teacherLabel } from '../utils/teacherLabel'
 import { formatDateTime } from '../kanban/date'
 
@@ -61,8 +60,8 @@ export function AdminCourseStatementModal({ studentId, studentName, onClose }: A
       setRechargeLessonCount('')
       setRechargeNote('')
       loadStatement()
-    } catch (err) {
-      setSubmitError(err instanceof ApiError && err.status === 400 ? '该学生不支持预充值' : '充值失败，请重试')
+    } catch {
+      setSubmitError('充值失败，请重试')
     } finally {
       setSubmitting(false)
     }
