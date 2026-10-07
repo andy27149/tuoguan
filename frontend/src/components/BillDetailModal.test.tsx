@@ -23,6 +23,10 @@ const BILL: MonthlyBill = {
   generatedAt: '2026-09-05T00:00:00Z',
   extraFeeLines: [{ id: 1, monthlyBillId: 500, name: '数学课', pricePerLesson: 50, lessonCount: 4, amount: 200 }],
   mealRecordDates: ['2026-09-03', '2026-09-01', '2026-09-02'],
+  leaveLines: [
+    { id: 1, monthlyBillId: 500, leaveDate: '2026-09-04', reason: '发烧' },
+    { id: 2, monthlyBillId: 500, leaveDate: '2026-09-05', reason: null },
+  ],
 }
 
 describe('BillDetailModal', () => {
@@ -60,6 +64,22 @@ describe('BillDetailModal', () => {
     )
 
     expect(screen.queryByText(/用餐日期/)).not.toBeInTheDocument()
+  })
+
+  it('lists leave dates as pill chips, same style as meal dates, falling back to a placeholder reason when missing', () => {
+    render(<BillDetailModal bill={BILL} studentName="小明" className="一班" onClose={vi.fn()} />)
+
+    expect(screen.getByText('请假日期（共2天）')).toBeInTheDocument()
+    expect(screen.getByText('2026-09-04 · 发烧')).toBeInTheDocument()
+    expect(screen.getByText('2026-09-05 · 未填写原因')).toBeInTheDocument()
+  })
+
+  it('does not show a leave date section when there are none', () => {
+    render(
+      <BillDetailModal bill={{ ...BILL, leaveLines: [] }} studentName="小明" className="一班" onClose={vi.fn()} />,
+    )
+
+    expect(screen.queryByText(/请假日期/)).not.toBeInTheDocument()
   })
 
   it('calls onClose when the close button is clicked', () => {

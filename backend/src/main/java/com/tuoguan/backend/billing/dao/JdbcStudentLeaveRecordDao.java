@@ -27,6 +27,14 @@ public class JdbcStudentLeaveRecordDao implements StudentLeaveRecordDao {
     }
 
     @Override
+    public List<StudentLeaveRecord> findAllByTeachingUnitIdAndDate(Long teachingUnitId, LocalDate date) {
+        return jdbcTemplate.query(
+                "SELECT id, institution_id, student_id, teaching_unit_id, leave_date, reason, created_at "
+                        + "FROM student_leave_record WHERE teaching_unit_id = ? AND leave_date = ?",
+                ROW_MAPPER, teachingUnitId, java.sql.Date.valueOf(date));
+    }
+
+    @Override
     public List<StudentLeaveRecord> findAllByStudentIdAndDateRange(Long studentId, LocalDate start, LocalDate end) {
         return jdbcTemplate.query(
                 "SELECT id, institution_id, student_id, teaching_unit_id, leave_date, reason, created_at "

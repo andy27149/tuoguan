@@ -64,7 +64,6 @@ describe('AdminStudentsModule', () => {
     })
     vi.mocked(unitApi.fetchTeachingUnits).mockResolvedValue(CLASS_ROOMS)
     vi.mocked(courseApi.fetchStudentCourseConsumption).mockResolvedValue([])
-    vi.mocked(billingApi.fetchStudentLeaveRecords).mockResolvedValue([])
     vi.mocked(billingApi.fetchClassBillingRate).mockResolvedValue(null)
   })
 

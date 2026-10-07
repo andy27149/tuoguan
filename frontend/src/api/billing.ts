@@ -16,16 +16,6 @@ export interface ClassBillingRateRow {
   mealRatePerDay: number | null
 }
 
-export interface StudentLeaveRecord {
-  id: number
-  institutionId: number
-  studentId: number
-  classRoomId: number
-  leaveDate: string
-  reason: string | null
-  createdAt: string
-}
-
 export interface MonthlyBillExtraFeeLine {
   id: number
   monthlyBillId: number
@@ -33,6 +23,13 @@ export interface MonthlyBillExtraFeeLine {
   pricePerLesson: number
   lessonCount: number
   amount: number
+}
+
+export interface MonthlyBillLeaveLine {
+  id: number
+  monthlyBillId: number
+  leaveDate: string
+  reason: string | null
 }
 
 export interface MonthlyBill {
@@ -54,6 +51,7 @@ export interface MonthlyBill {
   generatedAt: string
   extraFeeLines: MonthlyBillExtraFeeLine[]
   mealRecordDates: string[]
+  leaveLines: MonthlyBillLeaveLine[]
 }
 
 export interface BillOverviewRow {
@@ -115,26 +113,6 @@ export function generateStudentBill(
     method: 'POST',
     ...(tuitionOverride !== undefined ? { body: JSON.stringify({ tuitionOverride }) } : {}),
   })
-}
-
-export function fetchStudentLeaveRecords(studentId: number, month: string): Promise<StudentLeaveRecord[]> {
-  return apiFetch<StudentLeaveRecord[]>(`/admin/students/${studentId}/leave-records?month=${month}`)
-}
-
-export function registerStudentLeaveRange(
-  studentId: number,
-  startDate: string,
-  endDate: string,
-  reason?: string,
-): Promise<StudentLeaveRecord[]> {
-  return apiFetch<StudentLeaveRecord[]>(`/admin/students/${studentId}/leave-records`, {
-    method: 'POST',
-    body: JSON.stringify({ startDate, endDate, reason }),
-  })
-}
-
-export function cancelStudentLeave(studentId: number, date: string): Promise<void> {
-  return apiFetch<void>(`/admin/students/${studentId}/leave-records/${date}`, { method: 'DELETE' })
 }
 
 export function fetchBillOverview(

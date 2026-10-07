@@ -2,7 +2,6 @@ package com.tuoguan.backend.roster.web;
 
 import com.tuoguan.backend.admin.web.BillingRateNotConfiguredException;
 import com.tuoguan.backend.admin.web.DuplicatePhoneException;
-import com.tuoguan.backend.admin.web.InvalidLeaveDateException;
 import com.tuoguan.backend.admin.web.InvalidFeatureFlagsException;
 import com.tuoguan.backend.admin.web.InvalidLogoException;
 import com.tuoguan.backend.admin.web.InvalidTeacherRoleException;
@@ -62,11 +61,6 @@ public class RosterExceptionHandler {
     @ExceptionHandler(BillingRateNotConfiguredException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public void handleBillingRateNotConfigured() {
-    }
-
-    @ExceptionHandler(InvalidLeaveDateException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public void handleInvalidLeaveDate() {
     }
 
     @ExceptionHandler(InvalidLogoException.class)

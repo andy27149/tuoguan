@@ -10,5 +10,5 @@ public record MonthlyBill(Long id, Long institutionId, Long studentId, Long teac
                            int totalWeekdays, int leaveDays, int attendanceDays, BigDecimal tuitionAmount,
                            BigDecimal mealAmount, BigDecimal extraFeeTotal, BigDecimal totalAmount, boolean isPaid,
                            Instant generatedAt, List<MonthlyBillExtraFeeLine> extraFeeLines,
-                           List<LocalDate> mealRecordDates) {
+                           List<LocalDate> mealRecordDates, List<MonthlyBillLeaveLine> leaveLines) {
 }

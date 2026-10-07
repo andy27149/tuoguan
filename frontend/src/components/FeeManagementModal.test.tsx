@@ -17,18 +17,6 @@ const RATE: billingApi.ClassBillingRate = {
   updatedAt: '2026-09-01T00:00:00Z',
 }
 
-const LEAVE_RECORDS: billingApi.StudentLeaveRecord[] = [
-  {
-    id: 1,
-    institutionId: 1,
-    studentId: 100,
-    classRoomId: 20,
-    leaveDate: '2026-09-05',
-    reason: '感冒',
-    createdAt: '2026-09-05T00:00:00Z',
-  },
-]
-
 const COURSE_CONSUMPTION: courseApi.CourseConsumptionSummaryRow[] = [
   {
     courseId: 1,
@@ -61,7 +49,6 @@ describe('FeeManagementModal', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     vi.mocked(billingApi.fetchClassBillingRate).mockResolvedValue(RATE)
-    vi.mocked(billingApi.fetchStudentLeaveRecords).mockResolvedValue(LEAVE_RECORDS)
     vi.mocked(courseApi.fetchStudentCourseConsumption).mockResolvedValue(COURSE_CONSUMPTION)
   })
 
@@ -69,65 +56,7 @@ describe('FeeManagementModal', () => {
     setup()
 
     expect(await screen.findByLabelText('本月托管费金额')).toHaveValue('300')
-    expect(billingApi.fetchStudentLeaveRecords).toHaveBeenCalledWith(100, '2026-09')
     expect(courseApi.fetchStudentCourseConsumption).toHaveBeenCalledWith(100, '2026-09')
-  })
-
-  it('shows existing leave records and adds a new one', async () => {
-    vi.mocked(billingApi.registerStudentLeaveRange).mockResolvedValue([])
-    vi.mocked(billingApi.fetchStudentLeaveRecords)
-      .mockResolvedValueOnce(LEAVE_RECORDS)
-      .mockResolvedValueOnce([
-        ...LEAVE_RECORDS,
-        {
-          id: 2,
-          institutionId: 1,
-          studentId: 100,
-          classRoomId: 20,
-          leaveDate: '2026-09-10',
-          reason: null,
-          createdAt: '2026-09-10T00:00:00Z',
-        },
-      ])
-    setup()
-    expect(await screen.findByText('2026-09-05')).toBeInTheDocument()
-
-    const [startInput, endInput] = (screen.getAllByDisplayValue('') as HTMLInputElement[]).filter(
-      (el) => el.type === 'date',
-    )
-    fireEvent.change(startInput, { target: { value: '2026-09-10' } })
-    fireEvent.change(endInput, { target: { value: '2026-09-10' } })
-    fireEvent.click(screen.getByRole('button', { name: '登记请假' }))
-
-    await waitFor(() =>
-      expect(billingApi.registerStudentLeaveRange).toHaveBeenCalledWith(100, '2026-09-10', '2026-09-10', undefined),
-    )
-    expect(await screen.findByText('2026-09-10')).toBeInTheDocument()
-  })
-
-  it('shows a friendly error when leave dates are invalid', async () => {
-    vi.mocked(billingApi.registerStudentLeaveRange).mockRejectedValue(new ApiError(400, '结束日期不能早于开始日期'))
-    setup()
-    await screen.findByText('2026-09-05')
-
-    const dateInputs = screen.getAllByDisplayValue('') as HTMLInputElement[]
-    const [startInput, endInput] = dateInputs.filter((el) => el.type === 'date')
-    fireEvent.change(startInput, { target: { value: '2026-09-10' } })
-    fireEvent.change(endInput, { target: { value: '2026-09-01' } })
-    fireEvent.click(screen.getByRole('button', { name: '登记请假' }))
-
-    expect(await screen.findByText('结束日期不能早于开始日期')).toBeInTheDocument()
-  })
-
-  it('cancels an existing leave record', async () => {
-    vi.mocked(billingApi.cancelStudentLeave).mockResolvedValue(undefined)
-    setup()
-    await screen.findByText('2026-09-05')
-
-    fireEvent.click(screen.getByRole('button', { name: '取消请假2026-09-05' }))
-
-    await waitFor(() => expect(billingApi.cancelStudentLeave).toHaveBeenCalledWith(100, '2026-09-05'))
-    await waitFor(() => expect(screen.queryByText('2026-09-05')).not.toBeInTheDocument())
   })
 
   it('shows read-only course consumption for the month with computed amount', async () => {

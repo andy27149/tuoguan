@@ -27,6 +27,7 @@ export function BillDetailModal({ bill, studentName, className, onClose }: BillD
   const [exportError, setExportError] = useState<string | null>(null)
   const isPureOffCampus = bill.teachingUnitId === null
   const hasMealDates = !isPureOffCampus && bill.mealRecordDates.length > 0
+  const hasLeaveLines = !isPureOffCampus && bill.leaveLines.length > 0
 
   async function handleExport() {
     if (!cardRef.current) return
@@ -69,6 +70,23 @@ export function BillDetailModal({ bill, studentName, className, onClose }: BillD
                     className="rounded-full bg-[#faf7ff] px-2 py-0.5 text-xs text-[#5d5480]"
                   >
                     {d}
+                  </span>
+                ))}
+            </div>
+          </div>
+        )}
+        {hasLeaveLines && (
+          <div className="border-b border-[#ece7de] px-4 py-3">
+            <p className="text-xs font-medium text-[#5d5480]">请假日期（共{bill.leaveLines.length}天）</p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {[...bill.leaveLines]
+                .sort((a, b) => a.leaveDate.localeCompare(b.leaveDate))
+                .map((line) => (
+                  <span
+                    key={line.leaveDate}
+                    className="rounded-full bg-[#faf7ff] px-2 py-0.5 text-xs text-[#5d5480]"
+                  >
+                    {line.leaveDate} · {line.reason ?? '未填写原因'}
                   </span>
                 ))}
             </div>

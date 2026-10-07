@@ -20,6 +20,7 @@ const CUSTODY_BILL: MonthlyBill = {
   generatedAt: '2026-09-05T00:00:00Z',
   extraFeeLines: [],
   mealRecordDates: ['2026-09-01', '2026-09-02'],
+  leaveLines: [],
 }
 
 const PURE_OFF_CAMPUS_BILL: MonthlyBill = {
@@ -42,6 +43,7 @@ describe('BillCard', () => {
     expect(screen.getByText('餐费')).toBeInTheDocument()
     const mealDaysLabel = screen.getByText('用餐天数')
     expect(mealDaysLabel.previousElementSibling).toHaveTextContent('2')
+    expect(screen.getByText('2天 × ¥100.00 = ¥200.00')).toBeInTheDocument()
   })
 
   it('hides custody-specific fields for a pure off-campus student', () => {
@@ -54,5 +56,6 @@ describe('BillCard', () => {
     expect(screen.queryByText('餐费')).not.toBeInTheDocument()
     expect(screen.queryByText('用餐天数')).not.toBeInTheDocument()
     expect(screen.getByText('围棋课')).toBeInTheDocument()
+    expect(screen.getByText('4次 × ¥50.00 = ¥200.00')).toBeInTheDocument()
   })
 })

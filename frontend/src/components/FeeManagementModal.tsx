@@ -27,14 +27,6 @@ export function FeeManagementModal({
   const [tuitionInput, setTuitionInput] = useState('')
   const [loadingRate, setLoadingRate] = useState(true)
 
-  const [leaveRecords, setLeaveRecords] = useState<billingApi.StudentLeaveRecord[]>([])
-  const [loadingLeave, setLoadingLeave] = useState(true)
-  const [leaveStart, setLeaveStart] = useState('')
-  const [leaveEnd, setLeaveEnd] = useState('')
-  const [leaveReason, setLeaveReason] = useState('')
-  const [leaveSubmitting, setLeaveSubmitting] = useState(false)
-  const [leaveError, setLeaveError] = useState<string | null>(null)
-
   const [courseConsumption, setCourseConsumption] = useState<courseApi.CourseConsumptionSummaryRow[]>([])
   const [loadingCourseConsumption, setLoadingCourseConsumption] = useState(true)
 
@@ -50,38 +42,11 @@ export function FeeManagementModal({
         .then((rate) => setTuitionInput(rate ? String(rate.tuitionRatePerMonth) : ''))
         .finally(() => setLoadingRate(false))
     }
-    billingApi
-      .fetchStudentLeaveRecords(studentId, month)
-      .then(setLeaveRecords)
-      .finally(() => setLoadingLeave(false))
     courseApi
       .fetchStudentCourseConsumption(studentId, month)
       .then(setCourseConsumption)
       .finally(() => setLoadingCourseConsumption(false))
   }, [studentId, classRoomId, month])
-
-  async function handleAddLeave() {
-    if (!leaveStart || !leaveEnd) return
-    setLeaveSubmitting(true)
-    setLeaveError(null)
-    try {
-      await billingApi.registerStudentLeaveRange(studentId, leaveStart, leaveEnd, leaveReason || undefined)
-      const records = await billingApi.fetchStudentLeaveRecords(studentId, month)
-      setLeaveRecords(records)
-      setLeaveStart('')
-      setLeaveEnd('')
-      setLeaveReason('')
-    } catch (err) {
-      setLeaveError(err instanceof ApiError && err.status === 400 ? '结束日期不能早于开始日期' : '登记失败，请重试')
-    } finally {
-      setLeaveSubmitting(false)
-    }
-  }
-
-  async function handleCancelLeave(date: string) {
-    await billingApi.cancelStudentLeave(studentId, date)
-    setLeaveRecords((prev) => prev.filter((r) => r.leaveDate !== date))
-  }
 
   async function handleSave() {
     let tuition: number | undefined
@@ -146,63 +111,6 @@ export function FeeManagementModal({
               )}
             </section>
           )}
-
-          <section>
-            <h3 className="text-sm font-semibold text-[#241f3d]">请假管理</h3>
-            {loadingLeave ? (
-              <p className="mt-1 text-xs text-[#7c7391]">加载中...</p>
-            ) : (
-              <ul className="mt-2 flex flex-wrap gap-1.5 text-xs">
-                {leaveRecords.map((r) => (
-                  <li
-                    key={r.leaveDate}
-                    className="flex items-center gap-1 rounded-full border border-[#ece7de] bg-[#faf7ff] px-2 py-0.5"
-                  >
-                    {r.leaveDate}
-                    <button
-                      type="button"
-                      aria-label={`取消请假${r.leaveDate}`}
-                      onClick={() => handleCancelLeave(r.leaveDate)}
-                      className="text-[#b7591f]"
-                    >
-                      ×
-                    </button>
-                  </li>
-                ))}
-                {leaveRecords.length === 0 && <li className="text-[#7c7391]">本月暂无请假记录</li>}
-              </ul>
-            )}
-            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
-              <input
-                type="date"
-                value={leaveStart}
-                onChange={(e) => setLeaveStart(e.target.value)}
-                className="rounded-lg border border-[#ece7de] px-1.5 py-1"
-              />
-              <span>至</span>
-              <input
-                type="date"
-                value={leaveEnd}
-                onChange={(e) => setLeaveEnd(e.target.value)}
-                className="rounded-lg border border-[#ece7de] px-1.5 py-1"
-              />
-              <input
-                placeholder="事由（选填）"
-                value={leaveReason}
-                onChange={(e) => setLeaveReason(e.target.value)}
-                className="w-24 rounded-lg border border-[#ece7de] px-1.5 py-1"
-              />
-              <button
-                type="button"
-                onClick={handleAddLeave}
-                disabled={leaveSubmitting || !leaveStart || !leaveEnd}
-                className="rounded-full bg-[#6d5bd0] px-2.5 py-1 text-white disabled:opacity-50"
-              >
-                登记请假
-              </button>
-            </div>
-            {leaveError && <p className="mt-1 text-xs text-[#b7591f]">{leaveError}</p>}
-          </section>
 
           <section>
             <h3 className="text-sm font-semibold text-[#241f3d]">课外课消课（本月，只读）</h3>

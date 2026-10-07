@@ -31,6 +31,7 @@ function setup(overrides: Partial<ComponentProps<typeof StudentCard>> = {}) {
       comment=""
       arrivedAt=""
       hasMeal={false}
+      leaveReason=""
       date="2026-08-23"
       onToggleTask={vi.fn()}
       onDeleteTask={vi.fn()}
@@ -43,6 +44,8 @@ function setup(overrides: Partial<ComponentProps<typeof StudentCard>> = {}) {
       onClearArrival={vi.fn()}
       onSetMeal={vi.fn()}
       onClearMeal={vi.fn()}
+      onSetLeave={vi.fn()}
+      onClearLeave={vi.fn()}
       onShowToast={vi.fn()}
       {...overrides}
     />,
@@ -56,17 +59,17 @@ describe('StudentCard share-link button', () => {
     vi.mocked(QRCode.toCanvas).mockResolvedValue(undefined as never)
   })
 
-  it('opens the ShareLinkModal showing the student-specific title when the 家长专属链接 button is clicked', async () => {
+  it('opens the ShareLinkModal showing the student-specific title when the 链接 chip is clicked', async () => {
     setup()
 
-    fireEvent.click(screen.getByRole('button', { name: '家长专属链接' }))
+    fireEvent.click(screen.getByRole('button', { name: '🔗 链接' }))
 
     expect(await screen.findByText('小明的家长专属链接')).toBeInTheDocument()
     expect(studentsApi.fetchShareLink).toHaveBeenCalledWith(1)
   })
 })
 
-describe('StudentCard arrival button', () => {
+describe('StudentCard arrival chip', () => {
   beforeEach(() => {
     vi.resetAllMocks()
   })
@@ -74,20 +77,20 @@ describe('StudentCard arrival button', () => {
   it('shows a plain label when arrival is not recorded yet', () => {
     setup()
 
-    expect(screen.getByRole('button', { name: '到了' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '🕐 到了' })).toBeInTheDocument()
   })
 
-  it('shows the recorded arrival time in the button label', () => {
+  it('shows the recorded arrival time in the chip label', () => {
     setup({ arrivedAt: '15:40' })
 
-    expect(screen.getByRole('button', { name: '到了 · 15:40' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '🕐 15:40' })).toBeInTheDocument()
   })
 
   it('checks in immediately with the current time on first click, without opening a modal', () => {
     const onSetArrival = vi.fn()
     setup({ onSetArrival })
 
-    fireEvent.click(screen.getByRole('button', { name: '到了' }))
+    fireEvent.click(screen.getByRole('button', { name: '🕐 到了' }))
 
     expect(onSetArrival).toHaveBeenCalledWith(1, expect.stringMatching(/^\d{2}:\d{2}$/))
     expect(screen.queryByText('小明的到达签到')).not.toBeInTheDocument()
@@ -97,7 +100,7 @@ describe('StudentCard arrival button', () => {
     const onSetArrival = vi.fn()
     setup({ arrivedAt: '15:40', onSetArrival })
 
-    fireEvent.click(screen.getByRole('button', { name: '到了 · 15:40' }))
+    fireEvent.click(screen.getByRole('button', { name: '🕐 15:40' }))
     expect(screen.getByText('小明的到达签到')).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('到达时间'), { target: { value: '16:00' } })
@@ -110,14 +113,14 @@ describe('StudentCard arrival button', () => {
     const onClearArrival = vi.fn()
     setup({ arrivedAt: '15:40', onClearArrival })
 
-    fireEvent.click(screen.getByRole('button', { name: '到了 · 15:40' }))
+    fireEvent.click(screen.getByRole('button', { name: '🕐 15:40' }))
     fireEvent.click(screen.getByRole('button', { name: '清除签到' }))
 
     expect(onClearArrival).toHaveBeenCalledWith(1)
   })
 })
 
-describe('StudentCard meal button', () => {
+describe('StudentCard meal chip', () => {
   beforeEach(() => {
     vi.resetAllMocks()
   })
@@ -125,14 +128,14 @@ describe('StudentCard meal button', () => {
   it('shows a plain label when meal is not recorded yet', () => {
     setup()
 
-    expect(screen.getByRole('button', { name: '用餐' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '🍚 用餐' })).toBeInTheDocument()
   })
 
   it('marks the meal immediately on click when not yet recorded', () => {
     const onSetMeal = vi.fn()
     setup({ onSetMeal })
 
-    fireEvent.click(screen.getByRole('button', { name: '用餐' }))
+    fireEvent.click(screen.getByRole('button', { name: '🍚 用餐' }))
 
     expect(onSetMeal).toHaveBeenCalledWith(1)
   })
@@ -141,7 +144,7 @@ describe('StudentCard meal button', () => {
     const onClearMeal = vi.fn()
     setup({ hasMeal: true, onClearMeal })
 
-    const button = screen.getByRole('button', { name: '已用餐' })
+    const button = screen.getByRole('button', { name: '🍚 已用餐' })
     fireEvent.click(button)
 
     expect(onClearMeal).toHaveBeenCalledWith(1)
@@ -149,7 +152,7 @@ describe('StudentCard meal button', () => {
 
   it('shows a static label in read-only mode when meal is recorded, and nothing when it is not', () => {
     const { rerender } = setup({ readOnly: true, hasMeal: true })
-    expect(screen.getByText('今日已用餐')).toBeInTheDocument()
+    expect(screen.getByText('🍚 已用餐')).toBeInTheDocument()
 
     rerender(
       <StudentCard
@@ -161,12 +164,66 @@ describe('StudentCard meal button', () => {
         comment=""
         arrivedAt=""
         hasMeal={false}
+        leaveReason=""
         date="2026-08-23"
         readOnly
         onShowToast={vi.fn()}
       />,
     )
-    expect(screen.queryByText('今日已用餐')).not.toBeInTheDocument()
+    expect(screen.queryByText('🍚 已用餐')).not.toBeInTheDocument()
+  })
+})
+
+describe('StudentCard leave chip', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
+
+  it('shows a plain label when leave is not recorded yet', () => {
+    setup()
+
+    expect(screen.getByRole('button', { name: '🌴 请假' })).toBeInTheDocument()
+  })
+
+  it('does not render the leave chip in read-only mode, even when a reason is set', () => {
+    setup({ readOnly: true, leaveReason: '发烧' })
+
+    expect(screen.queryByText(/请假/)).not.toBeInTheDocument()
+  })
+
+  it('opens a modal to enter a reason on first click, and saves it on confirm', () => {
+    const onSetLeave = vi.fn()
+    setup({ onSetLeave })
+
+    fireEvent.click(screen.getByRole('button', { name: '🌴 请假' }))
+    expect(screen.getByText('小明的请假登记')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '清除请假' })).not.toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('请假原因'), { target: { value: '发烧' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+
+    expect(onSetLeave).toHaveBeenCalledWith(1, '发烧')
+    expect(screen.queryByText('小明的请假登记')).not.toBeInTheDocument()
+  })
+
+  it('disables saving an empty reason', () => {
+    setup()
+
+    fireEvent.click(screen.getByRole('button', { name: '🌴 请假' }))
+
+    expect(screen.getByRole('button', { name: '保存' })).toBeDisabled()
+  })
+
+  it('shows 已请假 and opens the modal pre-filled with the existing reason, offering a clear option', () => {
+    const onClearLeave = vi.fn()
+    setup({ leaveReason: '事假', onClearLeave })
+
+    fireEvent.click(screen.getByRole('button', { name: '🌴 已请假' }))
+    expect(screen.getByLabelText('请假原因')).toHaveValue('事假')
+
+    fireEvent.click(screen.getByRole('button', { name: '清除请假' }))
+
+    expect(onClearLeave).toHaveBeenCalledWith(1)
   })
 })
 

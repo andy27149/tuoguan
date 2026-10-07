@@ -12,6 +12,7 @@ import { SharePosterModal } from './SharePosterModal'
 import { MonthlyStatsModal } from './MonthlyStatsModal'
 import { ShareLinkModal } from './ShareLinkModal'
 import { ArrivalModal } from './ArrivalModal'
+import { LeaveModal } from './LeaveModal'
 import { ConfirmDialog } from './ConfirmDialog'
 
 interface StudentCardProps {
@@ -23,6 +24,7 @@ interface StudentCardProps {
   comment: string
   arrivedAt: string
   hasMeal: boolean
+  leaveReason: string
   date: string
   readOnly?: boolean
   onToggleTask?: (taskId: number, completed: boolean) => void
@@ -36,6 +38,8 @@ interface StudentCardProps {
   onClearArrival?: (studentId: number) => void
   onSetMeal?: (studentId: number) => void
   onClearMeal?: (studentId: number) => void
+  onSetLeave?: (studentId: number, reason: string) => void
+  onClearLeave?: (studentId: number) => void
   onShowToast: (message: string) => void
   statsFetchFn?: (studentId: number, month?: string) => Promise<MonthlyStats>
   shareLinkFetchFn?: (studentId: number) => Promise<{ token: string }>
@@ -100,6 +104,7 @@ export function StudentCard({
   comment,
   arrivedAt,
   hasMeal,
+  leaveReason,
   date,
   readOnly = false,
   onToggleTask,
@@ -113,6 +118,8 @@ export function StudentCard({
   onClearArrival,
   onSetMeal,
   onClearMeal,
+  onSetLeave,
+  onClearLeave,
   onShowToast,
   statsFetchFn,
   shareLinkFetchFn,
@@ -123,6 +130,7 @@ export function StudentCard({
   const [showingStats, setShowingStats] = useState(false)
   const [showingShareLink, setShowingShareLink] = useState(false)
   const [showingArrival, setShowingArrival] = useState(false)
+  const [showingLeave, setShowingLeave] = useState(false)
   const [justCompleted, setJustCompleted] = useState(false)
   const [deletingTask, setDeletingTask] = useState<DailyTask | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -264,56 +272,67 @@ export function StudentCard({
         )}
       </ul>
 
-      {!readOnly && (
-        <>
-          {adding ? (
-            <AddTaskForm
-              templates={templates}
-              onCancel={() => setAdding(false)}
-              onAddFromTemplate={async (templateId) => {
-                await onAddFromTemplate?.(student.id, templateId)
-                setAdding(false)
-              }}
-              onAddCustom={async (subject, name) => {
-                await onAddCustom?.(student.id, subject, name)
-                setAdding(false)
-              }}
-            />
-          ) : (
-            <button type="button" onClick={() => setAdding(true)} className="add-task-btn">
-              + 添加任务
-            </button>
-          )}
-
-          <button type="button" className="share-btn" onClick={() => setSharing(true)}>
-            生成今日海报
+      {!readOnly &&
+        (adding ? (
+          <AddTaskForm
+            templates={templates}
+            onCancel={() => setAdding(false)}
+            onAddFromTemplate={async (templateId) => {
+              await onAddFromTemplate?.(student.id, templateId)
+              setAdding(false)
+            }}
+            onAddCustom={async (subject, name) => {
+              await onAddCustom?.(student.id, subject, name)
+              setAdding(false)
+            }}
+          />
+        ) : (
+          <button type="button" onClick={() => setAdding(true)} className="add-task-btn">
+            + 添加任务
           </button>
-        </>
-      )}
+        ))}
 
-      <button type="button" className="share-btn" onClick={() => setShowingStats(true)}>
-        月度统计
-      </button>
+      <div className="action-chip-row">
+        {readOnly ? (
+          arrivedAt && <span className="action-chip is-active action-chip--static">🕐 {arrivedAt}</span>
+        ) : (
+          <button type="button" className={`action-chip${arrivedAt ? ' is-active' : ''}`} onClick={handleArrivalClick}>
+            🕐 {arrivedAt || '到了'}
+          </button>
+        )}
 
-      <button type="button" className="share-btn" onClick={() => setShowingShareLink(true)}>
-        家长专属链接
-      </button>
+        {readOnly ? (
+          hasMeal && <span className="action-chip is-active action-chip--static">🍚 已用餐</span>
+        ) : (
+          <button type="button" className={`action-chip${hasMeal ? ' is-active' : ''}`} onClick={handleMealClick}>
+            🍚 {hasMeal ? '已用餐' : '用餐'}
+          </button>
+        )}
 
-      {readOnly ? (
-        arrivedAt && <p className="share-btn share-btn--static">到了 · {arrivedAt}</p>
-      ) : (
-        <button type="button" className="share-btn" onClick={handleArrivalClick}>
-          {arrivedAt ? `到了 · ${arrivedAt}` : '到了'}
+        {!readOnly && (
+          <button
+            type="button"
+            className={`action-chip${leaveReason ? ' is-active' : ''}`}
+            onClick={() => setShowingLeave(true)}
+          >
+            🌴 {leaveReason ? '已请假' : '请假'}
+          </button>
+        )}
+
+        {!readOnly && (
+          <button type="button" className="action-chip" onClick={() => setSharing(true)}>
+            🖼 海报
+          </button>
+        )}
+
+        <button type="button" className="action-chip" onClick={() => setShowingStats(true)}>
+          📊 统计
         </button>
-      )}
 
-      {readOnly ? (
-        hasMeal && <p className="share-btn share-btn--static">今日已用餐</p>
-      ) : (
-        <button type="button" className="share-btn" onClick={handleMealClick}>
-          {hasMeal ? '已用餐' : '用餐'}
+        <button type="button" className="action-chip" onClick={() => setShowingShareLink(true)}>
+          🔗 链接
         </button>
-      )}
+      </div>
 
       {sharing && (
         <SharePosterModal
@@ -355,6 +374,16 @@ export function StudentCard({
           onSave={(newArrivedAt) => onSetArrival?.(student.id, newArrivedAt)}
           onClear={() => onClearArrival?.(student.id)}
           onClose={() => setShowingArrival(false)}
+        />
+      )}
+
+      {showingLeave && (
+        <LeaveModal
+          studentName={student.name}
+          reason={leaveReason}
+          onSave={(newReason) => onSetLeave?.(student.id, newReason)}
+          onClear={() => onClearLeave?.(student.id)}
+          onClose={() => setShowingLeave(false)}
         />
       )}
 

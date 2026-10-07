@@ -126,6 +126,7 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                 BillingMode.MONTHLY, null, null, true, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "学生丙", "一班", true, null, null));
         String adminToken = login("13900013005", "admin-password");
+        String teacherToken = login("13900013006", "teacher-password");
 
         mockMvc.perform(put("/api/admin/classes/" + classRoomId + "/billing-rate")
                         .header("Authorization", "Bearer " + adminToken)
@@ -133,12 +134,15 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                         .content("{\"tuitionRatePerMonth\":50.00,\"mealRatePerDay\":10.00}"))
                 .andExpect(status().isOk());
 
-        // 2024-01-08, 2024-01-09 are both weekdays (Mon/Tue)
-        mockMvc.perform(post("/api/admin/students/" + studentId + "/leave-records")
-                        .header("Authorization", "Bearer " + adminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"startDate\":\"2024-01-08\",\"endDate\":\"2024-01-09\",\"reason\":\"发烧\"}"))
-                .andExpect(status().isOk());
+        // 2024-01-08, 2024-01-09 are both weekdays (Mon/Tue). 请假登记现在走老师端
+        // 单日接口，不再是机构后台的区间登记。
+        for (String date : List.of("2024-01-08", "2024-01-09")) {
+            mockMvc.perform(patch("/api/students/" + studentId + "/leave")
+                            .header("Authorization", "Bearer " + teacherToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"date\":\"" + date + "\",\"reason\":\"发烧\"}"))
+                    .andExpect(status().isNoContent());
+        }
 
         int weekdays = countWeekdays(YearMonth.of(2024, 1));
         int expectedAttendance = weekdays - 2;
@@ -421,12 +425,13 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"tuitionRatePerMonth\":50.00,\"mealRatePerDay\":10.00}"))
                 .andExpect(status().isOk());
-        createCourseWithConsumption(adminToken, teacherId, login("13900013014", "teacher-password"), studentId);
-        mockMvc.perform(post("/api/admin/students/" + studentId + "/leave-records")
-                        .header("Authorization", "Bearer " + adminToken)
+        String teacherToken = login("13900013014", "teacher-password");
+        createCourseWithConsumption(adminToken, teacherId, teacherToken, studentId);
+        mockMvc.perform(patch("/api/students/" + studentId + "/leave")
+                        .header("Authorization", "Bearer " + teacherToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"startDate\":\"2024-01-08\",\"endDate\":\"2024-01-08\",\"reason\":\"事假\"}"))
-                .andExpect(status().isOk());
+                        .content("{\"date\":\"2024-01-08\",\"reason\":\"事假\"}"))
+                .andExpect(status().isNoContent());
         mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=2024-01")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk());

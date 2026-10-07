@@ -269,6 +269,104 @@ class AdminClassBillingControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.mealRecordDates.length()").value(3));
     }
 
+    @Test
+    void leaveDaysComeFromActualLeaveRecordsRegisteredByTheTeacher() throws Exception {
+        // 验证核心设计变更：请假天数不再走机构后台的区间登记接口（已删除），改成
+        // 读老师在看板上逐日登记的请假记录；账单上还要能看到具体哪天、什么原因。
+        Long institutionId = institutionDao.insert("请假账单测试机构A");
+        teacherDao.insert(new Teacher(null, institutionId, "13900016001",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900016002",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "请假一班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小刚", "一班",
+                true, null, null));
+        String adminToken = login("13900016001", "admin-password");
+        String teacherToken = login("13900016002", "teacher-password");
+
+        mockMvc.perform(put("/api/admin/classes/" + classRoomId + "/billing-rate")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tuitionRatePerMonth\":500.00,\"mealRatePerDay\":10.00}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(patch("/api/students/" + studentId + "/leave")
+                        .header("Authorization", "Bearer " + teacherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2024-01-08\",\"reason\":\"发烧\"}"))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(patch("/api/students/" + studentId + "/leave")
+                        .header("Authorization", "Bearer " + teacherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2024-01-09\",\"reason\":\"仍未退烧\"}"))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=2024-01")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.leaveDays").value(2))
+                .andExpect(jsonPath("$.leaveLines.length()").value(2))
+                .andExpect(jsonPath("$.leaveLines[0].leaveDate").value("2024-01-08"))
+                .andExpect(jsonPath("$.leaveLines[0].reason").value("发烧"))
+                .andExpect(jsonPath("$.leaveLines[1].leaveDate").value("2024-01-09"))
+                .andExpect(jsonPath("$.leaveLines[1].reason").value("仍未退烧"));
+    }
+
+    @Test
+    void generatedBillStaysFixedAfterLeaveRecordsChangeUntilRegenerated() throws Exception {
+        Long institutionId = institutionDao.insert("请假账单测试机构B");
+        teacherDao.insert(new Teacher(null, institutionId, "13900016003",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900016004",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "请假二班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小丽", "二班",
+                true, null, null));
+        String adminToken = login("13900016003", "admin-password");
+        String teacherToken = login("13900016004", "teacher-password");
+
+        mockMvc.perform(put("/api/admin/classes/" + classRoomId + "/billing-rate")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tuitionRatePerMonth\":500.00,\"mealRatePerDay\":10.00}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(patch("/api/students/" + studentId + "/leave")
+                        .header("Authorization", "Bearer " + teacherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2024-02-05\",\"reason\":\"事假\"}"))
+                .andExpect(status().isNoContent());
+
+        MvcResult generateResult = mockMvc.perform(
+                        post("/api/admin/students/" + studentId + "/bills/generate?month=2024-02")
+                                .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.leaveDays").value(1))
+                .andReturn();
+        Long billId = objectMapper.readTree(generateResult.getResponse().getContentAsString()).get("id").asLong();
+
+        // 账单生成之后，老师又补登了一天请假——已生成的账单不应该跟着变。
+        mockMvc.perform(patch("/api/students/" + studentId + "/leave")
+                        .header("Authorization", "Bearer " + teacherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2024-02-06\",\"reason\":\"继续请假\"}"))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/admin/bills/" + billId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.leaveDays").value(1))
+                .andExpect(jsonPath("$.leaveLines.length()").value(1));
+
+        // 管理员手动重新生成，才会用上最新的请假记录。
+        mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=2024-02")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.leaveDays").value(2))
+                .andExpect(jsonPath("$.leaveLines.length()").value(2));
+    }
+
     private String login(String phone, String password) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

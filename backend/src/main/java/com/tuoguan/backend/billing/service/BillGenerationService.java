@@ -4,16 +4,17 @@ import com.tuoguan.backend.admin.web.BillOverviewRow;
 import com.tuoguan.backend.admin.web.BillingRateNotConfiguredException;
 import com.tuoguan.backend.admin.web.ClassBillingRateRow;
 import com.tuoguan.backend.admin.web.CourseConsumptionSummaryRow;
-import com.tuoguan.backend.admin.web.InvalidLeaveDateException;
 import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.billing.dao.ClassBillingRateDao;
 import com.tuoguan.backend.billing.dao.MonthlyBillDao;
 import com.tuoguan.backend.billing.dao.MonthlyBillExtraFeeLineDao;
+import com.tuoguan.backend.billing.dao.MonthlyBillLeaveLineDao;
 import com.tuoguan.backend.billing.dao.MonthlyBillMealLineDao;
 import com.tuoguan.backend.billing.dao.StudentLeaveRecordDao;
 import com.tuoguan.backend.billing.domain.ClassBillingRate;
 import com.tuoguan.backend.billing.domain.MonthlyBill;
+import com.tuoguan.backend.billing.domain.MonthlyBillLeaveLine;
 import com.tuoguan.backend.billing.domain.MonthlyBillMealLine;
 import com.tuoguan.backend.billing.domain.StudentLeaveRecord;
 import com.tuoguan.backend.course.service.CourseAccountService;
@@ -48,6 +49,7 @@ public class BillGenerationService {
     private final MonthlyBillDao monthlyBillDao;
     private final MonthlyBillExtraFeeLineDao monthlyBillExtraFeeLineDao;
     private final MonthlyBillMealLineDao monthlyBillMealLineDao;
+    private final MonthlyBillLeaveLineDao monthlyBillLeaveLineDao;
     private final StudentMealRecordDao studentMealRecordDao;
     private final StudentDao studentDao;
     private final TeachingUnitDao teachingUnitDao;
@@ -58,6 +60,7 @@ public class BillGenerationService {
                                   StudentLeaveRecordDao studentLeaveRecordDao, MonthlyBillDao monthlyBillDao,
                                   MonthlyBillExtraFeeLineDao monthlyBillExtraFeeLineDao,
                                   MonthlyBillMealLineDao monthlyBillMealLineDao,
+                                  MonthlyBillLeaveLineDao monthlyBillLeaveLineDao,
                                   StudentMealRecordDao studentMealRecordDao, StudentDao studentDao,
                                   TeachingUnitDao teachingUnitDao, TeacherDao teacherDao) {
         this.classBillingRateDao = classBillingRateDao;
@@ -66,6 +69,7 @@ public class BillGenerationService {
         this.monthlyBillDao = monthlyBillDao;
         this.monthlyBillExtraFeeLineDao = monthlyBillExtraFeeLineDao;
         this.monthlyBillMealLineDao = monthlyBillMealLineDao;
+        this.monthlyBillLeaveLineDao = monthlyBillLeaveLineDao;
         this.studentMealRecordDao = studentMealRecordDao;
         this.studentDao = studentDao;
         this.teachingUnitDao = teachingUnitDao;
@@ -136,26 +140,6 @@ public class BillGenerationService {
         return rows;
     }
 
-    public List<StudentLeaveRecord> listLeaveRecords(Long institutionId, Long studentId, YearMonth month) {
-        requireStudentInInstitution(institutionId, studentId);
-        return studentLeaveRecordDao.findAllByStudentIdAndDateRange(studentId, month.atDay(1), month.atEndOfMonth());
-    }
-
-    public List<StudentLeaveRecord> registerLeaveRange(Long institutionId, Long studentId, LocalDate startDate,
-                                                         LocalDate endDate, String reason) {
-        Student student = requireStudentInInstitution(institutionId, studentId);
-        requireValidRange(startDate, endDate);
-        for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
-            studentLeaveRecordDao.upsert(institutionId, studentId, student.teachingUnitId(), d, reason);
-        }
-        return studentLeaveRecordDao.findAllByStudentIdAndDateRange(studentId, startDate, endDate);
-    }
-
-    public void cancelLeave(Long institutionId, Long studentId, LocalDate date) {
-        requireStudentInInstitution(institutionId, studentId);
-        studentLeaveRecordDao.deleteByStudentIdAndDate(studentId, date);
-    }
-
     public List<MonthlyBill> listClassBills(Long institutionId, Long classRoomId, YearMonth month) {
         requireTeachingUnitInInstitution(institutionId, classRoomId);
         return monthlyBillDao.findAllByTeachingUnitIdAndYearMonth(classRoomId, month).stream()
@@ -175,7 +159,11 @@ public class BillGenerationService {
         LocalDate start = month.atDay(1);
         LocalDate end = month.atEndOfMonth();
         int totalWeekdays = countWeekdays(start, end);
-        int leaveDays = studentLeaveRecordDao.countByStudentIdAndDateRange(studentId, start, end);
+        // 请假天数不再用 countByStudentIdAndDateRange 直接数，而是先查出完整记录列表——
+        // 既要算天数，也要把具体哪几天、什么原因拍成快照存进 monthly_bill_leave_line，
+        // 跟用餐记录是同一套"生成即固定、重新生成才更新"的处理方式。
+        List<StudentLeaveRecord> leaveRecords = studentLeaveRecordDao.findAllByStudentIdAndDateRange(studentId, start, end);
+        int leaveDays = leaveRecords.size();
         int attendanceDays = Math.max(0, totalWeekdays - leaveDays);
 
         BigDecimal tuitionAmount = BigDecimal.ZERO;
@@ -208,6 +196,8 @@ public class BillGenerationService {
                         row.lessonCount(), row.amount()));
         monthlyBillMealLineDao.deleteAllByBillId(billId);
         mealDates.forEach(date -> monthlyBillMealLineDao.insert(billId, date));
+        monthlyBillLeaveLineDao.deleteAllByBillId(billId);
+        leaveRecords.forEach(r -> monthlyBillLeaveLineDao.insert(billId, r.leaveDate(), r.reason()));
 
         return monthlyBillDao.findById(billId)
                 .map(this::enrich)
@@ -378,16 +368,11 @@ public class BillGenerationService {
         List<LocalDate> mealDates = monthlyBillMealLineDao.findAllByBillId(bill.id()).stream()
                 .map(MonthlyBillMealLine::mealDate)
                 .toList();
+        List<MonthlyBillLeaveLine> leaveLines = monthlyBillLeaveLineDao.findAllByBillId(bill.id());
         return new MonthlyBill(bill.id(), bill.institutionId(), bill.studentId(), bill.teachingUnitId(),
                 bill.yearMonth(), bill.totalWeekdays(), bill.leaveDays(), bill.attendanceDays(),
                 bill.tuitionAmount(), bill.mealAmount(), bill.extraFeeTotal(), bill.totalAmount(), bill.isPaid(),
-                bill.generatedAt(), lines, mealDates);
-    }
-
-    private void requireValidRange(LocalDate startDate, LocalDate endDate) {
-        if (endDate.isBefore(startDate)) {
-            throw new InvalidLeaveDateException("结束日期不能早于开始日期");
-        }
+                bill.generatedAt(), lines, mealDates, leaveLines);
     }
 
     private Student requireStudentInInstitution(Long institutionId, Long studentId) {

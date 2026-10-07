@@ -7,6 +7,7 @@ import * as dismissalApi from '../api/dismissal'
 import * as studentNotesApi from '../api/studentNotes'
 import * as arrivalApi from '../api/arrival'
 import * as mealApi from '../api/meal'
+import * as leaveApi from '../api/leave'
 import * as adminApi from '../api/admin'
 import * as adminKanbanApi from '../api/adminKanban'
 import type { DailyTask } from '../api/dailyTasks'
@@ -33,6 +34,7 @@ interface StudentNote {
 const EMPTY_NOTE: StudentNote = { rating: 0, comment: '' }
 
 const EMPTY_ARRIVAL = ''
+const EMPTY_LEAVE = ''
 
 interface KanbanPageProps {
   onOpenRoster: () => void
@@ -61,6 +63,7 @@ export function KanbanPage({
   const [notesByStudent, setNotesByStudent] = useState<Map<number, StudentNote>>(new Map())
   const [arrivalByStudent, setArrivalByStudent] = useState<Map<number, string>>(new Map())
   const [mealByStudent, setMealByStudent] = useState<Set<number>>(new Set())
+  const [leaveByStudent, setLeaveByStudent] = useState<Map<number, string>>(new Map())
   const [dismissed, setDismissed] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -97,7 +100,9 @@ export function KanbanPage({
         // 管理员分支只调用 adminKanbanApi 的只读接口——这是前端层面的约定，不是后端强制
         // 的权限边界：管理员账号同时满足教师接口的鉴权条件，理论上能绕开这里调用写接口。
         // 新增功能时不要假设「管理员等于只读」，详见 AdminKanbanController 的类注释（产品诊断 #09）。
-        const [studentList, taskList, dismissalStatus, noteList, arrivalList, mealList] = isAdmin
+        // 管理员不需要实时看到谁请假——请假状态只在月度账单详情里展示，看板读
+        // 接口不返回这个字段，这里用一个空占位 Promise 保持两边解构形状一致。
+        const [studentList, taskList, dismissalStatus, noteList, arrivalList, mealList, leaveList] = isAdmin
           ? await Promise.all([
               adminKanbanApi.fetchStudents(classId),
               adminKanbanApi.listDailyTasksForClass(classId, date),
@@ -105,6 +110,7 @@ export function KanbanPage({
               adminKanbanApi.fetchStudentNotes(classId, date),
               adminKanbanApi.fetchArrivals(classId, date),
               adminKanbanApi.fetchMeals(classId, date),
+              Promise.resolve<leaveApi.StudentLeaveRecord[]>([]),
             ])
           : await Promise.all([
               studentsApi.fetchStudents(classId),
@@ -113,6 +119,7 @@ export function KanbanPage({
               studentNotesApi.fetchStudentNotes(classId, date),
               arrivalApi.fetchArrivals(classId, date),
               mealApi.fetchMeals(classId, date),
+              leaveApi.fetchLeaves(classId, date),
             ])
         setStudents(studentList.filter((s) => s.enrolled))
         setTasks(taskList)
@@ -120,6 +127,7 @@ export function KanbanPage({
         setNotesByStudent(new Map(noteList.map((n) => [n.studentId, { rating: n.rating, comment: n.comment }])))
         setArrivalByStudent(new Map(arrivalList.map((a) => [a.studentId, a.arrivedAt])))
         setMealByStudent(new Set(mealList.map((m) => m.studentId)))
+        setLeaveByStudent(new Map(leaveList.map((l) => [l.studentId, l.reason ?? EMPTY_LEAVE])))
       } catch {
         setError('加载班级数据失败，请刷新重试')
       } finally {
@@ -263,6 +271,26 @@ export function KanbanPage({
     }
   }
 
+  async function handleSetLeave(studentId: number, reason: string) {
+    const previous = leaveByStudent.get(studentId) ?? EMPTY_LEAVE
+    setLeaveByStudent((prev) => new Map(prev).set(studentId, reason))
+    try {
+      await leaveApi.setLeave(studentId, date, reason)
+    } catch {
+      setLeaveByStudent((prev) => new Map(prev).set(studentId, previous))
+    }
+  }
+
+  async function handleClearLeave(studentId: number) {
+    const previous = leaveByStudent.get(studentId) ?? EMPTY_LEAVE
+    setLeaveByStudent((prev) => new Map(prev).set(studentId, EMPTY_LEAVE))
+    try {
+      await leaveApi.clearLeave(studentId, date)
+    } catch {
+      setLeaveByStudent((prev) => new Map(prev).set(studentId, previous))
+    }
+  }
+
   async function handleDismiss() {
     if (activeClassId === null) return
     await dismissalApi.dismissClass(activeClassId, date)
@@ -340,6 +368,7 @@ export function KanbanPage({
           comment={note.comment}
           arrivedAt={arrivedAt}
           hasMeal={hasMeal}
+          leaveReason={EMPTY_LEAVE}
           date={date}
           readOnly
           onShowToast={showToast}
@@ -359,6 +388,7 @@ export function KanbanPage({
         comment={note.comment}
         arrivedAt={arrivedAt}
         hasMeal={hasMeal}
+        leaveReason={leaveByStudent.get(student.id) ?? EMPTY_LEAVE}
         date={date}
         onToggleTask={handleToggleTask}
         onDeleteTask={handleDeleteTask}
@@ -371,6 +401,8 @@ export function KanbanPage({
         onClearArrival={handleClearArrival}
         onSetMeal={handleSetMeal}
         onClearMeal={handleClearMeal}
+        onSetLeave={handleSetLeave}
+        onClearLeave={handleClearLeave}
         onShowToast={showToast}
       />
     )
