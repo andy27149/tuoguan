@@ -1,7 +1,9 @@
 package com.tuoguan.backend.kanban.service;
 
+import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
 import com.tuoguan.backend.kanban.dao.StudentMealRecordDao;
 import com.tuoguan.backend.kanban.domain.StudentMealRecord;
+import com.tuoguan.backend.kanban.web.ArrivalRequiredException;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.roster.service.ClassRoomService;
@@ -15,12 +17,15 @@ import java.util.List;
 public class StudentMealRecordService {
 
     private final StudentMealRecordDao studentMealRecordDao;
+    private final StudentArrivalCheckinDao studentArrivalCheckinDao;
     private final StudentDao studentDao;
     private final ClassRoomService classRoomService;
 
-    public StudentMealRecordService(StudentMealRecordDao studentMealRecordDao, StudentDao studentDao,
+    public StudentMealRecordService(StudentMealRecordDao studentMealRecordDao,
+                                     StudentArrivalCheckinDao studentArrivalCheckinDao, StudentDao studentDao,
                                      ClassRoomService classRoomService) {
         this.studentMealRecordDao = studentMealRecordDao;
+        this.studentArrivalCheckinDao = studentArrivalCheckinDao;
         this.studentDao = studentDao;
         this.classRoomService = classRoomService;
     }
@@ -32,6 +37,10 @@ public class StudentMealRecordService {
 
     public void setMeal(Long teacherId, Long studentId, LocalDate date) {
         Student student = findStudentOwnedByTeacher(teacherId, studentId);
+        boolean hasArrived = !studentArrivalCheckinDao.findAllByStudentIdAndDateRange(studentId, date, date).isEmpty();
+        if (!hasArrived) {
+            throw new ArrivalRequiredException("Student has not checked in yet: " + studentId);
+        }
         studentMealRecordDao.upsert(student.institutionId(), student.teachingUnitId(), studentId, date);
     }
 

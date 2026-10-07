@@ -50,7 +50,9 @@ describe('AdminSettingsModule', () => {
     expect(await screen.findByAltText('托管班 Logo')).toHaveAttribute('src', 'https://example.com/logo.png')
   })
 
-  it('asks for confirmation before disabling the custody feature flag, and does nothing on cancel', async () => {
+  // 业务功能开关入口已临时隐藏（SHOW_BUSINESS_FEATURE_TOGGLES = false），以下用例随之跳过；
+  // 恢复显示时把 it.skip 改回 it 即可。
+  it.skip('asks for confirmation before disabling the custody feature flag, and does nothing on cancel', async () => {
     render(<AdminSettingsModule />)
     await screen.findByDisplayValue('阳光托管班')
 
@@ -62,7 +64,7 @@ describe('AdminSettingsModule', () => {
     expect(institutionApi.updateFeatureFlags).not.toHaveBeenCalled()
   })
 
-  it('disables the custody feature flag after confirming', async () => {
+  it.skip('disables the custody feature flag after confirming', async () => {
     const updated = { ...INSTITUTION, custodyEnabled: false }
     vi.mocked(institutionApi.updateFeatureFlags).mockResolvedValue(updated)
     const onInstitutionUpdated = vi.fn()
@@ -76,7 +78,7 @@ describe('AdminSettingsModule', () => {
     await waitFor(() => expect(onInstitutionUpdated).toHaveBeenCalledWith(updated))
   })
 
-  it('re-enables a feature flag immediately without a confirmation dialog', async () => {
+  it.skip('re-enables a feature flag immediately without a confirmation dialog', async () => {
     const disabled = { ...INSTITUTION, custodyEnabled: false }
     const reEnabled = { ...INSTITUTION, custodyEnabled: true }
     vi.mocked(institutionApi.fetchInstitutionSettings).mockResolvedValue(disabled)
@@ -90,7 +92,7 @@ describe('AdminSettingsModule', () => {
     expect(screen.queryByText(/关闭后，托管功能相关入口/)).not.toBeInTheDocument()
   })
 
-  it('shows an error when disabling both feature flags is rejected', async () => {
+  it.skip('shows an error when disabling both feature flags is rejected', async () => {
     vi.mocked(institutionApi.updateFeatureFlags).mockRejectedValue(new Error('bad request'))
     render(<AdminSettingsModule />)
     await screen.findByDisplayValue('阳光托管班')

@@ -119,6 +119,64 @@ class StudentLeaveRecordControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void settingLeaveAfterArrivalIsRejected() throws Exception {
+        Long institutionId = institutionDao.insert("请假记录控制器测试机构E");
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900007106",
+                passwordEncoder.encode("password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小明", "三年级2班",
+                true, null, null));
+        String token = login("13900007106", "password");
+
+        mockMvc.perform(patch("/api/students/" + studentId + "/arrival")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2026-08-06\",\"arrivedAt\":\"08:00\"}"))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(patch("/api/students/" + studentId + "/leave")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2026-08-06\",\"reason\":\"事假\"}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/classes/" + classRoomId + "/leaves?date=2026-08-06")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void settingArrivalCascadesToClearAnExistingLeaveRecord() throws Exception {
+        Long institutionId = institutionDao.insert("请假记录控制器测试机构F");
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900007107",
+                passwordEncoder.encode("password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小明", "三年级2班",
+                true, null, null));
+        String token = login("13900007107", "password");
+
+        mockMvc.perform(patch("/api/students/" + studentId + "/leave")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2026-08-06\",\"reason\":\"事假\"}"))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(patch("/api/students/" + studentId + "/arrival")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2026-08-06\",\"arrivedAt\":\"08:00\"}"))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/classes/" + classRoomId + "/leaves?date=2026-08-06")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
     void teacherCannotOperateOnAnotherTeachersStudentLeave() throws Exception {
         Long institutionId = institutionDao.insert("请假记录控制器测试机构C");
         Long teacherAId = teacherDao.insert(new Teacher(null, institutionId, "13900007103",

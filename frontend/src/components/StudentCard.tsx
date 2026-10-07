@@ -131,6 +131,7 @@ export function StudentCard({
   const [showingShareLink, setShowingShareLink] = useState(false)
   const [showingArrival, setShowingArrival] = useState(false)
   const [showingLeave, setShowingLeave] = useState(false)
+  const [confirmingArrivalOverLeave, setConfirmingArrivalOverLeave] = useState(false)
   const [justCompleted, setJustCompleted] = useState(false)
   const [deletingTask, setDeletingTask] = useState<DailyTask | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -156,9 +157,16 @@ export function StudentCard({
   function handleArrivalClick() {
     if (arrivedAt) {
       setShowingArrival(true)
+    } else if (leaveReason) {
+      setConfirmingArrivalOverLeave(true)
     } else {
       onSetArrival?.(student.id, currentTimeString())
     }
+  }
+
+  function handleConfirmArrivalOverLeave() {
+    setConfirmingArrivalOverLeave(false)
+    onSetArrival?.(student.id, currentTimeString())
   }
 
   function handleMealClick() {
@@ -304,7 +312,13 @@ export function StudentCard({
         {readOnly ? (
           hasMeal && <span className="action-chip is-active action-chip--static">🍚 已用餐</span>
         ) : (
-          <button type="button" className={`action-chip${hasMeal ? ' is-active' : ''}`} onClick={handleMealClick}>
+          <button
+            type="button"
+            className={`action-chip${hasMeal ? ' is-active' : ''}`}
+            onClick={handleMealClick}
+            disabled={!arrivedAt}
+            title={!arrivedAt ? '需先到了才能用餐' : undefined}
+          >
             🍚 {hasMeal ? '已用餐' : '用餐'}
           </button>
         )}
@@ -314,6 +328,8 @@ export function StudentCard({
             type="button"
             className={`action-chip${leaveReason ? ' is-active' : ''}`}
             onClick={() => setShowingLeave(true)}
+            disabled={!!arrivedAt}
+            title={arrivedAt ? '已到了，不能请假' : undefined}
           >
             🌴 {leaveReason ? '已请假' : '请假'}
           </button>
@@ -384,6 +400,16 @@ export function StudentCard({
           onSave={(newReason) => onSetLeave?.(student.id, newReason)}
           onClear={() => onClearLeave?.(student.id)}
           onClose={() => setShowingLeave(false)}
+        />
+      )}
+
+      {confirmingArrivalOverLeave && (
+        <ConfirmDialog
+          title="打卡到了"
+          message={`${student.name}今天已登记请假，打卡到了将清除这条请假记录，确认要打卡吗？`}
+          confirmLabel="确认打卡"
+          onConfirm={handleConfirmArrivalOverLeave}
+          onCancel={() => setConfirmingArrivalOverLeave(false)}
         />
       )}
 

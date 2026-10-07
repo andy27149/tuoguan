@@ -194,6 +194,11 @@ class AdminClassBillingControllerTest extends IntegrationTestBase {
                 .andExpect(status().isOk());
 
         for (String date : java.util.List.of("2024-01-06", "2024-01-07", "2024-01-08")) {
+            mockMvc.perform(patch("/api/students/" + studentId + "/arrival")
+                            .header("Authorization", "Bearer " + teacherToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"date\":\"" + date + "\",\"arrivedAt\":\"08:00\"}"))
+                    .andExpect(status().isNoContent());
             mockMvc.perform(patch("/api/students/" + studentId + "/meal")
                             .header("Authorization", "Bearer " + teacherToken)
                             .contentType(MediaType.APPLICATION_JSON)
@@ -229,10 +234,20 @@ class AdminClassBillingControllerTest extends IntegrationTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"tuitionRatePerMonth\":500.00,\"mealRatePerDay\":10.00}"))
                 .andExpect(status().isOk());
+        mockMvc.perform(patch("/api/students/" + studentId + "/arrival")
+                        .header("Authorization", "Bearer " + teacherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2024-02-05\",\"arrivedAt\":\"08:00\"}"))
+                .andExpect(status().isNoContent());
         mockMvc.perform(patch("/api/students/" + studentId + "/meal")
                         .header("Authorization", "Bearer " + teacherToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"date\":\"2024-02-05\"}"))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(patch("/api/students/" + studentId + "/arrival")
+                        .header("Authorization", "Bearer " + teacherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2024-02-06\",\"arrivedAt\":\"08:00\"}"))
                 .andExpect(status().isNoContent());
         mockMvc.perform(patch("/api/students/" + studentId + "/meal")
                         .header("Authorization", "Bearer " + teacherToken)
@@ -249,6 +264,11 @@ class AdminClassBillingControllerTest extends IntegrationTestBase {
         Long billId = objectMapper.readTree(generateResult.getResponse().getContentAsString()).get("id").asLong();
 
         // 账单生成之后，老师又补记了一天用餐——已生成的账单不应该跟着变。
+        mockMvc.perform(patch("/api/students/" + studentId + "/arrival")
+                        .header("Authorization", "Bearer " + teacherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2024-02-07\",\"arrivedAt\":\"08:00\"}"))
+                .andExpect(status().isNoContent());
         mockMvc.perform(patch("/api/students/" + studentId + "/meal")
                         .header("Authorization", "Bearer " + teacherToken)
                         .contentType(MediaType.APPLICATION_JSON)

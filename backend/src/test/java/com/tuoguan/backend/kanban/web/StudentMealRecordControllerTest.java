@@ -56,6 +56,11 @@ class StudentMealRecordControllerTest extends IntegrationTestBase {
                 true, null, null));
         String token = login("13900006101", "password");
 
+        mockMvc.perform(patch("/api/students/" + studentId + "/arrival")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2026-08-06\",\"arrivedAt\":\"08:00\"}"))
+                .andExpect(status().isNoContent());
         mockMvc.perform(patch("/api/students/" + studentId + "/meal")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -72,6 +77,29 @@ class StudentMealRecordControllerTest extends IntegrationTestBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].studentId").value(studentId));
+    }
+
+    @Test
+    void settingMealWithoutArrivalIsRejected() throws Exception {
+        Long institutionId = institutionDao.insert("用餐记录控制器测试机构E");
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900006106",
+                passwordEncoder.encode("password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小明", "三年级2班",
+                true, null, null));
+        String token = login("13900006106", "password");
+
+        mockMvc.perform(patch("/api/students/" + studentId + "/meal")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2026-08-06\"}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/classes/" + classRoomId + "/meals?date=2026-08-06")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
     }
 
     @Test
@@ -101,6 +129,11 @@ class StudentMealRecordControllerTest extends IntegrationTestBase {
                 true, null, null));
         String token = login("13900006105", "password");
 
+        mockMvc.perform(patch("/api/students/" + studentId + "/arrival")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2026-08-06\",\"arrivedAt\":\"08:00\"}"))
+                .andExpect(status().isNoContent());
         mockMvc.perform(patch("/api/students/" + studentId + "/meal")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -108,6 +141,38 @@ class StudentMealRecordControllerTest extends IntegrationTestBase {
                 .andExpect(status().isNoContent());
 
         mockMvc.perform(delete("/api/students/" + studentId + "/meal?date=2026-08-06")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/classes/" + classRoomId + "/meals?date=2026-08-06")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void clearingArrivalCascadesToClearTheMealRecord() throws Exception {
+        Long institutionId = institutionDao.insert("用餐记录控制器测试机构F");
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900006107",
+                passwordEncoder.encode("password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小明", "三年级2班",
+                true, null, null));
+        String token = login("13900006107", "password");
+
+        mockMvc.perform(patch("/api/students/" + studentId + "/arrival")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2026-08-06\",\"arrivedAt\":\"08:00\"}"))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(patch("/api/students/" + studentId + "/meal")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2026-08-06\"}"))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(delete("/api/students/" + studentId + "/arrival?date=2026-08-06")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isNoContent());
 

@@ -13,6 +13,9 @@ const FLAG_LABEL: Record<'custodyEnabled' | 'offCampusEnabled', string> = {
   offCampusEnabled: '课外课功能',
 }
 
+// 绝大多数机构两项业务都会用到，开关暂时用处不大，先隐藏入口（后端校验与数据不受影响，随时可恢复显示）。
+const SHOW_BUSINESS_FEATURE_TOGGLES = false
+
 export function AdminSettingsModule({ onInstitutionUpdated }: AdminSettingsModuleProps) {
   const [institution, setInstitution] = useState<institutionApi.InstitutionSettings | null>(null)
   const [loadingInstitution, setLoadingInstitution] = useState(true)
@@ -170,38 +173,40 @@ export function AdminSettingsModule({ onInstitutionUpdated }: AdminSettingsModul
         )}
       </div>
 
-      <div className="rounded-2xl border border-[#ece7de] bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
-        <h2 className="font-['Sora'] text-base font-semibold text-[#241f3d]">业务功能</h2>
-        {loadingInstitution ? (
-          <p className="mt-2 text-sm text-[#7c7391]">加载中...</p>
-        ) : (
-          institution && (
-            <div className="mt-3 flex flex-col gap-3">
-              <label className="flex items-center gap-2 text-sm text-[#241f3d]">
-                <input
-                  type="checkbox"
-                  checked={institution.custodyEnabled}
-                  onChange={() => requestToggleFlag('custodyEnabled')}
-                  disabled={flagsSubmitting}
-                />
-                启用托管功能
-              </label>
-              <label className="flex items-center gap-2 text-sm text-[#241f3d]">
-                <input
-                  type="checkbox"
-                  checked={institution.offCampusEnabled}
-                  onChange={() => requestToggleFlag('offCampusEnabled')}
-                  disabled={flagsSubmitting}
-                />
-                启用课外课功能
-              </label>
-              {flagsError && <p className="text-xs text-[#b7591f]">{flagsError}</p>}
-            </div>
-          )
-        )}
-      </div>
+      {SHOW_BUSINESS_FEATURE_TOGGLES && (
+        <div className="rounded-2xl border border-[#ece7de] bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
+          <h2 className="font-['Sora'] text-base font-semibold text-[#241f3d]">业务功能</h2>
+          {loadingInstitution ? (
+            <p className="mt-2 text-sm text-[#7c7391]">加载中...</p>
+          ) : (
+            institution && (
+              <div className="mt-3 flex flex-col gap-3">
+                <label className="flex items-center gap-2 text-sm text-[#241f3d]">
+                  <input
+                    type="checkbox"
+                    checked={institution.custodyEnabled}
+                    onChange={() => requestToggleFlag('custodyEnabled')}
+                    disabled={flagsSubmitting}
+                  />
+                  启用托管功能
+                </label>
+                <label className="flex items-center gap-2 text-sm text-[#241f3d]">
+                  <input
+                    type="checkbox"
+                    checked={institution.offCampusEnabled}
+                    onChange={() => requestToggleFlag('offCampusEnabled')}
+                    disabled={flagsSubmitting}
+                  />
+                  启用课外课功能
+                </label>
+                {flagsError && <p className="text-xs text-[#b7591f]">{flagsError}</p>}
+              </div>
+            )
+          )}
+        </div>
+      )}
 
-      {confirmingFlag && (
+      {SHOW_BUSINESS_FEATURE_TOGGLES && confirmingFlag && (
         <ConfirmDialog
           title={`关闭${FLAG_LABEL[confirmingFlag]}`}
           message={`关闭后，${FLAG_LABEL[confirmingFlag]}相关入口将从教师端与家长端隐藏，已产生的数据不会被删除，可随时重新开启。确认关闭吗？`}

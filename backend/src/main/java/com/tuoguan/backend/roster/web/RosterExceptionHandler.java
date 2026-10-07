@@ -11,6 +11,8 @@ import com.tuoguan.backend.course.web.CoursePriceNotConfiguredException;
 import com.tuoguan.backend.course.web.DuplicateConsumptionException;
 import com.tuoguan.backend.course.web.DuplicateEnrollmentException;
 import com.tuoguan.backend.course.web.DuplicateCourseNameException;
+import com.tuoguan.backend.kanban.web.AlreadyArrivedException;
+import com.tuoguan.backend.kanban.web.ArrivalRequiredException;
 import com.tuoguan.backend.unit.web.FeatureDisabledException;
 import com.tuoguan.backend.unit.web.InvalidTeachingUnitRequestException;
 import org.springframework.http.HttpStatus;
@@ -105,5 +107,15 @@ public class RosterExceptionHandler {
     @ExceptionHandler(InvalidTeachingUnitRequestException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public void handleInvalidTeachingUnitRequest() {
+    }
+
+    @ExceptionHandler(ArrivalRequiredException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public void handleArrivalRequired() {
+    }
+
+    @ExceptionHandler(AlreadyArrivedException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public void handleAlreadyArrived() {
     }
 }

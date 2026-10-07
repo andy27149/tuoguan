@@ -2,6 +2,8 @@ package com.tuoguan.backend.kanban.service;
 
 import com.tuoguan.backend.billing.dao.StudentLeaveRecordDao;
 import com.tuoguan.backend.billing.domain.StudentLeaveRecord;
+import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
+import com.tuoguan.backend.kanban.web.AlreadyArrivedException;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.roster.service.ClassRoomService;
@@ -15,12 +17,15 @@ import java.util.List;
 public class StudentLeaveRecordService {
 
     private final StudentLeaveRecordDao studentLeaveRecordDao;
+    private final StudentArrivalCheckinDao studentArrivalCheckinDao;
     private final StudentDao studentDao;
     private final ClassRoomService classRoomService;
 
-    public StudentLeaveRecordService(StudentLeaveRecordDao studentLeaveRecordDao, StudentDao studentDao,
+    public StudentLeaveRecordService(StudentLeaveRecordDao studentLeaveRecordDao,
+                                      StudentArrivalCheckinDao studentArrivalCheckinDao, StudentDao studentDao,
                                       ClassRoomService classRoomService) {
         this.studentLeaveRecordDao = studentLeaveRecordDao;
+        this.studentArrivalCheckinDao = studentArrivalCheckinDao;
         this.studentDao = studentDao;
         this.classRoomService = classRoomService;
     }
@@ -32,6 +37,10 @@ public class StudentLeaveRecordService {
 
     public void setLeave(Long teacherId, Long studentId, LocalDate date, String reason) {
         Student student = findStudentOwnedByTeacher(teacherId, studentId);
+        boolean hasArrived = !studentArrivalCheckinDao.findAllByStudentIdAndDateRange(studentId, date, date).isEmpty();
+        if (hasArrived) {
+            throw new AlreadyArrivedException("Student has already checked in today: " + studentId);
+        }
         studentLeaveRecordDao.upsert(student.institutionId(), studentId, student.teachingUnitId(), date, reason);
     }
 

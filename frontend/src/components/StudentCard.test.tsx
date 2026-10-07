@@ -118,6 +118,30 @@ describe('StudentCard arrival chip', () => {
 
     expect(onClearArrival).toHaveBeenCalledWith(1)
   })
+
+  it('asks for confirmation before overwriting an existing leave record, and does nothing on cancel', () => {
+    const onSetArrival = vi.fn()
+    setup({ leaveReason: '发烧', onSetArrival })
+
+    fireEvent.click(screen.getByRole('button', { name: '🕐 到了' }))
+    expect(screen.getByText(/今天已登记请假/)).toBeInTheDocument()
+    expect(onSetArrival).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+
+    expect(onSetArrival).not.toHaveBeenCalled()
+    expect(screen.queryByText(/今天已登记请假/)).not.toBeInTheDocument()
+  })
+
+  it('checks in after confirming the overwrite of an existing leave record', () => {
+    const onSetArrival = vi.fn()
+    setup({ leaveReason: '发烧', onSetArrival })
+
+    fireEvent.click(screen.getByRole('button', { name: '🕐 到了' }))
+    fireEvent.click(screen.getByRole('button', { name: '确认打卡' }))
+
+    expect(onSetArrival).toHaveBeenCalledWith(1, expect.stringMatching(/^\d{2}:\d{2}$/))
+  })
 })
 
 describe('StudentCard meal chip', () => {
@@ -125,15 +149,15 @@ describe('StudentCard meal chip', () => {
     vi.resetAllMocks()
   })
 
-  it('shows a plain label when meal is not recorded yet', () => {
+  it('shows a plain label when meal is not recorded yet, disabled until arrival is recorded', () => {
     setup()
 
-    expect(screen.getByRole('button', { name: '🍚 用餐' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '🍚 用餐' })).toBeDisabled()
   })
 
-  it('marks the meal immediately on click when not yet recorded', () => {
+  it('marks the meal immediately on click once arrival is recorded', () => {
     const onSetMeal = vi.fn()
-    setup({ onSetMeal })
+    setup({ arrivedAt: '08:00', onSetMeal })
 
     fireEvent.click(screen.getByRole('button', { name: '🍚 用餐' }))
 
@@ -142,7 +166,7 @@ describe('StudentCard meal chip', () => {
 
   it('shows 已用餐 and clears on click when meal is already recorded', () => {
     const onClearMeal = vi.fn()
-    setup({ hasMeal: true, onClearMeal })
+    setup({ arrivedAt: '08:00', hasMeal: true, onClearMeal })
 
     const button = screen.getByRole('button', { name: '🍚 已用餐' })
     fireEvent.click(button)
@@ -183,6 +207,12 @@ describe('StudentCard leave chip', () => {
     setup()
 
     expect(screen.getByRole('button', { name: '🌴 请假' })).toBeInTheDocument()
+  })
+
+  it('disables the leave chip once arrival is recorded', () => {
+    setup({ arrivedAt: '08:00' })
+
+    expect(screen.getByRole('button', { name: '🌴 请假' })).toBeDisabled()
   })
 
   it('does not render the leave chip in read-only mode, even when a reason is set', () => {

@@ -747,6 +747,11 @@
   .action-chip.is-active:hover { background: rgba(7, 193, 96, 0.16); }
   .action-chip--static { cursor: default; }
   .action-chip--static:hover { background: rgba(7, 193, 96, 0.08); }
+  .action-chip:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .action-chip:disabled:hover { background: rgba(0, 0, 0, 0.03); }
 
   .task-list {
     list-style: none;

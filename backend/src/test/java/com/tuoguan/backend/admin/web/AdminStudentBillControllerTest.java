@@ -92,6 +92,11 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
         // 改成只认老师实际标记的用餐记录，这里特意只记 3 天，远少于当月工作日数，
         // 用来证明两者已经彻底解耦。
         for (String date : List.of("2024-01-02", "2024-01-03", "2024-01-04")) {
+            mockMvc.perform(patch("/api/students/" + studentId + "/arrival")
+                            .header("Authorization", "Bearer " + teacherToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"date\":\"" + date + "\",\"arrivedAt\":\"08:00\"}"))
+                    .andExpect(status().isNoContent());
             mockMvc.perform(patch("/api/students/" + studentId + "/meal")
                             .header("Authorization", "Bearer " + teacherToken)
                             .contentType(MediaType.APPLICATION_JSON)

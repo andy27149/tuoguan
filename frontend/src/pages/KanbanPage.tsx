@@ -226,22 +226,39 @@ export function KanbanPage({
   }
 
   async function handleSetArrival(studentId: number, arrivedAt: string) {
-    const previous = arrivalByStudent.get(studentId) ?? EMPTY_ARRIVAL
+    const previousArrival = arrivalByStudent.get(studentId) ?? EMPTY_ARRIVAL
+    const previousLeave = leaveByStudent.get(studentId) ?? EMPTY_LEAVE
     setArrivalByStudent((prev) => new Map(prev).set(studentId, arrivedAt))
+    // 后端打卡到了会联动清除当天的请假记录，这里同步清本地状态，避免画面与服务端状态不一致。
+    setLeaveByStudent((prev) => new Map(prev).set(studentId, EMPTY_LEAVE))
     try {
       await arrivalApi.setArrival(studentId, date, arrivedAt)
     } catch {
-      setArrivalByStudent((prev) => new Map(prev).set(studentId, previous))
+      setArrivalByStudent((prev) => new Map(prev).set(studentId, previousArrival))
+      setLeaveByStudent((prev) => new Map(prev).set(studentId, previousLeave))
     }
   }
 
   async function handleClearArrival(studentId: number) {
-    const previous = arrivalByStudent.get(studentId) ?? EMPTY_ARRIVAL
+    const previousArrival = arrivalByStudent.get(studentId) ?? EMPTY_ARRIVAL
+    const previousHadMeal = mealByStudent.has(studentId)
     setArrivalByStudent((prev) => new Map(prev).set(studentId, EMPTY_ARRIVAL))
+    // 后端清除签到会联动清除当天的用餐记录，这里同步清本地状态。
+    setMealByStudent((prev) => {
+      const next = new Set(prev)
+      next.delete(studentId)
+      return next
+    })
     try {
       await arrivalApi.clearArrival(studentId, date)
     } catch {
-      setArrivalByStudent((prev) => new Map(prev).set(studentId, previous))
+      setArrivalByStudent((prev) => new Map(prev).set(studentId, previousArrival))
+      setMealByStudent((prev) => {
+        const next = new Set(prev)
+        if (previousHadMeal) next.add(studentId)
+        else next.delete(studentId)
+        return next
+      })
     }
   }
 
