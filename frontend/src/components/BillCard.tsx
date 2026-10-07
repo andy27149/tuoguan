@@ -59,12 +59,22 @@ export const BillCard = forwardRef<HTMLDivElement, BillCardProps>(function BillC
               <span>餐费</span>
               <span>¥{formatAmount(bill.mealAmount)}</span>
             </div>
+            {bill.mealRecordDates.length > 0 && (
+              <p className="pl-2 text-[11px] text-[#7c7391]">
+                {bill.mealRecordDates.length}天 × ¥{formatAmount(bill.mealAmount / bill.mealRecordDates.length)} = ¥{formatAmount(bill.mealAmount)}
+              </p>
+            )}
           </>
         )}
         {bill.extraFeeLines.map((line) => (
-          <div key={line.id} className="flex justify-between text-[#5d5480]">
-            <span>{line.name}</span>
-            <span>¥{formatAmount(line.amount)}</span>
+          <div key={line.id}>
+            <div className="flex justify-between text-[#5d5480]">
+              <span>{line.name}</span>
+              <span>¥{formatAmount(line.amount)}</span>
+            </div>
+            <p className="pl-2 text-[11px] text-[#7c7391]">
+              {line.lessonCount}次 × ¥{formatAmount(line.pricePerLesson)} = ¥{formatAmount(line.amount)}
+            </p>
           </div>
         ))}
       </div>

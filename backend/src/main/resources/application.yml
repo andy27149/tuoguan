@@ -5,7 +5,14 @@ spring:
   application:
     name: tuoguan-backend
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:tuoguan}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    # 数据库所有 DATETIME 列（如 generated_at）都是靠 MySQL 的 CURRENT_TIMESTAMP 写入的，
+    # 而 CURRENT_TIMESTAMP 实际使用的是数据库会话时区（本机 MySQL 容器的会话时区是
+    # SYSTEM，即跟随容器系统时区——目前是 UTC），写进去的是不带时区标记的 UTC 时刻数字。
+    # 这里原来写死 serverTimezone=Asia/Shanghai，会让 JDBC 驱动把这些本来就是 UTC 的
+    # 数字再错误地当成北京时间去转换，导致读出来的 Instant 整体多偏了 8 小时（账单"生成
+    # 时间"显示错误、导出图片时间不对，根因都在这里，不是前端格式化的问题）。改成和数据库
+    # 会话时区实际一致的 UTC，彻底消除这个双重转换。
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:tuoguan}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
     username: ${DB_USERNAME:tuoguan}
     password: ${DB_PASSWORD:tuoguan}
   flyway:

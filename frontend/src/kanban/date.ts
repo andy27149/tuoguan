@@ -1,18 +1,34 @@
-/** 统一展示用的日期格式：YYYY-MM-DD，取代各处不一致的 toLocaleDateString() 写法。 */
-export function formatDate(isoString: string): string {
-  const d = new Date(isoString)
-  const yyyy = d.getFullYear()
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  return `${yyyy}-${mm}-${dd}`
+const BEIJING_TIME_ZONE = 'Asia/Shanghai'
+
+/**
+ * 后端以 UTC Instant（带 Z 后缀）返回时间戳。直接用 Date#getFullYear 等本地方法读取会
+ * 跟着设备/浏览器自身时区走，设备时区不是北京时间时显示就会错（包括导出的账单图片）。
+ * 这里显式指定 Asia/Shanghai，保证无论运行环境时区如何都固定显示北京时间。
+ */
+function shanghaiDateTimeParts(isoString: string) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: BEIJING_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(isoString))
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
+  return { year: get('year'), month: get('month'), day: get('day'), hour: get('hour'), minute: get('minute') }
 }
 
-/** 统一展示用的日期时间格式：YYYY-MM-DD HH:mm，取代各处不一致的 toLocaleString() 写法。 */
+/** 统一展示用的日期格式：YYYY-MM-DD（北京时间），取代各处不一致的 toLocaleDateString() 写法。 */
+export function formatDate(isoString: string): string {
+  const { year, month, day } = shanghaiDateTimeParts(isoString)
+  return `${year}-${month}-${day}`
+}
+
+/** 统一展示用的日期时间格式：YYYY-MM-DD HH:mm（北京时间），取代各处不一致的 toLocaleString() 写法。 */
 export function formatDateTime(isoString: string): string {
-  const d = new Date(isoString)
-  const hh = String(d.getHours()).padStart(2, '0')
-  const min = String(d.getMinutes()).padStart(2, '0')
-  return `${formatDate(isoString)} ${hh}:${min}`
+  const { year, month, day, hour, minute } = shanghaiDateTimeParts(isoString)
+  return `${year}-${month}-${day} ${hour}:${minute}`
 }
 
 export function todayDateString(): string {
