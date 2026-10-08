@@ -219,9 +219,10 @@ export function AdminStudentsModule() {
         {statusError && <p className="mt-2 text-sm text-[#b7591f]">{statusError}</p>}
         {loading && <p className="mt-2 text-sm text-[#7c7391]">加载中...</p>}
         {!loading && (
-          <table className="mt-3 w-full text-left text-sm">
+          <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-left text-sm">
             <thead>
-              <tr className="text-xs text-[#7c7391]">
+              <tr className="text-xs whitespace-nowrap text-[#7c7391]">
                 <th className="border-b border-[#ece7de] bg-[#faf7ff] px-4 py-3">姓名</th>
                 <th className="border-b border-[#ece7de] bg-[#faf7ff] px-4 py-3">学籍班</th>
                 <th className="border-b border-[#ece7de] bg-[#faf7ff] px-4 py-3">托管班</th>
@@ -237,7 +238,7 @@ export function AdminStudentsModule() {
                 const isEditing = editingStudent?.id === student.id
                 return (
                   <tr key={student.id} className="border-b border-[#ece7de] align-middle hover:bg-[#faf7ff]">
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       {isEditing ? (
                         <input
                           aria-label={`学生姓名${student.id}`}
@@ -249,7 +250,7 @@ export function AdminStudentsModule() {
                         <span className="font-medium text-[#241f3d]">{student.name}</span>
                       )}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       {isEditing ? (
                         <input
                           aria-label={`学籍班${student.id}`}
@@ -261,7 +262,7 @@ export function AdminStudentsModule() {
                         <span className="text-[#7c7391]">{student.schoolClassName || '—'}</span>
                       )}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       {isEditing ? (
                         <select
                           aria-label={`托管班${student.id}`}
@@ -280,10 +281,10 @@ export function AdminStudentsModule() {
                         <span className="text-[#7c7391]">{student.classRoomName || '—'}</span>
                       )}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <span className="text-[#7c7391]">{student.teacherName || '—'}</span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <span
                         className={
                           student.offCampusOnly
@@ -294,7 +295,7 @@ export function AdminStudentsModule() {
                         {student.offCampusOnly ? '纯课外' : '托管'}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <span
                         className={
                           student.enrolled
@@ -412,6 +413,7 @@ export function AdminStudentsModule() {
               )}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
