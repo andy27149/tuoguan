@@ -119,11 +119,13 @@ export function fetchBillOverview(
   month?: string,
   classRoomId?: number,
   studentName?: string,
+  offCampusOnly?: boolean,
 ): Promise<BillOverviewRow[]> {
   const params = new URLSearchParams()
   if (month) params.set('month', month)
   if (classRoomId !== undefined) params.set('classRoomId', String(classRoomId))
   if (studentName) params.set('studentName', studentName)
+  if (offCampusOnly) params.set('offCampusOnly', 'true')
   return apiFetch<BillOverviewRow[]>(`/admin/bills?${params.toString()}`)
 }
 

@@ -35,13 +35,14 @@ public class AdminBillOverviewController {
     public List<BillOverviewRow> listOverview(@AuthenticationPrincipal TeacherPrincipal principal,
                                                @RequestParam(required = false) String month,
                                                @RequestParam(required = false) Long classRoomId,
-                                               @RequestParam(required = false) String studentName) {
+                                               @RequestParam(required = false) String studentName,
+                                               @RequestParam(required = false, defaultValue = "false") boolean offCampusOnly) {
         if (month == null || month.isBlank()) {
             return billGenerationService.getBillOverviewAllMonths(principal.institutionId(), classRoomId,
-                    studentName);
+                    studentName, offCampusOnly);
         }
         return billGenerationService.getBillOverview(principal.institutionId(), YearMonth.parse(month), classRoomId,
-                studentName);
+                studentName, offCampusOnly);
     }
 
     @GetMapping("/{billId}")

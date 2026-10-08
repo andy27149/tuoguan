@@ -170,6 +170,34 @@ class AdminBillOverviewControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void offCampusOnlyFilterShowsOnlyPureOffCampusStudentsWithAndWithoutMonthFilter() throws Exception {
+        Long institutionId = institutionDao.insert("账单纯课外筛选测试机构");
+        teacherDao.insert(new Teacher(null, institutionId, "13900014040",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900014041",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "筛选一班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long custodyStudentId = studentDao.insert(
+                new Student(null, institutionId, classRoomId, "托管学生", "一班", true, null, null));
+        Long offCampusStudentId = studentDao.insert(
+                new Student(null, institutionId, null, "纯课外学生", null, true, null, null));
+        String adminToken = login("13900014040", "admin-password");
+
+        mockMvc.perform(get("/api/admin/bills?offCampusOnly=true")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.studentId == " + offCampusStudentId + ")]").exists())
+                .andExpect(jsonPath("$[?(@.studentId == " + custodyStudentId + ")]").doesNotExist());
+
+        mockMvc.perform(get("/api/admin/bills?month=2024-01&offCampusOnly=true")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.studentId == " + offCampusStudentId + ")]").exists())
+                .andExpect(jsonPath("$[?(@.studentId == " + custodyStudentId + ")]").doesNotExist());
+    }
+
+    @Test
     void setPaidTogglesBillAndRecordsAnAuditLogEntry() throws Exception {
         Long institutionId = institutionDao.insert("账单缴费状态测试机构");
         teacherDao.insert(new Teacher(null, institutionId, "13900014021",

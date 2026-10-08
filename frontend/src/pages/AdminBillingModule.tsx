@@ -8,13 +8,20 @@ import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Toast } from '../components/Toast'
 import { useToast } from '../hooks/useToast'
 
+const OFF_CAMPUS_FILTER_VALUE = 'off-campus'
+
 export function AdminBillingModule() {
   const [classes, setClasses] = useState<adminApi.AdminClassRoom[]>([])
   const [loadingClasses, setLoadingClasses] = useState(true)
 
   const [month, setMonth] = useState(currentMonthString())
-  const [selectedClassId, setSelectedClassId] = useState<number | null>(null)
+  // 班级筛选下拉的值：''（全部班级）、OFF_CAMPUS_FILTER_VALUE（只看纯课外课学生）、
+  // 或某个班级 id 的字符串形式。用字符串统一承载三种互斥状态，避免再额外加一个布尔开关。
+  const [classFilter, setClassFilter] = useState<string>('')
   const [studentName, setStudentName] = useState('')
+
+  const selectedClassId = classFilter && classFilter !== OFF_CAMPUS_FILTER_VALUE ? Number(classFilter) : undefined
+  const offCampusOnly = classFilter === OFF_CAMPUS_FILTER_VALUE
 
   const [rows, setRows] = useState<billingApi.BillOverviewRow[]>([])
   const [loadingRows, setLoadingRows] = useState(true)
@@ -48,7 +55,7 @@ export function AdminBillingModule() {
     setLoadingRows(true)
     setRowsError(null)
     billingApi
-      .fetchBillOverview(month || undefined, selectedClassId ?? undefined, studentName.trim() || undefined)
+      .fetchBillOverview(month || undefined, selectedClassId, studentName.trim() || undefined, offCampusOnly)
       .then(setRows)
       .catch(() => setRowsError('加载账单列表失败，请刷新重试'))
       .finally(() => setLoadingRows(false))
@@ -57,7 +64,7 @@ export function AdminBillingModule() {
   useEffect(() => {
     loadRows()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [month, selectedClassId, studentName])
+  }, [month, classFilter, studentName])
 
   function handleTogglePaid(row: billingApi.BillOverviewRow) {
     if (row.billId === null) return
@@ -107,12 +114,13 @@ export function AdminBillingModule() {
           <label className="text-sm text-[#5d5480]">
             班级
             <select
-              value={selectedClassId ?? ''}
-              onChange={(e) => setSelectedClassId(e.target.value === '' ? null : Number(e.target.value))}
+              value={classFilter}
+              onChange={(e) => setClassFilter(e.target.value)}
               disabled={loadingClasses}
               className="ml-2 rounded-lg border border-[#ece7de] px-2 py-1 text-sm"
             >
               <option value="">全部班级</option>
+              <option value={OFF_CAMPUS_FILTER_VALUE}>纯课外课学生</option>
               {classes.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}

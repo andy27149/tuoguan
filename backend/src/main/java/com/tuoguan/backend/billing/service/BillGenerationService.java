@@ -240,7 +240,7 @@ public class BillGenerationService {
     }
 
     public List<BillOverviewRow> getBillOverview(Long institutionId, YearMonth month, Long classRoomId,
-                                                  String studentName) {
+                                                  String studentName, boolean offCampusOnly) {
         if (classRoomId != null) {
             TeachingUnit unit = requireTeachingUnitInInstitution(institutionId, classRoomId);
             return buildOverviewRowsForUnit(unit, institutionId, studentName,
@@ -254,6 +254,9 @@ public class BillGenerationService {
 
         List<BillOverviewRow> rows = new ArrayList<>();
         for (Student student : sortForOverview(studentDao.findAllByInstitutionId(institutionId), studentName, unitsById)) {
+            if (offCampusOnly && student.teachingUnitId() != null) {
+                continue;
+            }
             TeachingUnit unit = student.teachingUnitId() != null ? unitsById.get(student.teachingUnitId()) : null;
             String teacherName = unit != null
                     ? teacherDao.findById(unit.teacherId()).map(Teacher::name).orElse("-") : "-";
@@ -309,7 +312,8 @@ public class BillGenerationService {
                 .toList();
     }
 
-    public List<BillOverviewRow> getBillOverviewAllMonths(Long institutionId, Long classRoomId, String studentName) {
+    public List<BillOverviewRow> getBillOverviewAllMonths(Long institutionId, Long classRoomId, String studentName,
+                                                            boolean offCampusOnly) {
         if (classRoomId != null) {
             TeachingUnit unit = requireTeachingUnitInInstitution(institutionId, classRoomId);
             return buildOverviewRowsAllMonthsForUnit(unit, studentName);
@@ -320,6 +324,9 @@ public class BillGenerationService {
 
         List<BillOverviewRow> rows = new ArrayList<>();
         for (Student student : sortForOverview(studentDao.findAllByInstitutionId(institutionId), studentName, unitsById)) {
+            if (offCampusOnly && student.teachingUnitId() != null) {
+                continue;
+            }
             TeachingUnit unit = student.teachingUnitId() != null ? unitsById.get(student.teachingUnitId()) : null;
             String teacherName = unit != null
                     ? teacherDao.findById(unit.teacherId()).map(Teacher::name).orElse("-") : "-";

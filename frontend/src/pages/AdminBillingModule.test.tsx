@@ -78,7 +78,7 @@ describe('AdminBillingModule', () => {
   it('loads the current-month overview for all classes by default', async () => {
     render(<AdminBillingModule />)
 
-    await waitFor(() => expect(billingApi.fetchBillOverview).toHaveBeenCalledWith(MONTH, undefined, undefined))
+    await waitFor(() => expect(billingApi.fetchBillOverview).toHaveBeenCalledWith(MONTH, undefined, undefined, false))
     expect(await screen.findByText('小明')).toBeInTheDocument()
     expect(screen.getByText('小红')).toBeInTheDocument()
     expect(screen.getByText('¥800.00')).toBeInTheDocument()
@@ -93,7 +93,18 @@ describe('AdminBillingModule', () => {
 
     fireEvent.change(screen.getByLabelText('班级'), { target: { value: '21' } })
 
-    await waitFor(() => expect(billingApi.fetchBillOverview).toHaveBeenCalledWith(MONTH, 21, undefined))
+    await waitFor(() => expect(billingApi.fetchBillOverview).toHaveBeenCalledWith(MONTH, 21, undefined, false))
+  })
+
+  it('refetches with offCampusOnly when the 纯课外课学生 filter is selected', async () => {
+    render(<AdminBillingModule />)
+    await screen.findByText('小明')
+
+    fireEvent.change(screen.getByLabelText('班级'), { target: { value: 'off-campus' } })
+
+    await waitFor(() =>
+      expect(billingApi.fetchBillOverview).toHaveBeenCalledWith(MONTH, undefined, undefined, true),
+    )
   })
 
   it('refetches the overview when searching by student name', async () => {
@@ -102,7 +113,7 @@ describe('AdminBillingModule', () => {
 
     fireEvent.change(screen.getByPlaceholderText('搜索学生姓名'), { target: { value: '小明' } })
 
-    await waitFor(() => expect(billingApi.fetchBillOverview).toHaveBeenCalledWith(MONTH, undefined, '小明'))
+    await waitFor(() => expect(billingApi.fetchBillOverview).toHaveBeenCalledWith(MONTH, undefined, '小明', false))
   })
 
   it('caps the month picker at the current month and refetches on change', async () => {
@@ -114,7 +125,9 @@ describe('AdminBillingModule', () => {
 
     fireEvent.change(monthInput, { target: { value: '2026-08' } })
 
-    await waitFor(() => expect(billingApi.fetchBillOverview).toHaveBeenCalledWith('2026-08', undefined, undefined))
+    await waitFor(() =>
+      expect(billingApi.fetchBillOverview).toHaveBeenCalledWith('2026-08', undefined, undefined, false),
+    )
   })
 
   it('shows an all-months view with a month column when the month filter is cleared', async () => {
@@ -129,7 +142,9 @@ describe('AdminBillingModule', () => {
     const monthInput = screen.getByLabelText('月份') as HTMLInputElement
     fireEvent.change(monthInput, { target: { value: '' } })
 
-    await waitFor(() => expect(billingApi.fetchBillOverview).toHaveBeenCalledWith(undefined, undefined, undefined))
+    await waitFor(() =>
+      expect(billingApi.fetchBillOverview).toHaveBeenCalledWith(undefined, undefined, undefined, false),
+    )
     expect(await screen.findByText('2026-07')).toBeInTheDocument()
     expect(screen.getByText('2026-08')).toBeInTheDocument()
   })
