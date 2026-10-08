@@ -17,6 +17,8 @@ public interface CourseConsumptionRecordDao {
 
     List<CourseConsumptionRecord> findAllByStudentId(Long studentId);
 
+    List<CourseConsumptionRecord> findAllByInstitutionId(Long institutionId);
+
     BigDecimal sumByStudentId(Long studentId);
 
     void deleteAllByStudentId(Long studentId);

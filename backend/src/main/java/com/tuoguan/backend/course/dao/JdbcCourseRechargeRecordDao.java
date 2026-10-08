@@ -58,6 +58,14 @@ public class JdbcCourseRechargeRecordDao implements CourseRechargeRecordDao {
     }
 
     @Override
+    public List<CourseRechargeRecord> findAllByInstitutionId(Long institutionId) {
+        return jdbcTemplate.query(
+                "SELECT id, institution_id, student_id, teaching_unit_id, lesson_count, note, recorded_by_teacher_id, "
+                        + "created_at FROM course_recharge_record WHERE institution_id = ? ORDER BY id",
+                ROW_MAPPER, institutionId);
+    }
+
+    @Override
     public void deleteAllByStudentId(Long studentId) {
         jdbcTemplate.update("DELETE FROM course_recharge_record WHERE student_id = ?", studentId);
     }

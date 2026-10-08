@@ -10,6 +10,8 @@ public interface CourseRechargeRecordDao {
 
     List<CourseRechargeRecord> findAllByStudentId(Long studentId);
 
+    List<CourseRechargeRecord> findAllByInstitutionId(Long institutionId);
+
     void deleteAllByStudentId(Long studentId);
 
     void deleteAllByTeachingUnitId(Long teachingUnitId);

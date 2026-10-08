@@ -82,6 +82,15 @@ public class JdbcCourseConsumptionRecordDao implements CourseConsumptionRecordDa
     }
 
     @Override
+    public List<CourseConsumptionRecord> findAllByInstitutionId(Long institutionId) {
+        return jdbcTemplate.query(
+                "SELECT id, institution_id, student_id, teaching_unit_id, consumption_date, price_snapshot, "
+                        + "recorded_by_teacher_id, created_at FROM course_consumption_record "
+                        + "WHERE institution_id = ? ORDER BY id",
+                ROW_MAPPER, institutionId);
+    }
+
+    @Override
     public BigDecimal sumByStudentId(Long studentId) {
         BigDecimal sum = jdbcTemplate.queryForObject(
                 "SELECT COALESCE(SUM(price_snapshot), 0) FROM course_consumption_record WHERE student_id = ?",
