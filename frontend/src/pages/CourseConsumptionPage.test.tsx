@@ -48,17 +48,38 @@ describe('CourseConsumptionPage', () => {
     expect(screen.getByText('纯课外（扣课时余额）')).toBeInTheDocument()
   })
 
-  it('shows the off-campus balance, highlighted red when depleted or negative', async () => {
+  it('shows the balance badge for any student with a non-null balance, color-coded by threshold', async () => {
     vi.mocked(courseApi.fetchCourseRoster).mockResolvedValue([
       { studentId: 100, name: '小明', schoolClassName: '三年级一班', offCampusOnly: false, balance: null },
-      { studentId: 200, name: '小红', schoolClassName: null, offCampusOnly: true, balance: 3 },
+      { studentId: 200, name: '小红', schoolClassName: null, offCampusOnly: true, balance: 5 },
       { studentId: 300, name: '小刚', schoolClassName: null, offCampusOnly: true, balance: -1 },
+      { studentId: 400, name: '小芳', schoolClassName: null, offCampusOnly: true, balance: 2 },
+      // 托管班学生（双重身份）只要对本课程充值过，也应该展示余额——不再要求 offCampusOnly。
+      { studentId: 500, name: '小强', schoolClassName: null, offCampusOnly: false, balance: 1 },
     ])
     setup()
     await screen.findByText('小明')
 
-    expect(screen.getByText('余额：3 课时')).toHaveClass('text-gray-600')
+    expect(screen.queryByText(/小明.*余额/)).not.toBeInTheDocument()
+    expect(screen.getByText('余额：5 课时')).toHaveClass('text-gray-600')
     expect(screen.getByText('余额：-1 课时')).toHaveClass('text-red-700')
+    expect(screen.getByText('余额：2 课时')).toHaveClass('text-amber-700')
+    expect(screen.getByText('余额：1 课时')).toHaveClass('text-amber-700')
+  })
+
+  it('sorts the roster with pure off-campus students first, then custody students, each group by name', async () => {
+    vi.mocked(courseApi.fetchCourseRoster).mockResolvedValue([
+      { studentId: 100, name: '小丙', schoolClassName: null, offCampusOnly: false, balance: null },
+      { studentId: 200, name: '小乙', schoolClassName: null, offCampusOnly: true, balance: 100 },
+      { studentId: 300, name: '小甲', schoolClassName: null, offCampusOnly: false, balance: 1 },
+      { studentId: 400, name: '小丁', schoolClassName: null, offCampusOnly: true, balance: -5 },
+    ])
+    setup()
+    await screen.findByText('小乙')
+
+    const names = screen.getAllByRole('listitem').map((li) => li.textContent?.slice(0, 2))
+    // 纯课外（小丁、小乙）按姓名排在前面，托管班（小丙、小甲）按姓名排在后面；余额完全不参与排序。
+    expect(names).toEqual(['小丁', '小乙', '小丙', '小甲'])
   })
 
   it('shows a hint to contact the admin instead of a self-create-student form', async () => {
@@ -111,11 +132,29 @@ describe('CourseConsumptionPage', () => {
     setup()
     await screen.findByText('小明')
 
+    // 默认 teacher 没有托管班（classesApi.fetchClasses 解析为 []），所以"我的托管班"添加区块
+    // 不渲染，这里的"选择学生"/"添加到花名册"就是纯课外区块唯一的一组，取 index 0。
     expect(await screen.findByText('小芳 · 四年级二班')).toBeInTheDocument()
-    fireEvent.change(screen.getAllByText('选择学生')[1].closest('select')!, { target: { value: '400' } })
-    fireEvent.click(screen.getAllByRole('button', { name: '添加到花名册' })[1])
+    fireEvent.change(screen.getAllByText('选择学生')[0].closest('select')!, { target: { value: '400' } })
+    fireEvent.click(screen.getAllByRole('button', { name: '添加到花名册' })[0])
 
     await waitFor(() => expect(courseApi.enrollExistingStudent).toHaveBeenCalledWith(1, 400))
+  })
+
+  it('hides the "我的托管班" add-student section when the teacher has no custody class', async () => {
+    setup()
+    await screen.findByText('小明')
+
+    expect(screen.queryByText('添加已有学生（我的托管班）')).not.toBeInTheDocument()
+    expect(screen.getByText('添加已有学生（纯课外课学生）')).toBeInTheDocument()
+  })
+
+  it('shows the "我的托管班" add-student section once the teacher has a custody class', async () => {
+    vi.mocked(classesApi.fetchClasses).mockResolvedValue([{ id: 5, name: '一班', teacherId: 1 } as classesApi.ClassRoom])
+    setup()
+    await screen.findByText('小明')
+
+    expect(screen.getByText('添加已有学生（我的托管班）')).toBeInTheDocument()
   })
 
   it('shows a hint when there are no off-campus candidates to add', async () => {
@@ -142,10 +181,11 @@ describe('CourseConsumptionPage', () => {
     setup()
     await screen.findByText('小明')
 
+    // 花名册按余额倒序排列，小红（余额3）排在无余额概念的小明前面，所以 index 0 是小红（200）。
     fireEvent.click(screen.getAllByRole('button', { name: '移出' })[0])
     fireEvent.click(await screen.findByRole('button', { name: '确认移出' }))
 
-    await waitFor(() => expect(courseApi.unenrollStudent).toHaveBeenCalledWith(1, 100))
+    await waitFor(() => expect(courseApi.unenrollStudent).toHaveBeenCalledWith(1, 200))
   })
 
   it('defaults all roster students to present and submits a roll call for everyone', async () => {
@@ -177,8 +217,9 @@ describe('CourseConsumptionPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '确认消课（2人）' }))
 
+    // 花名册按余额倒序排列，小红（余额3）排在无余额概念的小明前面。
     await waitFor(() =>
-      expect(courseApi.recordBatchConsumption).toHaveBeenCalledWith(1, expect.any(String), [100, 200]),
+      expect(courseApi.recordBatchConsumption).toHaveBeenCalledWith(1, expect.any(String), [200, 100]),
     )
   })
 

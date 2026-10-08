@@ -13,8 +13,8 @@ export interface CourseRosterEntry {
   name: string
   schoolClassName: string | null
   offCampusOnly: boolean
-  // 仅纯课外课学生（offCampusOnly=true）有意义：该生在本课程下的预充值课时余额。
-  // 托管班学生消课记入月度账单，没有余额概念，恒为 null。
+  // 该生在本课程下的预充值课时余额。纯课外课学生恒展示（哪怕从未充值过也是 0）；
+  // 托管班学生（双重身份）只有对本课程充值过才展示，没充值过就是 null。
   balance: number | null
 }
 

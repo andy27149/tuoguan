@@ -78,8 +78,13 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
   }, [activeCourseId])
 
   function applyRoster(list: courseApi.CourseRosterEntry[]) {
-    setRoster(list)
-    setPresentStudentIds(new Set(list.map((r) => r.studentId)))
+    const sorted = [...list].sort((a, b) => {
+      // 纯课外课学生优先展示，托管班学生（双重身份）排在后面，组内按姓名排序。
+      if (a.offCampusOnly !== b.offCampusOnly) return a.offCampusOnly ? -1 : 1
+      return a.name.localeCompare(b.name)
+    })
+    setRoster(sorted)
+    setPresentStudentIds(new Set(sorted.map((r) => r.studentId)))
   }
 
   async function refreshRoster() {
@@ -257,12 +262,14 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
                         >
                           {entry.offCampusOnly ? '纯课外（扣课时余额）' : '托管（计入月度账单）'}
                         </span>
-                        {entry.offCampusOnly && entry.balance !== null && (
+                        {entry.balance !== null && (
                           <span
                             className={
                               entry.balance <= 0
                                 ? 'ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700'
-                                : 'ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600'
+                                : entry.balance < 3
+                                  ? 'ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700'
+                                  : 'ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600'
                             }
                           >
                             余额：{entry.balance} 课时
@@ -313,54 +320,59 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
               </p>
             )}
 
-            <div className="mt-3 border-t border-gray-100 pt-3">
-              <h3 className="text-sm font-medium text-gray-700">添加已有学生（我的托管班）</h3>
-              <p className="mt-1 text-xs text-gray-400">新增课外学生请联系管理员添加</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <select
-                  value={pickClassId ?? ''}
-                  onChange={(e) => handlePickClass(Number(e.target.value))}
-                  className="rounded border px-2 py-1 text-sm"
-                >
-                  <option value="" disabled>
-                    选择班级
-                  </option>
-                  {myClasses.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
+            <p className="mt-3 border-t border-gray-100 pt-3 text-xs text-gray-400">
+              新增课外学生请联系管理员添加
+            </p>
+
+            {myClasses.length > 0 && (
+              <div className="mt-3">
+                <h3 className="text-sm font-medium text-gray-700">添加已有学生（我的托管班）</h3>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <select
+                    value={pickClassId ?? ''}
+                    onChange={(e) => handlePickClass(Number(e.target.value))}
+                    className="rounded border px-2 py-1 text-sm"
+                  >
+                    <option value="" disabled>
+                      选择班级
                     </option>
-                  ))}
-                </select>
-                <select
-                  value={pickStudentId ?? ''}
-                  onChange={(e) => setPickStudentId(Number(e.target.value))}
-                  disabled={pickClassId === null}
-                  className="rounded border px-2 py-1 text-sm disabled:opacity-50"
-                >
-                  <option value="" disabled>
-                    选择学生
-                  </option>
-                  {pickClassStudents.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
+                    {myClasses.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={pickStudentId ?? ''}
+                    onChange={(e) => setPickStudentId(Number(e.target.value))}
+                    disabled={pickClassId === null}
+                    className="rounded border px-2 py-1 text-sm disabled:opacity-50"
+                  >
+                    <option value="" disabled>
+                      选择学生
                     </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={handleEnrollExisting}
-                  disabled={enrolling || pickStudentId === null}
-                  className="rounded bg-blue-600 px-3 py-1 text-sm text-white disabled:opacity-50"
-                >
-                  添加到花名册
-                </button>
+                    {pickClassStudents.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleEnrollExisting}
+                    disabled={enrolling || pickStudentId === null}
+                    className="rounded bg-blue-600 px-3 py-1 text-sm text-white disabled:opacity-50"
+                  >
+                    添加到花名册
+                  </button>
+                </div>
+                {enrollError && (
+                  <p role="alert" className="mt-1 text-xs text-red-600">
+                    {enrollError}
+                  </p>
+                )}
               </div>
-              {enrollError && (
-                <p role="alert" className="mt-1 text-xs text-red-600">
-                  {enrollError}
-                </p>
-              )}
-            </div>
+            )}
 
             <div className="mt-3 border-t border-gray-100 pt-3">
               <h3 className="text-sm font-medium text-gray-700">添加已有学生（纯课外课学生）</h3>

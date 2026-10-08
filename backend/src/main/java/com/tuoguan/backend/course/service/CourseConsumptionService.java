@@ -47,21 +47,23 @@ public class CourseConsumptionService {
                     Student student = studentDao.findById(enrollment.studentId())
                             .orElseThrow(() -> new IllegalStateException("Student not found: "
                                     + enrollment.studentId()));
-                    Integer balance = student.teachingUnitId() == null
-                            ? computeBalance(student.id(), teachingUnit.id()) : null;
+                    Integer balance = resolveBalance(student, teachingUnit.id());
                     return CourseRosterEntry.from(student, balance);
                 })
                 .toList();
     }
 
-    // 仅纯课外课学生走预充值余额模型（见 CourseAccountService.recharge 的校验）；托管班学生消课
-    // 记入月度账单附加费，没有余额概念，调用方不会对他们算余额。
-    private int computeBalance(Long studentId, Long teachingUnitId) {
-        int recharged = rechargeRecordDao.findAllByStudentId(studentId).stream()
+    // 纯课外课学生恒显示余额（哪怕从没充值过，也是 0）；托管班学生（双重身份）现在也允许
+    // 预充值，但消课主要还是走月度账单，没充值过就没有余额概念，只有充值过才展示余额。
+    private Integer resolveBalance(Student student, Long teachingUnitId) {
+        List<CourseRechargeRecord> recharges = rechargeRecordDao.findAllByStudentId(student.id()).stream()
                 .filter(r -> r.teachingUnitId().equals(teachingUnitId))
-                .mapToInt(CourseRechargeRecord::lessonCount)
-                .sum();
-        int consumed = (int) consumptionRecordDao.findAllByStudentId(studentId).stream()
+                .toList();
+        if (student.teachingUnitId() != null && recharges.isEmpty()) {
+            return null;
+        }
+        int recharged = recharges.stream().mapToInt(CourseRechargeRecord::lessonCount).sum();
+        int consumed = (int) consumptionRecordDao.findAllByStudentId(student.id()).stream()
                 .filter(c -> c.teachingUnitId().equals(teachingUnitId))
                 .count();
         return recharged - consumed;

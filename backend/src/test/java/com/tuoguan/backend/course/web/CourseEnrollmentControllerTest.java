@@ -109,6 +109,32 @@ class CourseEnrollmentControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void showsBalanceForAClassRoomStudentOnceTheyHaveRechargedForThisCourse() throws Exception {
+        // 托管班学生（双重身份）现在也允许预充值，充值过之后花名册也应该展示余额，
+        // 不再像之前那样恒为 null。
+        Long institutionId = institutionDao.insert("报名控制器测试机构B3");
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900031011",
+                passwordEncoder.encode("password"), Role.TEACHER, false, null));
+        Long courseId = courseDao.insert(new TeachingUnit(null, institutionId, teacherId, "科学课", BillingMode.LESSON_COUNT, 45, null, true, null));
+        Long classRoomId = classRoomDao.insert(new TeachingUnit(null, institutionId, teacherId, "二年级1班", BillingMode.MONTHLY, null, null, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小托2", "二年级1班", true, null, null));
+        String token = login("13900031011", "password");
+
+        mockMvc.perform(post("/api/courses/" + courseId + "/enrollments")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"studentId\":" + studentId + "}"))
+                .andExpect(status().isCreated());
+        rechargeRecordDao.insert(new CourseRechargeRecord(null, institutionId, studentId, courseId, 4, null, teacherId, null));
+
+        mockMvc.perform(get("/api/courses/" + courseId + "/roster")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].offCampusOnly").value(false))
+                .andExpect(jsonPath("$[0].balance").value(4));
+    }
+
+    @Test
     void enrollingAnAlreadyEnrolledStudentReturnsConflict() throws Exception {
         Long institutionId = institutionDao.insert("报名控制器测试机构B2");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900031030",
