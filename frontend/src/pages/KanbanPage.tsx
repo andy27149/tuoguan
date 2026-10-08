@@ -160,11 +160,11 @@ export function KanbanPage({
   }
 
   async function handleBatchAssign(schoolClassName: string | null, templateIds: number[]) {
-    const representative = students.find((s) => s.schoolClassName === schoolClassName)
-    if (!representative) return
+    const groupStudents = students.filter((s) => s.schoolClassName === schoolClassName)
+    if (groupStudents.length === 0) return
     await Promise.all(
-      templateIds.map((templateId) =>
-        dailyTasksApi.addFromTemplateForStudent(representative.id, templateId, date),
+      groupStudents.flatMap((student) =>
+        templateIds.map((templateId) => dailyTasksApi.addFromTemplateForStudent(student.id, templateId, date)),
       ),
     )
     await refreshTasks()
