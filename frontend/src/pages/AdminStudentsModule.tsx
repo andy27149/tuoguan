@@ -3,9 +3,7 @@ import * as courseApi from '../api/course'
 import * as unitApi from '../api/unit'
 import { ApiError } from '../api/client'
 import { AdminCourseStatementModal } from '../components/AdminCourseStatementModal'
-import { FeeManagementModal } from '../components/FeeManagementModal'
 import { ConfirmDialog } from '../components/ConfirmDialog'
-import { currentMonthString } from '../kanban/date'
 
 export function AdminStudentsModule() {
   const [students, setStudents] = useState<courseApi.AdminStudent[]>([])
@@ -21,12 +19,6 @@ export function AdminStudentsModule() {
   const [createError, setCreateError] = useState<string | null>(null)
 
   const [statementStudent, setStatementStudent] = useState<{ id: number; name: string } | null>(null)
-  const [managingStudent, setManagingStudent] = useState<{
-    id: number
-    name: string
-    classRoomId: number | null
-    className: string
-  } | null>(null)
 
   const [editingStudent, setEditingStudent] = useState<courseApi.AdminStudent | null>(null)
   const [editingName, setEditingName] = useState('')
@@ -374,29 +366,13 @@ export function AdminStudentsModule() {
                             </button>
                           )}
                           {(student.offCampusOnly || student.enrolledCourseNames.length > 0) && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => setStatementStudent({ id: student.id, name: student.name })}
-                                className="rounded-full border border-[#ece7de] px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]"
-                              >
-                                对账单/充值
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setManagingStudent({
-                                    id: student.id,
-                                    name: student.name,
-                                    classRoomId: student.classRoomId,
-                                    className: student.classRoomName ?? '—',
-                                  })
-                                }
-                                className="rounded-full border border-[#ece7de] px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]"
-                              >
-                                费用管理
-                              </button>
-                            </>
+                            <button
+                              type="button"
+                              onClick={() => setStatementStudent({ id: student.id, name: student.name })}
+                              className="rounded-full border border-[#ece7de] px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]"
+                            >
+                              对账单/充值
+                            </button>
                           )}
                         </span>
                       )}
@@ -422,18 +398,6 @@ export function AdminStudentsModule() {
           studentId={statementStudent.id}
           studentName={statementStudent.name}
           onClose={() => setStatementStudent(null)}
-        />
-      )}
-
-      {managingStudent && (
-        <FeeManagementModal
-          studentId={managingStudent.id}
-          studentName={managingStudent.name}
-          classRoomId={managingStudent.classRoomId}
-          className={managingStudent.className}
-          month={currentMonthString()}
-          onClose={() => setManagingStudent(null)}
-          onSaved={() => setManagingStudent(null)}
         />
       )}
 

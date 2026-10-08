@@ -3,11 +3,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { AdminStudentsModule } from './AdminStudentsModule'
 import * as courseApi from '../api/course'
 import * as unitApi from '../api/unit'
-import * as billingApi from '../api/billing'
 
 vi.mock('../api/course')
 vi.mock('../api/unit')
-vi.mock('../api/billing')
 
 const STUDENTS: courseApi.AdminStudent[] = [
   {
@@ -69,8 +67,6 @@ describe('AdminStudentsModule', () => {
       consumptions: [],
     })
     vi.mocked(unitApi.fetchTeachingUnits).mockResolvedValue(CLASS_ROOMS)
-    vi.mocked(courseApi.fetchStudentCourseConsumption).mockResolvedValue([])
-    vi.mocked(billingApi.fetchClassBillingRate).mockResolvedValue(null)
   })
 
   it('lists students read-only with 托管/课外 badges', async () => {
@@ -92,7 +88,7 @@ describe('AdminStudentsModule', () => {
     expect(rowFor小红?.textContent).toContain('—')
   })
 
-  it('shows 对账单/充值 and 费用管理 for off-campus and dual-identity students, but not for pure custody students', async () => {
+  it('shows 对账单/充值 for off-campus and dual-identity students with a course enrollment, but not for pure custody students', async () => {
     render(<AdminStudentsModule />)
     await screen.findByText('小明')
 
@@ -101,11 +97,12 @@ describe('AdminStudentsModule', () => {
     const rowFor小红 = rows.find((r) => r.textContent?.includes('小红')) as HTMLElement
     const rowFor小刚 = rows.find((r) => r.textContent?.includes('小刚')) as HTMLElement
 
-    // 编辑 + 停用 对每个学生都有；对账单/充值 + 费用管理 只有纯课外课/双重身份学生才有。
-    expect(within(rowFor小明).getAllByRole('button')).toHaveLength(4)
-    expect(within(rowFor小红).getAllByRole('button')).toHaveLength(4)
+    // 编辑 + 停用 对每个学生都有；对账单/充值 只有纯课外课/双重身份学生才有。
+    // 费用管理已经并到账单管理页面，这里不再重复提供。
+    expect(within(rowFor小明).getAllByRole('button')).toHaveLength(3)
+    expect(within(rowFor小红).getAllByRole('button')).toHaveLength(3)
     expect(within(rowFor小刚).getAllByRole('button')).toHaveLength(2)
-    expect(within(rowFor小刚).queryByRole('button', { name: '费用管理' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '费用管理' })).not.toBeInTheDocument()
   })
 
   it('shows the custody teacher name and enabled/disabled status badges', async () => {
@@ -124,30 +121,6 @@ describe('AdminStudentsModule', () => {
 
     expect(await screen.findByText('课外账户对账单 - 小红')).toBeInTheDocument()
     await waitFor(() => expect(courseApi.fetchStudentCourseStatement).toHaveBeenCalledWith(2))
-  })
-
-  it('opens the fee management modal (no class, no tuition section) for a pure off-campus student', async () => {
-    render(<AdminStudentsModule />)
-    const rowFor小红 = (await screen.findAllByRole('row')).find((r) => r.textContent?.includes('小红')) as HTMLElement
-
-    fireEvent.click(within(rowFor小红).getByRole('button', { name: '费用管理' }))
-
-    expect(await screen.findByText(/费用管理 - 小红/)).toBeInTheDocument()
-    expect(screen.queryByLabelText('本月托管费金额')).not.toBeInTheDocument()
-    expect(billingApi.fetchClassBillingRate).not.toHaveBeenCalled()
-    expect(courseApi.fetchStudentCourseConsumption).toHaveBeenCalledWith(2, expect.any(String))
-  })
-
-  it('opens the fee management modal with the real class room for a dual-identity student', async () => {
-    render(<AdminStudentsModule />)
-    const rowFor小明 = (await screen.findAllByRole('row')).find((r) => r.textContent?.includes('小明')) as HTMLElement
-
-    fireEvent.click(within(rowFor小明).getByRole('button', { name: '费用管理' }))
-
-    expect(await screen.findByText(/费用管理 - 小明/)).toBeInTheDocument()
-    expect(screen.getByLabelText('本月托管费金额')).toBeInTheDocument()
-    await waitFor(() => expect(billingApi.fetchClassBillingRate).toHaveBeenCalledWith(20))
-    expect(courseApi.fetchStudentCourseConsumption).toHaveBeenCalledWith(1, expect.any(String))
   })
 
   it('shows an empty state when there are no students', async () => {
