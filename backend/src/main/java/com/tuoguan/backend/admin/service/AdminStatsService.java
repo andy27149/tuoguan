@@ -1,6 +1,10 @@
 package com.tuoguan.backend.admin.service;
 
 import com.tuoguan.backend.admin.web.AdminDashboardResponse.ClassSummary;
+import com.tuoguan.backend.admin.web.EnrollmentSummary;
+import com.tuoguan.backend.admin.web.TeacherStudentCount;
+import com.tuoguan.backend.auth.dao.TeacherDao;
+import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.kanban.dao.DailyTaskDao;
 import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
 import com.tuoguan.backend.kanban.domain.DailyTask;
@@ -12,6 +16,7 @@ import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -23,13 +28,42 @@ public class AdminStatsService {
     private final StudentDao studentDao;
     private final DailyTaskDao dailyTaskDao;
     private final StudentArrivalCheckinDao studentArrivalCheckinDao;
+    private final TeacherDao teacherDao;
 
     public AdminStatsService(TeachingUnitDao teachingUnitDao, StudentDao studentDao, DailyTaskDao dailyTaskDao,
-                              StudentArrivalCheckinDao studentArrivalCheckinDao) {
+                              StudentArrivalCheckinDao studentArrivalCheckinDao, TeacherDao teacherDao) {
         this.teachingUnitDao = teachingUnitDao;
         this.studentDao = studentDao;
         this.dailyTaskDao = dailyTaskDao;
         this.studentArrivalCheckinDao = studentArrivalCheckinDao;
+        this.teacherDao = teacherDao;
+    }
+
+    public EnrollmentSummary getEnrollmentSummary(Long institutionId) {
+        List<Student> enrolledStudents = studentDao.findAllByInstitutionId(institutionId).stream()
+                .filter(Student::enrolled)
+                .toList();
+
+        int custodyCount = (int) enrolledStudents.stream().filter(s -> s.teachingUnitId() != null).count();
+        int offCampusOnlyCount = enrolledStudents.size() - custodyCount;
+
+        Map<Long, TeachingUnit> unitsById = teachingUnitDao.findAllByInstitutionId(institutionId).stream()
+                .collect(Collectors.toMap(TeachingUnit::id, u -> u));
+
+        Map<Long, Long> studentCountByTeacherId = enrolledStudents.stream()
+                .filter(s -> s.teachingUnitId() != null)
+                .map(s -> unitsById.get(s.teachingUnitId()))
+                .filter(unit -> unit != null)
+                .collect(Collectors.groupingBy(TeachingUnit::teacherId, Collectors.counting()));
+
+        List<TeacherStudentCount> byTeacher = studentCountByTeacherId.entrySet().stream()
+                .map(entry -> new TeacherStudentCount(
+                        teacherDao.findById(entry.getKey()).map(Teacher::name).orElse("-"),
+                        entry.getValue().intValue()))
+                .sorted(Comparator.comparingInt(TeacherStudentCount::studentCount).reversed())
+                .toList();
+
+        return new EnrollmentSummary(enrolledStudents.size(), custodyCount, offCampusOnlyCount, byTeacher);
     }
 
     public List<ClassSummary> getDashboard(Long institutionId, LocalDate date) {
