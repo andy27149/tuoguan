@@ -1,5 +1,6 @@
 package com.tuoguan.backend.admin.web;
 
+import com.tuoguan.backend.admin.service.AdminStatsService;
 import com.tuoguan.backend.auth.security.TeacherPrincipal;
 import com.tuoguan.backend.billing.service.BillGenerationService;
 import com.tuoguan.backend.course.service.CourseAccountService;
@@ -18,11 +19,14 @@ public class AdminOverviewController {
 
     private final CourseAccountService courseAccountService;
     private final BillGenerationService billGenerationService;
+    private final AdminStatsService adminStatsService;
 
     public AdminOverviewController(CourseAccountService courseAccountService,
-                                    BillGenerationService billGenerationService) {
+                                    BillGenerationService billGenerationService,
+                                    AdminStatsService adminStatsService) {
         this.courseAccountService = courseAccountService;
         this.billGenerationService = billGenerationService;
+        this.adminStatsService = adminStatsService;
     }
 
     @GetMapping("/low-balance")
@@ -33,5 +37,10 @@ public class AdminOverviewController {
     @GetMapping("/unpaid-bills")
     public UnpaidBillSummary unpaidBills(@AuthenticationPrincipal TeacherPrincipal principal) {
         return billGenerationService.getUnpaidBillSummary(principal.institutionId());
+    }
+
+    @GetMapping("/enrollment")
+    public EnrollmentSummary enrollment(@AuthenticationPrincipal TeacherPrincipal principal) {
+        return adminStatsService.getEnrollmentSummary(principal.institutionId());
     }
 }

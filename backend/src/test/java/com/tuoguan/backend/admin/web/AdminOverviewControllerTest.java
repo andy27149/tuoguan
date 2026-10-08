@@ -270,6 +270,41 @@ class AdminOverviewControllerTest extends IntegrationTestBase {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void enrollmentReportsCustodyAndOffCampusCounts() throws Exception {
+        Long institutionId = institutionDao.insert("总览-在读规模测试机构");
+        teacherDao.insert(new Teacher(null, institutionId, "13600007001",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13600007002", "老师",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "一班",
+                BillingMode.MONTHLY, null, null, true, null));
+        studentDao.insert(new Student(null, institutionId, classId, "托管生", "一班", true, null, null));
+        studentDao.insert(new Student(null, institutionId, null, "纯课外生", null, true, null, null));
+        String adminToken = login("13600007001", "admin-password");
+
+        mockMvc.perform(get("/api/admin/overview/enrollment")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalCount").value(2))
+                .andExpect(jsonPath("$.custodyCount").value(1))
+                .andExpect(jsonPath("$.offCampusOnlyCount").value(1))
+                .andExpect(jsonPath("$.byTeacher[0].teacherName").value("老师"))
+                .andExpect(jsonPath("$.byTeacher[0].studentCount").value(1));
+    }
+
+    @Test
+    void nonAdminTeacherIsForbiddenFromViewingEnrollmentSummary() throws Exception {
+        Long institutionId = institutionDao.insert("总览-在读规模权限测试机构");
+        teacherDao.insert(new Teacher(null, institutionId, "13600007003",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        String teacherToken = login("13600007003", "teacher-password");
+
+        mockMvc.perform(get("/api/admin/overview/enrollment")
+                        .header("Authorization", "Bearer " + teacherToken))
+                .andExpect(status().isForbidden());
+    }
+
     private String login(String phone, String password) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
