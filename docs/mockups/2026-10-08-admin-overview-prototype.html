@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>机构总览页原型</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Noto Sans SC', 'PingFang SC', system-ui, sans-serif; }
+  .font-sora { font-family: 'Sora', 'Noto Sans SC', sans-serif; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-thumb { background: #ece7de; border-radius: 999px; }
+</style>
+</head>
+<body class="bg-[#faf9f6]">
+
+  <div class="flex h-screen flex-col overflow-hidden">
+    <!-- header: 照搬 AdminDashboardPage 现有的 app-header 结构 -->
+    <header class="border-b border-[#ece7de] bg-white px-4 py-3">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="h-8 w-8 shrink-0 rounded-lg bg-[#6d5bd0]"></div>
+          <h1 class="font-sora text-lg font-semibold text-[#241f3d]">E2E测试机构</h1>
+        </div>
+        <div class="flex items-center gap-2">
+          <button class="rounded-full border border-[#ece7de] px-3 py-1.5 text-sm text-[#5d5480]">查看托管看板</button>
+          <button class="rounded-full border border-[#ece7de] px-3 py-1.5 text-sm text-[#5d5480]">🔔</button>
+          <button class="rounded-full px-3 py-1.5 text-sm text-[#a79fc2]">退出登录</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="flex min-h-0 flex-1 flex-col px-4 pb-4 pt-4">
+      <div class="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-[#ece7de] bg-[#faf9f6] shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
+
+        <!-- sidebar: 照搬 AdminSidebar，新增"总览"分组并高亮为当前选中 -->
+        <nav class="w-48 shrink-0 overflow-y-auto space-y-4 border-r border-[#ece7de] bg-[#f3f0ff] p-3">
+          <div class="space-y-1">
+            <p class="px-4 text-xs font-semibold uppercase tracking-wide text-[#a79fc2]">总览</p>
+            <button class="block w-full rounded-xl bg-white px-4 py-2.5 text-left text-sm font-semibold text-[#6d5bd0] shadow-[0_1px_2px_rgba(109,91,208,0.18)]">机构总览</button>
+          </div>
+          <div class="space-y-1">
+            <p class="px-4 text-xs font-semibold uppercase tracking-wide text-[#a79fc2]">基础设置</p>
+            <button class="block w-full rounded-xl px-4 py-2.5 text-left text-sm text-[#5d5480]">基础配置</button>
+          </div>
+          <div class="space-y-1">
+            <p class="px-4 text-xs font-semibold uppercase tracking-wide text-[#a79fc2]">结构信息</p>
+            <button class="block w-full rounded-xl px-4 py-2.5 text-left text-sm text-[#5d5480]">教师列表</button>
+            <button class="block w-full rounded-xl px-4 py-2.5 text-left text-sm text-[#5d5480]">教学单元</button>
+            <button class="block w-full rounded-xl px-4 py-2.5 text-left text-sm text-[#5d5480]">学生总览</button>
+          </div>
+          <div class="space-y-1">
+            <p class="px-4 text-xs font-semibold uppercase tracking-wide text-[#a79fc2]">运营产出</p>
+            <button class="block w-full rounded-xl px-4 py-2.5 text-left text-sm text-[#5d5480]">任务完成情况</button>
+          </div>
+          <div class="space-y-1">
+            <p class="px-4 text-xs font-semibold uppercase tracking-wide text-[#a79fc2]">财务</p>
+            <button class="block w-full rounded-xl px-4 py-2.5 text-left text-sm text-[#5d5480]">定价中心</button>
+            <button class="block w-full rounded-xl px-4 py-2.5 text-left text-sm text-[#5d5480]">账单管理</button>
+          </div>
+        </nav>
+
+        <!-- 总览内容区 -->
+        <main class="min-h-0 w-full flex-1 overflow-y-auto p-5">
+          <div class="mx-auto grid max-w-6xl grid-cols-1 gap-4 lg:grid-cols-3">
+
+            <!-- 左列（2/3）：两张"需要处理"的列表卡片 -->
+            <div class="space-y-4 lg:col-span-2">
+
+              <!-- 卡片1：课时不足预警 -->
+              <section class="rounded-2xl border border-[#ece7de] bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
+                <div class="flex items-baseline justify-between">
+                  <h2 class="font-sora text-base font-semibold text-[#241f3d]">课时不足预警</h2>
+                  <span class="text-xs text-[#7c7391]">阈值 &lt; 3 课时</span>
+                </div>
+                <p class="mt-1 font-sora text-3xl font-semibold text-[#241f3d]">3 <span class="text-base font-normal text-[#7c7391]">名学生需要续费</span></p>
+
+                <div class="mt-4 divide-y divide-[#f3f0ea]">
+                  <div class="flex items-center justify-between py-2.5">
+                    <div>
+                      <p class="text-sm font-medium text-[#241f3d]">小红</p>
+                      <p class="text-xs text-[#7c7391]">数学课</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                      <span class="rounded-full bg-[#fee2e2] px-2.5 py-1 text-xs font-medium text-[#b91c1c]">● 余额 0 课时</span>
+                      <button class="rounded-full border border-[#ece7de] px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]">去充值</button>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between py-2.5">
+                    <div>
+                      <p class="text-sm font-medium text-[#241f3d]">张伟</p>
+                      <p class="text-xs text-[#7c7391]">英语课</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                      <span class="rounded-full bg-[#fef3c7] px-2.5 py-1 text-xs font-medium text-[#b45309]">● 余额 1 课时</span>
+                      <button class="rounded-full border border-[#ece7de] px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]">去充值</button>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between py-2.5">
+                    <div>
+                      <p class="text-sm font-medium text-[#241f3d]">小明</p>
+                      <p class="text-xs text-[#7c7391]">语文课</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                      <span class="rounded-full bg-[#fef3c7] px-2.5 py-1 text-xs font-medium text-[#b45309]">● 余额 2 课时</span>
+                      <button class="rounded-full border border-[#ece7de] px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]">去充值</button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- 卡片2：账单欠费提醒（改版：不限月份，汇总所有未缴费账单） -->
+              <section class="rounded-2xl border border-[#ece7de] bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
+                <div class="flex items-baseline justify-between">
+                  <h2 class="font-sora text-base font-semibold text-[#241f3d]">账单欠费提醒</h2>
+                  <span class="text-xs text-[#7c7391]">全部未缴费（不限月份）</span>
+                </div>
+                <p class="mt-1 font-sora text-3xl font-semibold text-[#241f3d]">3 <span class="text-base font-normal text-[#7c7391]">笔未缴费，共 ¥2,250.00</span></p>
+
+                <div class="mt-4 divide-y divide-[#f3f0ea]">
+                  <div class="flex items-center justify-between py-2.5">
+                    <div>
+                      <p class="text-sm font-medium text-[#241f3d]">李强</p>
+                      <p class="text-xs text-[#7c7391]">托管A班 · 2026-09</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                      <span class="font-sora text-sm font-semibold text-[#241f3d]">¥800.00</span>
+                      <span class="rounded-full bg-[#fdf1e6] px-2.5 py-1 text-xs font-medium text-[#b7591f]">● 未缴费</span>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between py-2.5">
+                    <div>
+                      <p class="text-sm font-medium text-[#241f3d]">王芳</p>
+                      <p class="text-xs text-[#7c7391]">托管B班 · 2026-09</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                      <span class="font-sora text-sm font-semibold text-[#241f3d]">¥650.00</span>
+                      <span class="rounded-full bg-[#fdf1e6] px-2.5 py-1 text-xs font-medium text-[#b7591f]">● 未缴费</span>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between py-2.5">
+                    <div>
+                      <p class="text-sm font-medium text-[#241f3d]">王芳</p>
+                      <p class="text-xs text-[#7c7391]">托管B班 · 2026-08</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                      <span class="font-sora text-sm font-semibold text-[#241f3d]">¥800.00</span>
+                      <span class="rounded-full bg-[#fdf1e6] px-2.5 py-1 text-xs font-medium text-[#b7591f]">● 未缴费</span>
+                    </div>
+                  </div>
+                </div>
+                <button class="mt-3 text-xs font-medium text-[#6d5bd0] hover:underline">查看账单管理 →</button>
+              </section>
+
+            </div>
+
+            <!-- 右列（1/3）：三张背景快照卡片 -->
+            <div class="space-y-4">
+
+              <!-- 卡片3：在读规模 -->
+              <section class="rounded-2xl border border-[#ece7de] bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
+                <h2 class="font-sora text-base font-semibold text-[#241f3d]">在读规模</h2>
+                <p class="mt-1 font-sora text-3xl font-semibold text-[#241f3d]">32 <span class="text-base font-normal text-[#7c7391]">名在读学生</span></p>
+
+                <div class="mt-3 flex h-2 overflow-hidden rounded-full bg-[#f1f0f4]">
+                  <div class="h-full bg-[#6d5bd0]" style="width: 56%"></div>
+                  <div class="h-full bg-[#b7a9f0]" style="width: 44%"></div>
+                </div>
+                <div class="mt-2 flex items-center justify-between text-xs">
+                  <span class="flex items-center gap-1.5 text-[#5d5480]"><span class="h-2 w-2 rounded-full bg-[#6d5bd0]"></span>托管班 18</span>
+                  <span class="flex items-center gap-1.5 text-[#5d5480]"><span class="h-2 w-2 rounded-full bg-[#b7a9f0]"></span>纯课外课 14</span>
+                </div>
+
+                <div class="mt-4 space-y-2 border-t border-[#f3f0ea] pt-3">
+                  <p class="text-xs text-[#a79fc2]">按老师分布</p>
+                  <div class="space-y-1.5 text-sm text-[#5d5480]">
+                    <div class="flex items-center justify-between"><span>李琦</span><span class="font-medium text-[#241f3d]">12 人</span></div>
+                    <div class="flex items-center justify-between"><span>王老师</span><span class="font-medium text-[#241f3d]">10 人</span></div>
+                    <div class="flex items-center justify-between"><span>张老师</span><span class="font-medium text-[#241f3d]">6 人</span></div>
+                    <div class="flex items-center justify-between"><span>孙老师</span><span class="font-medium text-[#241f3d]">4 人</span></div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- 卡片4：今日运营快照 -->
+              <section class="rounded-2xl border border-[#ece7de] bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
+                <div class="flex items-baseline justify-between">
+                  <h2 class="font-sora text-base font-semibold text-[#241f3d]">今日运营快照</h2>
+                  <span class="text-xs text-[#7c7391]">2026-10-08</span>
+                </div>
+
+                <div class="mt-4 space-y-3">
+                  <div>
+                    <div class="flex items-center justify-between text-sm">
+                      <span class="text-[#5d5480]">🕐 到了</span>
+                      <span class="font-sora font-semibold text-[#241f3d]">15 / 18</span>
+                    </div>
+                    <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-[#f1f0f4]">
+                      <div class="h-full rounded-full bg-[#2f9e6e]" style="width: 83%"></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="flex items-center justify-between text-sm">
+                      <span class="text-[#5d5480]">🍚 用餐</span>
+                      <span class="font-sora font-semibold text-[#241f3d]">10 / 18</span>
+                    </div>
+                    <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-[#f1f0f4]">
+                      <div class="h-full rounded-full bg-[#2f9e6e]" style="width: 56%"></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="flex items-center justify-between text-sm">
+                      <span class="text-[#5d5480]">🌴 请假</span>
+                      <span class="font-sora font-semibold text-[#241f3d]">1 / 18</span>
+                    </div>
+                    <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-[#f1f0f4]">
+                      <div class="h-full rounded-full bg-[#b7a9f0]" style="width: 6%"></div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- 卡片5：收入快照（改版：拆成两个时间口径，不再是单一"本月"） -->
+              <section class="rounded-2xl border border-[#ece7de] bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
+                <h2 class="font-sora text-base font-semibold text-[#241f3d]">收入快照</h2>
+
+                <div class="mt-3">
+                  <div class="flex items-baseline justify-between">
+                    <span class="text-sm text-[#5d5480]">托管费实收 / 应收<span class="ml-1 text-xs text-[#a79fc2]">（2026-09）</span></span>
+                    <span class="font-sora text-sm font-semibold text-[#241f3d]">¥7,650 / ¥9,200</span>
+                  </div>
+                  <div class="mt-1.5 h-2 overflow-hidden rounded-full bg-[#f1f0f4]">
+                    <div class="h-full rounded-full bg-[#2f9e6e]" style="width: 83%"></div>
+                  </div>
+                  <p class="mt-1 text-xs text-[#a79fc2]">已收 83%</p>
+                </div>
+
+                <div class="mt-4 flex items-center justify-between border-t border-[#f3f0ea] pt-3">
+                  <span class="text-sm text-[#5d5480]">课外课消课次数<span class="ml-1 text-xs text-[#a79fc2]">（2026-10 至今）</span></span>
+                  <span class="font-sora text-lg font-semibold text-[#241f3d]">14 <span class="text-xs font-normal text-[#7c7391]">次</span></span>
+                </div>
+              </section>
+
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
