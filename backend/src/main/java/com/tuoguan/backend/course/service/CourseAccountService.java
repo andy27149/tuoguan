@@ -1,5 +1,6 @@
 package com.tuoguan.backend.course.service;
 
+import com.tuoguan.backend.admin.web.LowBalanceRow;
 import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.course.dao.CourseConsumptionRecordDao;
@@ -21,6 +22,7 @@ import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -106,6 +108,51 @@ public class CourseAccountService {
                 .toList();
 
         return new StudentCourseStatement(balances, rechargeResponses, consumptionResponses);
+    }
+
+    public List<LowBalanceRow> getLowBalanceEntries(Long institutionId, int threshold) {
+        List<CourseRechargeRecord> recharges = rechargeRecordDao.findAllByInstitutionId(institutionId);
+        List<CourseConsumptionRecord> consumptions = consumptionRecordDao.findAllByInstitutionId(institutionId);
+
+        record StudentCourseKey(Long studentId, Long teachingUnitId) {
+        }
+
+        Set<StudentCourseKey> keys = new LinkedHashSet<>();
+        recharges.forEach(r -> keys.add(new StudentCourseKey(r.studentId(), r.teachingUnitId())));
+        consumptions.forEach(c -> keys.add(new StudentCourseKey(c.studentId(), c.teachingUnitId())));
+
+        Map<Long, String> studentNames = new HashMap<>();
+        Map<Long, String> courseNames = new HashMap<>();
+
+        List<LowBalanceRow> rows = new ArrayList<>();
+        for (StudentCourseKey key : keys) {
+            int recharged = recharges.stream()
+                    .filter(r -> r.studentId().equals(key.studentId()) && r.teachingUnitId().equals(key.teachingUnitId()))
+                    .mapToInt(CourseRechargeRecord::lessonCount)
+                    .sum();
+            int consumed = (int) consumptions.stream()
+                    .filter(c -> c.studentId().equals(key.studentId()) && c.teachingUnitId().equals(key.teachingUnitId()))
+                    .count();
+            int balance = recharged - consumed;
+            if (balance > threshold) {
+                continue;
+            }
+            String studentName = studentNames.computeIfAbsent(key.studentId(),
+                    id -> studentDao.findById(id).map(Student::name).orElse("-"));
+            String courseName = courseNames.computeIfAbsent(key.teachingUnitId(),
+                    id -> teachingUnitDao.findById(id).map(TeachingUnit::name).orElse("-"));
+            rows.add(new LowBalanceRow(key.studentId(), studentName, key.teachingUnitId(), courseName, balance));
+        }
+
+        return rows.stream()
+                .sorted(Comparator.comparingInt(LowBalanceRow::balance))
+                .toList();
+    }
+
+    public int countConsumptionsInMonth(Long institutionId, YearMonth month) {
+        return (int) consumptionRecordDao.findAllByInstitutionId(institutionId).stream()
+                .filter(c -> YearMonth.from(c.consumptionDate()).equals(month))
+                .count();
     }
 
     // 供托管班学生（同时报名课外课）的家长分享页使用：只给课程名+最近消课日期，不带
