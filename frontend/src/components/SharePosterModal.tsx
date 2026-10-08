@@ -9,7 +9,7 @@ import { BrandMark } from '../brand/BrandMark'
 interface SharePosterStudent {
   id: number
   name: string
-  schoolClassName: string
+  schoolClassName: string | null
   avatarUrl?: string | null
 }
 
@@ -130,7 +130,7 @@ export function SharePosterModal({
             </div>
             <div>
               <p className="share-poster__name">{student.name}</p>
-              <p className="share-poster__class">{student.schoolClassName}</p>
+              <p className="share-poster__class">{student.schoolClassName ?? '未填写学籍班'}</p>
             </div>
           </div>
 

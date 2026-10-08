@@ -258,7 +258,7 @@ describe('StudentCard leave chip', () => {
 })
 
 describe('StudentCard task deletion', () => {
-  const TASK = { id: 5, studentId: 1, subject: '数学', name: '口算练习', completed: false, date: '2026-08-23' }
+  const TASK = { id: 5, studentId: 1, subject: '数学', name: '口算练习', custom: false, completed: false, date: '2026-08-23' }
 
   beforeEach(() => {
     vi.resetAllMocks()
