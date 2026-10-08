@@ -181,7 +181,7 @@ export function AdminStudentsModule() {
               onChange={(e) => setNewTeachingUnitId(e.target.value)}
               className="ml-2 rounded-lg border border-[#ece7de] px-2 py-1 text-sm"
             >
-              <option value="">不挂靠（纯课外课学生）</option>
+              <option value="">纯课外课学生</option>
               {classRooms.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -262,7 +262,7 @@ export function AdminStudentsModule() {
                           onChange={(e) => setEditingTeachingUnitId(e.target.value)}
                           className="rounded-lg border border-[#ece7de] px-2 py-1 text-sm"
                         >
-                          <option value="">不挂靠（纯课外课学生）</option>
+                          <option value="">纯课外课学生</option>
                           {classRooms.map((c) => (
                             <option key={c.id} value={c.id}>
                               {c.name}
