@@ -25,7 +25,9 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -183,6 +185,87 @@ class AdminOverviewControllerTest extends IntegrationTestBase {
         String teacherToken = login("13900015050", "teacher-password");
 
         mockMvc.perform(get("/api/admin/overview/low-balance")
+                        .header("Authorization", "Bearer " + teacherToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void unpaidBillsSummaryListsEveryUnpaidMonthSeparatelyAndExcludesPaidAndUngenerated() throws Exception {
+        Long institutionId = institutionDao.insert("总览欠费测试机构");
+        teacherDao.insert(new Teacher(null, institutionId, "13900015060",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        String adminToken = login("13900015060", "admin-password");
+
+        // 学生甲：两个月都没缴费，必须出现两行，各自标对月份。
+        Long studentAId = studentDao.insert(new Student(null, institutionId, null, "学生甲", null, true, null, null));
+        mockMvc.perform(post("/api/admin/students/" + studentAId + "/bills/generate?month=2024-01")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/admin/students/" + studentAId + "/bills/generate?month=2024-02")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk());
+
+        // 学生乙：账单已缴费，不该出现。
+        Long studentBId = studentDao.insert(new Student(null, institutionId, null, "学生乙", null, true, null, null));
+        MvcResult generateResult = mockMvc.perform(post("/api/admin/students/" + studentBId + "/bills/generate?month=2024-01")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn();
+        Long paidBillId = objectMapper.readTree(generateResult.getResponse().getContentAsString()).get("id").asLong();
+        mockMvc.perform(patch("/api/admin/bills/" + paidBillId + "/paid")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"isPaid\":true}"))
+                .andExpect(status().isOk());
+
+        // 学生丙：从没生成过账单，不该出现。
+        studentDao.insert(new Student(null, institutionId, null, "学生丙", null, true, null, null));
+
+        MvcResult result = mockMvc.perform(get("/api/admin/overview/unpaid-bills")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn();
+        String body = result.getResponse().getContentAsString();
+
+        assertThat(objectMapper.readTree(body).get("count").asInt()).isEqualTo(2);
+        assertThat(objectMapper.readTree(body).get("rows")).hasSize(2);
+        assertThat(body).contains("\"yearMonth\":\"2024-01\"");
+        assertThat(body).contains("\"yearMonth\":\"2024-02\"");
+        assertThat(body).doesNotContain("学生乙");
+        assertThat(body).doesNotContain("学生丙");
+    }
+
+    @Test
+    void unpaidBillsSummaryIsolatesByInstitution() throws Exception {
+        Long institutionAId = institutionDao.insert("总览欠费隔离机构A");
+        teacherDao.insert(new Teacher(null, institutionAId, "13900015061",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        String adminAToken = login("13900015061", "admin-password");
+
+        Long institutionBId = institutionDao.insert("总览欠费隔离机构B");
+        teacherDao.insert(new Teacher(null, institutionBId, "13900015062",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        String adminBToken = login("13900015062", "admin-password");
+        Long studentBId = studentDao.insert(new Student(null, institutionBId, null, "机构B学生", null, true, null, null));
+        mockMvc.perform(post("/api/admin/students/" + studentBId + "/bills/generate?month=2024-01")
+                        .header("Authorization", "Bearer " + adminBToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/admin/overview/unpaid-bills")
+                        .header("Authorization", "Bearer " + adminAToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").value(0))
+                .andExpect(jsonPath("$.rows").isEmpty());
+    }
+
+    @Test
+    void unpaidBillsSummaryRequiresAdminRole() throws Exception {
+        Long institutionId = institutionDao.insert("总览欠费鉴权测试机构");
+        teacherDao.insert(new Teacher(null, institutionId, "13900015063",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        String teacherToken = login("13900015063", "teacher-password");
+
+        mockMvc.perform(get("/api/admin/overview/unpaid-bills")
                         .header("Authorization", "Bearer " + teacherToken))
                 .andExpect(status().isForbidden());
     }

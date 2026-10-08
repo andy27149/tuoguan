@@ -4,6 +4,8 @@ import com.tuoguan.backend.admin.web.BillOverviewRow;
 import com.tuoguan.backend.admin.web.BillingRateNotConfiguredException;
 import com.tuoguan.backend.admin.web.ClassBillingRateRow;
 import com.tuoguan.backend.admin.web.CourseConsumptionSummaryRow;
+import com.tuoguan.backend.admin.web.UnpaidBillRow;
+import com.tuoguan.backend.admin.web.UnpaidBillSummary;
 import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.billing.dao.ClassBillingRateDao;
@@ -345,6 +347,20 @@ public class BillGenerationService {
             }
         }
         return rows;
+    }
+
+    public UnpaidBillSummary getUnpaidBillSummary(Long institutionId) {
+        List<UnpaidBillRow> rows = getBillOverviewAllMonths(institutionId, null, null, false).stream()
+                .filter(row -> row.billId() != null && !row.isPaid())
+                .sorted(Comparator.comparing(BillOverviewRow::yearMonth).thenComparing(BillOverviewRow::studentName))
+                .map(row -> new UnpaidBillRow(row.studentId(), row.studentName(), row.className(), row.yearMonth(),
+                        row.totalAmount()))
+                .toList();
+        BigDecimal total = rows.stream()
+                .map(UnpaidBillRow::totalAmount)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return new UnpaidBillSummary(rows.size(), total, rows);
     }
 
     private List<BillOverviewRow> buildOverviewRowsAllMonthsForUnit(TeachingUnit unit, String studentName) {
