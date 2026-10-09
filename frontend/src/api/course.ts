@@ -18,13 +18,6 @@ export interface CourseRosterEntry {
   balance: number | null
 }
 
-// 可加入本课程花名册的纯课外课学生（机构内、未报名本课程、不挂靠任何托管班）。
-export interface CourseEnrollmentCandidate {
-  studentId: number
-  name: string
-  schoolClassName: string | null
-}
-
 export interface ConsumptionRecord {
   id: number
   studentId: number
@@ -69,6 +62,7 @@ export interface AdminStudent {
   enrolled: boolean
   teacherName: string | null
   enrolledCourseNames: string[]
+  enrolledCourseIds: number[]
 }
 
 export interface CourseConsumptionSummaryRow {
@@ -88,23 +82,8 @@ export function fetchMyCourses(): Promise<Course[]> {
   return apiFetch<Course[]>('/courses')
 }
 
-export function enrollExistingStudent(courseId: number, studentId: number): Promise<void> {
-  return apiFetch<void>(`/courses/${courseId}/enrollments`, {
-    method: 'POST',
-    body: JSON.stringify({ studentId }),
-  })
-}
-
-export function unenrollStudent(courseId: number, studentId: number): Promise<void> {
-  return apiFetch<void>(`/courses/${courseId}/enrollments/${studentId}`, { method: 'DELETE' })
-}
-
 export function fetchCourseRoster(courseId: number): Promise<CourseRosterEntry[]> {
   return apiFetch<CourseRosterEntry[]>(`/courses/${courseId}/roster`)
-}
-
-export function fetchOffCampusCandidates(courseId: number): Promise<CourseEnrollmentCandidate[]> {
-  return apiFetch<CourseEnrollmentCandidate[]>(`/courses/${courseId}/off-campus-candidates`)
 }
 
 export function recordConsumption(
@@ -142,10 +121,11 @@ export function createAdminStudent(
   name: string,
   schoolClassName: string | null,
   teachingUnitId: number | null,
+  courseIds: number[],
 ): Promise<AdminStudent> {
   return apiFetch<AdminStudent>('/admin/students', {
     method: 'POST',
-    body: JSON.stringify({ name, schoolClassName, teachingUnitId }),
+    body: JSON.stringify({ name, schoolClassName, teachingUnitId, courseIds }),
   })
 }
 
@@ -155,10 +135,11 @@ export function updateAdminStudent(
   schoolClassName: string | null,
   teachingUnitId: number | null,
   enrolled: boolean,
+  courseIds: number[],
 ): Promise<AdminStudent> {
   return apiFetch<AdminStudent>(`/admin/students/${studentId}`, {
     method: 'PATCH',
-    body: JSON.stringify({ name, schoolClassName, teachingUnitId, enrolled }),
+    body: JSON.stringify({ name, schoolClassName, teachingUnitId, enrolled, courseIds }),
   })
 }
 

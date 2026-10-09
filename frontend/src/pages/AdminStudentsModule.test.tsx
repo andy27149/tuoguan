@@ -18,6 +18,7 @@ const STUDENTS: courseApi.AdminStudent[] = [
     enrolled: true,
     teacherName: '王老师',
     enrolledCourseNames: ['书法课'],
+    enrolledCourseIds: [30],
   },
   {
     id: 2,
@@ -29,6 +30,7 @@ const STUDENTS: courseApi.AdminStudent[] = [
     enrolled: true,
     teacherName: null,
     enrolledCourseNames: [],
+    enrolledCourseIds: [],
   },
   {
     id: 3,
@@ -40,6 +42,7 @@ const STUDENTS: courseApi.AdminStudent[] = [
     enrolled: true,
     teacherName: '王老师',
     enrolledCourseNames: [],
+    enrolledCourseIds: [],
   },
 ]
 
@@ -57,6 +60,31 @@ const CLASS_ROOMS: unitApi.TeachingUnit[] = [
   },
 ]
 
+const OFF_CAMPUS_COURSES: unitApi.TeachingUnit[] = [
+  {
+    id: 30,
+    name: '书法课',
+    billingMode: 'LESSON_COUNT',
+    teacherId: 3,
+    teacherName: '王老师',
+    teacherPhone: '13900000003',
+    lessonDurationMinutes: 45,
+    pricePerLesson: null,
+    active: true,
+  },
+  {
+    id: 31,
+    name: '围棋课',
+    billingMode: 'LESSON_COUNT',
+    teacherId: 3,
+    teacherName: '王老师',
+    teacherPhone: '13900000003',
+    lessonDurationMinutes: 45,
+    pricePerLesson: null,
+    active: true,
+  },
+]
+
 describe('AdminStudentsModule', () => {
   beforeEach(() => {
     vi.resetAllMocks()
@@ -66,7 +94,9 @@ describe('AdminStudentsModule', () => {
       recharges: [],
       consumptions: [],
     })
-    vi.mocked(unitApi.fetchTeachingUnits).mockResolvedValue(CLASS_ROOMS)
+    vi.mocked(unitApi.fetchTeachingUnits).mockImplementation((billingMode) =>
+      Promise.resolve(billingMode === 'LESSON_COUNT' ? OFF_CAMPUS_COURSES : CLASS_ROOMS),
+    )
   })
 
   it('lists students read-only with 托管/课外 badges', async () => {
@@ -81,10 +111,12 @@ describe('AdminStudentsModule', () => {
 
   it('shows enrolled course names, or a dash when none', async () => {
     render(<AdminStudentsModule />)
+    await screen.findByText('小明')
 
-    expect(await screen.findByText('书法课')).toBeInTheDocument()
     const rows = screen.getAllByRole('row')
+    const rowFor小明 = rows.find((r) => r.textContent?.includes('小明'))
     const rowFor小红 = rows.find((r) => r.textContent?.includes('小红'))
+    expect(within(rowFor小明 as HTMLElement).getByText('书法课')).toBeInTheDocument()
     expect(rowFor小红?.textContent).toContain('—')
   })
 
@@ -148,6 +180,7 @@ describe('AdminStudentsModule', () => {
       enrolled: true,
       teacherName: null,
       enrolledCourseNames: [],
+      enrolledCourseIds: [],
     })
     render(<AdminStudentsModule />)
     await screen.findByText('小明')
@@ -155,7 +188,7 @@ describe('AdminStudentsModule', () => {
     fireEvent.change(screen.getByPlaceholderText('姓名'), { target: { value: '小刚' } })
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
 
-    await waitFor(() => expect(courseApi.createAdminStudent).toHaveBeenCalledWith('小刚', null, null))
+    await waitFor(() => expect(courseApi.createAdminStudent).toHaveBeenCalledWith('小刚', null, null, []))
     await waitFor(() => expect(courseApi.fetchAdminStudents).toHaveBeenCalledTimes(2))
   })
 
@@ -170,6 +203,7 @@ describe('AdminStudentsModule', () => {
       enrolled: true,
       teacherName: '王老师',
       enrolledCourseNames: [],
+      enrolledCourseIds: [],
     })
     render(<AdminStudentsModule />)
     await screen.findByText('小明')
@@ -180,7 +214,32 @@ describe('AdminStudentsModule', () => {
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
 
     await waitFor(() =>
-      expect(courseApi.createAdminStudent).toHaveBeenCalledWith('小芳', '三年级一班', 20),
+      expect(courseApi.createAdminStudent).toHaveBeenCalledWith('小芳', '三年级一班', 20, []),
+    )
+  })
+
+  it('creates a student enrolled in the selected off-campus courses', async () => {
+    vi.mocked(courseApi.createAdminStudent).mockResolvedValue({
+      id: 5,
+      name: '小华',
+      schoolClassName: null,
+      classRoomId: null,
+      classRoomName: null,
+      offCampusOnly: true,
+      enrolled: true,
+      teacherName: null,
+      enrolledCourseNames: ['书法课'],
+      enrolledCourseIds: [30],
+    })
+    render(<AdminStudentsModule />)
+    await screen.findByText('小明')
+
+    fireEvent.change(screen.getByPlaceholderText('姓名'), { target: { value: '小华' } })
+    fireEvent.click(screen.getByLabelText('书法课'))
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
+
+    await waitFor(() =>
+      expect(courseApi.createAdminStudent).toHaveBeenCalledWith('小华', null, null, [30]),
     )
   })
 
@@ -206,9 +265,34 @@ describe('AdminStudentsModule', () => {
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
 
     await waitFor(() =>
-      expect(courseApi.updateAdminStudent).toHaveBeenCalledWith(3, '小刚（转班）', '五年级一班', null, true),
+      expect(courseApi.updateAdminStudent).toHaveBeenCalledWith(3, '小刚（转班）', '五年级一班', null, true, []),
     )
     await waitFor(() => expect(courseApi.fetchAdminStudents).toHaveBeenCalledTimes(2))
+  })
+
+  it('pre-checks the courses a student is already enrolled in when editing', async () => {
+    render(<AdminStudentsModule />)
+    const rowFor小明 = (await screen.findAllByRole('row')).find((r) => r.textContent?.includes('小明')) as HTMLElement
+
+    fireEvent.click(within(rowFor小明).getByRole('button', { name: '编辑小明' }))
+
+    expect(screen.getByLabelText('书法课1')).toBeChecked()
+    expect(screen.getByLabelText('围棋课1')).not.toBeChecked()
+  })
+
+  it('updates a student course enrollment when checkboxes change in edit mode', async () => {
+    vi.mocked(courseApi.updateAdminStudent).mockResolvedValue(STUDENTS[0])
+    render(<AdminStudentsModule />)
+    const rowFor小明 = (await screen.findAllByRole('row')).find((r) => r.textContent?.includes('小明')) as HTMLElement
+
+    fireEvent.click(within(rowFor小明).getByRole('button', { name: '编辑小明' }))
+    fireEvent.click(screen.getByLabelText('书法课1'))
+    fireEvent.click(screen.getByLabelText('围棋课1'))
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+
+    await waitFor(() =>
+      expect(courseApi.updateAdminStudent).toHaveBeenCalledWith(1, '小明', '三年级一班', 20, true, [31]),
+    )
   })
 
   it('cancels an edit without calling the API', async () => {
@@ -245,7 +329,7 @@ describe('AdminStudentsModule', () => {
     fireEvent.click(screen.getByRole('button', { name: '确认停用' }))
 
     await waitFor(() =>
-      expect(courseApi.updateAdminStudent).toHaveBeenCalledWith(3, '小刚', '五年级一班', 20, false),
+      expect(courseApi.updateAdminStudent).toHaveBeenCalledWith(3, '小刚', '五年级一班', 20, false, []),
     )
     await waitFor(() => expect(courseApi.fetchAdminStudents).toHaveBeenCalledTimes(2))
   })
@@ -271,7 +355,7 @@ describe('AdminStudentsModule', () => {
     fireEvent.click(within(rowFor小刚).getByRole('button', { name: '启用小刚' }))
 
     await waitFor(() =>
-      expect(courseApi.updateAdminStudent).toHaveBeenCalledWith(3, '小刚', '五年级一班', 20, true),
+      expect(courseApi.updateAdminStudent).toHaveBeenCalledWith(3, '小刚', '五年级一班', 20, true, []),
     )
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })

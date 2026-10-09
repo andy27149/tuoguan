@@ -192,11 +192,12 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"pricePerLesson\":50.00}"))
                 .andExpect(status().isOk());
-        mockMvc.perform(post("/api/courses/" + courseId + "/enrollments")
-                        .header("Authorization", "Bearer " + teacherToken)
+        mockMvc.perform(patch("/api/admin/students/" + studentId)
+                        .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"studentId\":" + studentId + "}"))
-                .andExpect(status().isCreated());
+                        .content("{\"name\":\"学生丁\",\"schoolClassName\":\"一班\",\"teachingUnitId\":" + classRoomId
+                                + ",\"enrolled\":true,\"courseIds\":[" + courseId + "]}"))
+                .andExpect(status().isOk());
         for (String date : List.of("2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05")) {
             mockMvc.perform(post("/api/courses/" + courseId + "/consumption")
                             .header("Authorization", "Bearer " + teacherToken)
@@ -252,11 +253,12 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"pricePerLesson\":50.00}"))
                 .andExpect(status().isOk());
-        mockMvc.perform(post("/api/courses/" + courseId + "/enrollments")
-                        .header("Authorization", "Bearer " + teacherToken)
+        mockMvc.perform(patch("/api/admin/students/" + studentId)
+                        .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"studentId\":" + studentId + "}"))
-                .andExpect(status().isCreated());
+                        .content("{\"name\":\"学生壬\",\"schoolClassName\":\"一班\",\"teachingUnitId\":" + classRoomId
+                                + ",\"enrolled\":true,\"courseIds\":[" + courseId + "]}"))
+                .andExpect(status().isOk());
         mockMvc.perform(post("/api/courses/" + courseId + "/consumption")
                         .header("Authorization", "Bearer " + teacherToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -322,11 +324,11 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"pricePerLesson\":50.00}"))
                 .andExpect(status().isOk());
-        mockMvc.perform(post("/api/courses/" + courseId + "/enrollments")
-                        .header("Authorization", "Bearer " + teacherToken)
+        mockMvc.perform(patch("/api/admin/students/" + studentId)
+                        .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"studentId\":" + studentId + "}"))
-                .andExpect(status().isCreated());
+                        .content("{\"name\":\"学生子\",\"enrolled\":true,\"courseIds\":[" + courseId + "]}"))
+                .andExpect(status().isOk());
 
         // 先充 2 课时，再消 4 次课：前 2 次被预充值覆盖，后 2 次需要计入账单。充值的
         // created_at 由数据库在"现在"自动生成，消课日期必须晚于"现在"才能被这笔充值覆盖
@@ -511,11 +513,14 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"pricePerLesson\":50.00}"))
                 .andExpect(status().isOk());
-        mockMvc.perform(post("/api/courses/" + courseId + "/enrollments")
-                        .header("Authorization", "Bearer " + teacherToken)
+        Student student = studentDao.findById(studentId).orElseThrow();
+        mockMvc.perform(patch("/api/admin/students/" + studentId)
+                        .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"studentId\":" + studentId + "}"))
-                .andExpect(status().isCreated());
+                        .content("{\"name\":\"" + student.name() + "\",\"schoolClassName\":\""
+                                + student.schoolClassName() + "\",\"teachingUnitId\":" + student.teachingUnitId()
+                                + ",\"enrolled\":true,\"courseIds\":[" + courseId + "]}"))
+                .andExpect(status().isOk());
         mockMvc.perform(post("/api/courses/" + courseId + "/consumption")
                         .header("Authorization", "Bearer " + teacherToken)
                         .contentType(MediaType.APPLICATION_JSON)

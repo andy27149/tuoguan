@@ -9,8 +9,10 @@ import com.tuoguan.backend.auth.web.LoginResponse;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.support.IntegrationTestBase;
+import com.tuoguan.backend.unit.dao.StudentUnitEnrollmentDao;
 import com.tuoguan.backend.unit.dao.TeachingUnitDao;
 import com.tuoguan.backend.unit.domain.BillingMode;
+import com.tuoguan.backend.unit.domain.StudentUnitEnrollment;
 import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +42,9 @@ class AdminStudentControllerTest extends IntegrationTestBase {
 
     @Autowired
     private StudentDao studentDao;
+
+    @Autowired
+    private StudentUnitEnrollmentDao enrollmentDao;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -172,6 +177,70 @@ class AdminStudentControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void adminCreatesStudentEnrolledInOffCampusCourses() throws Exception {
+        Long institutionId = institutionDao.insert("管理端学生测试机构G2");
+        teacherDao.insert(new Teacher(null, institutionId, "13800012028",
+                passwordEncoder.encode("password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800012029",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long courseId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "跆拳道课",
+                BillingMode.LESSON_COUNT, 45, null, true, null));
+        String token = login("13800012028", "password");
+
+        MvcResult result = mockMvc.perform(post("/api/admin/students")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"报课学生\",\"courseIds\":[" + courseId + "]}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.enrolledCourseIds[0]").value(courseId))
+                .andReturn();
+        Long studentId = objectMapper.readTree(result.getResponse().getContentAsString())
+                .get("id").asLong();
+
+        List<StudentUnitEnrollment> enrollments = enrollmentDao.findAllByStudentId(studentId);
+        assertThat(enrollments).hasSize(1);
+        assertThat(enrollments.get(0).teachingUnitId()).isEqualTo(courseId);
+        assertThat(enrollments.get(0).active()).isTrue();
+    }
+
+    @Test
+    void adminCreateStudentRejectsCourseIdFromAnotherInstitution() throws Exception {
+        Long institutionId = institutionDao.insert("管理端学生测试机构G3A");
+        Long otherInstitutionId = institutionDao.insert("管理端学生测试机构G3B");
+        teacherDao.insert(new Teacher(null, institutionId, "13800012030",
+                passwordEncoder.encode("password"), Role.ADMIN, false, null));
+        Long otherTeacherId = teacherDao.insert(new Teacher(null, otherInstitutionId, "13800012031",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long otherCourseId = teachingUnitDao.insert(new TeachingUnit(null, otherInstitutionId, otherTeacherId,
+                "别的机构的课", BillingMode.LESSON_COUNT, 45, null, true, null));
+        String token = login("13800012030", "password");
+
+        mockMvc.perform(post("/api/admin/students")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"学生\",\"courseIds\":[" + otherCourseId + "]}"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void adminCreateStudentRejectsMonthlyUnitAsCourseId() throws Exception {
+        Long institutionId = institutionDao.insert("管理端学生测试机构G4");
+        teacherDao.insert(new Teacher(null, institutionId, "13800012032",
+                passwordEncoder.encode("password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800012033",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管班",
+                BillingMode.MONTHLY, null, null, true, null));
+        String token = login("13800012032", "password");
+
+        mockMvc.perform(post("/api/admin/students")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"学生\",\"courseIds\":[" + classRoomId + "]}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void nonAdminTeacherIsForbiddenFromCreatingStudent() throws Exception {
         Long institutionId = institutionDao.insert("管理端学生测试机构H");
         teacherDao.insert(new Teacher(null, institutionId, "13800012012",
@@ -247,6 +316,64 @@ class AdminStudentControllerTest extends IntegrationTestBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.classRoomId").doesNotExist())
                 .andExpect(jsonPath("$.offCampusOnly").value(true));
+    }
+
+    @Test
+    void adminUpdateSyncsCourseEnrollmentsAddingAndRemoving() throws Exception {
+        Long institutionId = institutionDao.insert("管理端学生测试机构L0");
+        teacherDao.insert(new Teacher(null, institutionId, "13800012034",
+                passwordEncoder.encode("password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800012035",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long courseAId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "数学课",
+                BillingMode.LESSON_COUNT, 45, null, true, null));
+        Long courseBId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "英语课",
+                BillingMode.LESSON_COUNT, 45, null, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, null, "报课生", null, true, null, null));
+        enrollmentDao.insert(new StudentUnitEnrollment(null, institutionId, studentId, courseAId, true, null));
+        String token = login("13800012034", "password");
+
+        mockMvc.perform(patch("/api/admin/students/" + studentId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"报课生\",\"enrolled\":true,\"courseIds\":[" + courseBId + "]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enrolledCourseIds[0]").value(courseBId))
+                .andExpect(jsonPath("$.enrolledCourseIds.length()").value(1));
+
+        List<StudentUnitEnrollment> enrollments = enrollmentDao.findAllByStudentId(studentId);
+        StudentUnitEnrollment courseA = enrollments.stream()
+                .filter(e -> e.teachingUnitId().equals(courseAId)).findFirst().orElseThrow();
+        StudentUnitEnrollment courseB = enrollments.stream()
+                .filter(e -> e.teachingUnitId().equals(courseBId)).findFirst().orElseThrow();
+        assertThat(courseA.active()).isFalse();
+        assertThat(courseB.active()).isTrue();
+    }
+
+    @Test
+    void adminUpdatePreservesEnrollmentOnDeactivatedCourseNotOfferedInCourseIds() throws Exception {
+        // 已停用的课外课不会出现在管理员编辑表单的勾选列表里，所以提交的 courseIds
+        // 自然不会包含它——这种情况下不能因为它"不在列表里"就被误判为要取消报名。
+        Long institutionId = institutionDao.insert("管理端学生测试机构L0B");
+        teacherDao.insert(new Teacher(null, institutionId, "13800012036",
+                passwordEncoder.encode("password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800012037",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long retiredCourseId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "已停用的课",
+                BillingMode.LESSON_COUNT, 45, null, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, null, "老报课生", null, true, null, null));
+        enrollmentDao.insert(new StudentUnitEnrollment(null, institutionId, studentId, retiredCourseId, true, null));
+        teachingUnitDao.setActive(retiredCourseId, false);
+        String token = login("13800012036", "password");
+
+        mockMvc.perform(patch("/api/admin/students/" + studentId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"老报课生\",\"enrolled\":true,\"courseIds\":[]}"))
+                .andExpect(status().isOk());
+
+        StudentUnitEnrollment enrollment = enrollmentDao.findAllByStudentId(studentId).get(0);
+        assertThat(enrollment.active()).isTrue();
     }
 
     @Test
@@ -370,25 +497,20 @@ class AdminStudentControllerTest extends IntegrationTestBase {
         Long chineseCourseId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherAId, "语文课",
                 BillingMode.LESSON_COUNT, 60, null, true, null));
         String adminToken = login("13800012025", "admin-password");
-        String teacherAToken = login("13800012026", "teacher-password-a");
 
         // 托管学生：分别挂 B 老师和 A 老师的班，预期排序结果 A 老师的在前。
         studentDao.insert(new Student(null, institutionId, classRoomBId, "托管乙", "一班", true, null, null));
         studentDao.insert(new Student(null, institutionId, classRoomAId, "托管甲", "一班", true, null, null));
         // 纯课外课学生：分别只报了数学课、语文课，预期按课程名排序"数学课"在"语文课"前面。
-        Long offCampusChineseId = studentDao.insert(
-                new Student(null, institutionId, null, "课外乙", null, true, null, null));
-        Long offCampusMathId = studentDao.insert(
-                new Student(null, institutionId, null, "课外甲", null, true, null, null));
-        mockMvc.perform(post("/api/courses/" + chineseCourseId + "/enrollments")
-                        .header("Authorization", "Bearer " + teacherAToken)
+        mockMvc.perform(post("/api/admin/students")
+                        .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"studentId\":" + offCampusChineseId + "}"))
+                        .content("{\"name\":\"课外乙\",\"courseIds\":[" + chineseCourseId + "]}"))
                 .andExpect(status().isCreated());
-        mockMvc.perform(post("/api/courses/" + mathCourseId + "/enrollments")
-                        .header("Authorization", "Bearer " + teacherAToken)
+        mockMvc.perform(post("/api/admin/students")
+                        .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"studentId\":" + offCampusMathId + "}"))
+                        .content("{\"name\":\"课外甲\",\"courseIds\":[" + mathCourseId + "]}"))
                 .andExpect(status().isCreated());
 
         MvcResult result = mockMvc.perform(get("/api/admin/students")

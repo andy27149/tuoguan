@@ -2,13 +2,9 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { CourseConsumptionPage } from './CourseConsumptionPage'
 import * as courseApi from '../api/course'
-import * as classesApi from '../api/classes'
-import * as studentsApi from '../api/students'
 import { ApiError } from '../api/client'
 
 vi.mock('../api/course')
-vi.mock('../api/classes')
-vi.mock('../api/students')
 
 const COURSES: courseApi.Course[] = [
   { id: 1, name: '书法课', pricePerLesson: 50, lessonDurationMinutes: 60, active: true },
@@ -30,8 +26,6 @@ describe('CourseConsumptionPage', () => {
     vi.resetAllMocks()
     vi.mocked(courseApi.fetchMyCourses).mockResolvedValue(COURSES)
     vi.mocked(courseApi.fetchCourseRoster).mockResolvedValue(ROSTER)
-    vi.mocked(courseApi.fetchOffCampusCandidates).mockResolvedValue([])
-    vi.mocked(classesApi.fetchClasses).mockResolvedValue([])
   })
 
   it('shows a message to contact the admin when there are no assigned courses', async () => {
@@ -82,110 +76,14 @@ describe('CourseConsumptionPage', () => {
     expect(names).toEqual(['小丁', '小乙', '小丙', '小甲'])
   })
 
-  it('shows a hint to contact the admin instead of a self-create-student form', async () => {
+  it('shows a hint that course enrollment is managed by the admin, with no self-service controls', async () => {
     setup()
     await screen.findByText('小明')
 
-    expect(screen.getByText('新增课外学生请联系管理员添加')).toBeInTheDocument()
+    expect(screen.getByText('课外课报名由管理员在后台统一配置')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '新增并报名' })).not.toBeInTheDocument()
-  })
-
-  it('enrolls an existing student from one of the teacher own classes', async () => {
-    vi.mocked(classesApi.fetchClasses).mockResolvedValue([{ id: 5, name: '一班', teacherId: 1 } as classesApi.ClassRoom])
-    vi.mocked(studentsApi.fetchStudents).mockResolvedValue([
-      { id: 300, name: '小李' } as studentsApi.Student,
-    ])
-    vi.mocked(courseApi.enrollExistingStudent).mockResolvedValue(undefined)
-    setup()
-    await screen.findByText('小明')
-
-    fireEvent.change(screen.getByText('选择班级').closest('select')!, { target: { value: '5' } })
-    await waitFor(() => expect(studentsApi.fetchStudents).toHaveBeenCalledWith(5))
-    fireEvent.change(screen.getAllByText('选择学生')[0].closest('select')!, { target: { value: '300' } })
-    fireEvent.click(screen.getAllByRole('button', { name: '添加到花名册' })[0])
-
-    await waitFor(() => expect(courseApi.enrollExistingStudent).toHaveBeenCalledWith(1, 300))
-  })
-
-  it('shows a friendly error when enrolling a student who is already on the roster', async () => {
-    vi.mocked(classesApi.fetchClasses).mockResolvedValue([{ id: 5, name: '一班', teacherId: 1 } as classesApi.ClassRoom])
-    vi.mocked(studentsApi.fetchStudents).mockResolvedValue([
-      { id: 100, name: '小明' } as studentsApi.Student,
-    ])
-    vi.mocked(courseApi.enrollExistingStudent).mockRejectedValue(new ApiError(409, 'already enrolled'))
-    setup()
-    await screen.findByText('小明')
-
-    fireEvent.change(screen.getByText('选择班级').closest('select')!, { target: { value: '5' } })
-    await waitFor(() => expect(studentsApi.fetchStudents).toHaveBeenCalledWith(5))
-    fireEvent.change(screen.getAllByText('选择学生')[0].closest('select')!, { target: { value: '100' } })
-    fireEvent.click(screen.getAllByRole('button', { name: '添加到花名册' })[0])
-
-    expect(await screen.findByText('该学生已在花名册中！')).toBeInTheDocument()
-  })
-
-  it('shows off-campus candidates and enrolls one into the roster', async () => {
-    vi.mocked(courseApi.fetchOffCampusCandidates).mockResolvedValue([
-      { studentId: 400, name: '小芳', schoolClassName: '四年级二班' },
-    ])
-    vi.mocked(courseApi.enrollExistingStudent).mockResolvedValue(undefined)
-    setup()
-    await screen.findByText('小明')
-
-    // 默认 teacher 没有托管班（classesApi.fetchClasses 解析为 []），所以"我的托管班"添加区块
-    // 不渲染，这里的"选择学生"/"添加到花名册"就是纯课外区块唯一的一组，取 index 0。
-    expect(await screen.findByText('小芳 · 四年级二班')).toBeInTheDocument()
-    fireEvent.change(screen.getAllByText('选择学生')[0].closest('select')!, { target: { value: '400' } })
-    fireEvent.click(screen.getAllByRole('button', { name: '添加到花名册' })[0])
-
-    await waitFor(() => expect(courseApi.enrollExistingStudent).toHaveBeenCalledWith(1, 400))
-  })
-
-  it('hides the "我的托管班" add-student section when the teacher has no custody class', async () => {
-    setup()
-    await screen.findByText('小明')
-
-    expect(screen.queryByText('添加已有学生（我的托管班）')).not.toBeInTheDocument()
-    expect(screen.getByText('添加已有学生（纯课外课学生）')).toBeInTheDocument()
-  })
-
-  it('shows the "我的托管班" add-student section once the teacher has a custody class', async () => {
-    vi.mocked(classesApi.fetchClasses).mockResolvedValue([{ id: 5, name: '一班', teacherId: 1 } as classesApi.ClassRoom])
-    setup()
-    await screen.findByText('小明')
-
-    expect(screen.getByText('添加已有学生（我的托管班）')).toBeInTheDocument()
-  })
-
-  it('shows a hint when there are no off-campus candidates to add', async () => {
-    setup()
-    await screen.findByText('小明')
-
-    expect(screen.getByText('暂无可添加的纯课外课学生')).toBeInTheDocument()
-  })
-
-  it('asks for confirmation before unenrolling a student, and does nothing on cancel', async () => {
-    setup()
-    await screen.findByText('小明')
-
-    fireEvent.click(screen.getAllByRole('button', { name: '移出' })[0])
-    expect(await screen.findByText(/从本课程花名册移出吗/)).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: '取消' }))
-
-    expect(courseApi.unenrollStudent).not.toHaveBeenCalled()
-  })
-
-  it('unenrolls a student from the roster after confirming', async () => {
-    vi.mocked(courseApi.unenrollStudent).mockResolvedValue(undefined)
-    setup()
-    await screen.findByText('小明')
-
-    // 花名册按余额倒序排列，小红（余额3）排在无余额概念的小明前面，所以 index 0 是小红（200）。
-    fireEvent.click(screen.getAllByRole('button', { name: '移出' })[0])
-    fireEvent.click(await screen.findByRole('button', { name: '确认移出' }))
-
-    await waitFor(() => expect(courseApi.unenrollStudent).toHaveBeenCalledWith(1, 200))
+    expect(screen.queryByRole('button', { name: '添加到花名册' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '移出' })).not.toBeInTheDocument()
   })
 
   it('defaults all roster students to present and submits a roll call for everyone', async () => {

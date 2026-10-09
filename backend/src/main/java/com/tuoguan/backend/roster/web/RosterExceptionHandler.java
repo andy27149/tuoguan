@@ -9,7 +9,6 @@ import com.tuoguan.backend.admin.web.InvalidTransferTargetException;
 import com.tuoguan.backend.course.web.CourseNotEnrolledException;
 import com.tuoguan.backend.course.web.CoursePriceNotConfiguredException;
 import com.tuoguan.backend.course.web.DuplicateConsumptionException;
-import com.tuoguan.backend.course.web.DuplicateEnrollmentException;
 import com.tuoguan.backend.course.web.DuplicateCourseNameException;
 import com.tuoguan.backend.kanban.web.AlreadyArrivedException;
 import com.tuoguan.backend.kanban.web.ArrivalRequiredException;
@@ -82,11 +81,6 @@ public class RosterExceptionHandler {
     @ExceptionHandler(DuplicateConsumptionException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public void handleDuplicateConsumption() {
-    }
-
-    @ExceptionHandler(DuplicateEnrollmentException.class)
-    @ResponseStatus(HttpStatus.CONFLICT)
-    public void handleDuplicateEnrollment() {
     }
 
     @ExceptionHandler(CourseNotEnrolledException.class)

@@ -11,10 +11,12 @@ export function AdminStudentsModule() {
   const [loadError, setLoadError] = useState<string | null>(null)
 
   const [classRooms, setClassRooms] = useState<unitApi.TeachingUnit[]>([])
+  const [offCampusCourses, setOffCampusCourses] = useState<unitApi.TeachingUnit[]>([])
 
   const [newName, setNewName] = useState('')
   const [newSchoolClassName, setNewSchoolClassName] = useState('')
   const [newTeachingUnitId, setNewTeachingUnitId] = useState('')
+  const [newCourseIds, setNewCourseIds] = useState<number[]>([])
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
 
@@ -24,6 +26,7 @@ export function AdminStudentsModule() {
   const [editingName, setEditingName] = useState('')
   const [editingSchoolClassName, setEditingSchoolClassName] = useState('')
   const [editingTeachingUnitId, setEditingTeachingUnitId] = useState('')
+  const [editingCourseIds, setEditingCourseIds] = useState<number[]>([])
   const [editSubmitting, setEditSubmitting] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
 
@@ -47,7 +50,15 @@ export function AdminStudentsModule() {
       .fetchTeachingUnits('MONTHLY')
       .then(setClassRooms)
       .catch(() => setClassRooms([]))
+    unitApi
+      .fetchTeachingUnits('LESSON_COUNT')
+      .then((all) => setOffCampusCourses(all.filter((c) => c.active)))
+      .catch(() => setOffCampusCourses([]))
   }, [])
+
+  function toggleCourseId(courseIds: number[], courseId: number): number[] {
+    return courseIds.includes(courseId) ? courseIds.filter((id) => id !== courseId) : [...courseIds, courseId]
+  }
 
   async function handleCreateStudent(e: FormEvent) {
     e.preventDefault()
@@ -60,10 +71,12 @@ export function AdminStudentsModule() {
         name,
         newSchoolClassName.trim() || null,
         newTeachingUnitId ? Number(newTeachingUnitId) : null,
+        newCourseIds,
       )
       setNewName('')
       setNewSchoolClassName('')
       setNewTeachingUnitId('')
+      setNewCourseIds([])
       loadStudents()
     } catch (err) {
       if (err instanceof ApiError && (err.status === 404 || err.status === 400)) {
@@ -81,6 +94,7 @@ export function AdminStudentsModule() {
     setEditingName(student.name)
     setEditingSchoolClassName(student.schoolClassName ?? '')
     setEditingTeachingUnitId(student.classRoomId ? String(student.classRoomId) : '')
+    setEditingCourseIds(student.enrolledCourseIds)
     setEditError(null)
   }
 
@@ -102,6 +116,7 @@ export function AdminStudentsModule() {
         editingSchoolClassName.trim() || null,
         editingTeachingUnitId ? Number(editingTeachingUnitId) : null,
         editingStudent.enrolled,
+        editingCourseIds,
       )
       setEditingStudent(null)
       loadStudents()
@@ -120,7 +135,14 @@ export function AdminStudentsModule() {
     setStatusSubmitting(true)
     setStatusError(null)
     try {
-      await courseApi.updateAdminStudent(student.id, student.name, student.schoolClassName, student.classRoomId, true)
+      await courseApi.updateAdminStudent(
+        student.id,
+        student.name,
+        student.schoolClassName,
+        student.classRoomId,
+        true,
+        student.enrolledCourseIds,
+      )
       loadStudents()
     } catch {
       setStatusError('启用失败，请重试')
@@ -140,6 +162,7 @@ export function AdminStudentsModule() {
         confirmingDeactivate.schoolClassName,
         confirmingDeactivate.classRoomId,
         false,
+        confirmingDeactivate.enrolledCourseIds,
       )
       setConfirmingDeactivate(null)
       loadStudents()
@@ -189,6 +212,24 @@ export function AdminStudentsModule() {
               ))}
             </select>
           </label>
+          {offCampusCourses.length > 0 && (
+            <fieldset className="text-sm text-[#5d5480]">
+              <legend>课外课（可多选）</legend>
+              <div className="mt-1 flex flex-wrap gap-2">
+                {offCampusCourses.map((c) => (
+                  <label key={c.id} className="flex items-center gap-1">
+                    <input
+                      type="checkbox"
+                      aria-label={c.name}
+                      checked={newCourseIds.includes(c.id)}
+                      onChange={() => setNewCourseIds((prev) => toggleCourseId(prev, c.id))}
+                    />
+                    {c.name}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
           <button
             type="submit"
             disabled={creating || !newName.trim()}
@@ -299,7 +340,21 @@ export function AdminStudentsModule() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      {student.enrolledCourseNames.length > 0 ? (
+                      {isEditing ? (
+                        <div className="flex flex-wrap gap-2">
+                          {offCampusCourses.map((c) => (
+                            <label key={c.id} className="flex items-center gap-1 text-xs text-[#5d5480]">
+                              <input
+                                type="checkbox"
+                                aria-label={`${c.name}${student.id}`}
+                                checked={editingCourseIds.includes(c.id)}
+                                onChange={() => setEditingCourseIds((prev) => toggleCourseId(prev, c.id))}
+                              />
+                              {c.name}
+                            </label>
+                          ))}
+                        </div>
+                      ) : student.enrolledCourseNames.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                           {student.enrolledCourseNames.map((name) => (
                             <span

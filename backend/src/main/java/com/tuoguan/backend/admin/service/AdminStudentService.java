@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -63,6 +64,7 @@ public class AdminStudentService {
         TeachingUnit unit = validateTeachingUnitAssignment(institutionId, request.teachingUnitId());
         Long id = studentDao.insert(new Student(null, institutionId, request.teachingUnitId(), request.name(),
                 request.schoolClassName(), true, null, null));
+        syncCourseEnrollments(institutionId, id, request.courseIds());
         Student student = studentDao.findById(id)
                 .orElseThrow(() -> new IllegalStateException("Student not found after insert: " + id));
         return toResponse(student, unit);
@@ -76,6 +78,7 @@ public class AdminStudentService {
                 request.name(), request.schoolClassName(), request.enrolled(), existing.avatarObjectKey(),
                 existing.createdAt());
         studentDao.update(updated);
+        syncCourseEnrollments(institutionId, studentId, request.courseIds());
         if (existing.enrolled() != request.enrolled()) {
             auditLogService.record(institutionId, actorTeacherId,
                     request.enrolled() ? "STUDENT_ENABLE" : "STUDENT_DEACTIVATE", "STUDENT", studentId, null);
@@ -83,6 +86,46 @@ public class AdminStudentService {
         Student saved = studentDao.findById(studentId)
                 .orElseThrow(() -> new IllegalStateException("Student not found after update: " + studentId));
         return toResponse(saved, unit);
+    }
+
+    // 全量覆盖同步：courseIds 代表该生"应该"报名的课外课完整集合。只在本机构启用中的
+    // LESSON_COUNT 课程范围内做增删——管理员编辑表单的勾选列表本来就只展示这个范围，已停用
+    // 课程的历史报名记录不在该范围内，不会因为没出现在 courseIds 里就被误判为要取消。
+    private void syncCourseEnrollments(Long institutionId, Long studentId, List<Long> courseIds) {
+        List<Long> desired = courseIds == null ? List.of() : courseIds;
+        for (Long courseId : desired) {
+            TeachingUnit course = teachingUnitDao.findById(courseId)
+                    .orElseThrow(() -> new NotFoundException("Course not found: " + courseId));
+            if (!course.institutionId().equals(institutionId)) {
+                throw new NotFoundException("Course not found: " + courseId);
+            }
+            if (course.billingMode() != BillingMode.LESSON_COUNT) {
+                throw new InvalidTeachingUnitRequestException(
+                        "Course must be a LESSON_COUNT teaching unit: " + courseId);
+            }
+        }
+
+        Set<Long> offerableCourseIds = teachingUnitDao.findAllByInstitutionId(institutionId).stream()
+                .filter(u -> u.billingMode() == BillingMode.LESSON_COUNT && u.active())
+                .map(TeachingUnit::id)
+                .collect(Collectors.toSet());
+        List<StudentUnitEnrollment> existing = enrollmentDao.findAllByStudentId(studentId);
+        for (StudentUnitEnrollment enrollment : existing) {
+            if (enrollment.active() && offerableCourseIds.contains(enrollment.teachingUnitId())
+                    && !desired.contains(enrollment.teachingUnitId())) {
+                enrollmentDao.setActive(enrollment.id(), false);
+            }
+        }
+        for (Long courseId : desired) {
+            StudentUnitEnrollment existingForCourse = existing.stream()
+                    .filter(e -> e.teachingUnitId().equals(courseId))
+                    .findFirst().orElse(null);
+            if (existingForCourse == null) {
+                enrollmentDao.insert(new StudentUnitEnrollment(null, institutionId, studentId, courseId, true, null));
+            } else if (!existingForCourse.active()) {
+                enrollmentDao.setActive(existingForCourse.id(), true);
+            }
+        }
     }
 
     private TeachingUnit validateTeachingUnitAssignment(Long institutionId, Long teachingUnitId) {
@@ -113,14 +156,20 @@ public class AdminStudentService {
     private AdminStudentResponse toResponse(Student student, TeachingUnit classRoom) {
         String teacherName = classRoom != null
                 ? teacherDao.findById(classRoom.teacherId()).map(Teacher::name).orElse(null) : null;
-        List<String> enrolledCourseNames = enrollmentDao.findAllByStudentId(student.id()).stream()
+        List<StudentUnitEnrollment> activeEnrollments = enrollmentDao.findAllByStudentId(student.id()).stream()
                 .filter(StudentUnitEnrollment::active)
+                .toList();
+        List<String> enrolledCourseNames = activeEnrollments.stream()
                 .map(e -> teachingUnitDao.findById(e.teachingUnitId()).map(TeachingUnit::name).orElse(null))
                 .filter(Objects::nonNull)
                 .toList();
+        List<Long> enrolledCourseIds = activeEnrollments.stream()
+                .map(StudentUnitEnrollment::teachingUnitId)
+                .toList();
         return new AdminStudentResponse(student.id(), student.name(), student.schoolClassName(),
                 student.teachingUnitId(), classRoom != null ? classRoom.name() : null,
-                student.teachingUnitId() == null, student.enrolled(), teacherName, enrolledCourseNames);
+                student.teachingUnitId() == null, student.enrolled(), teacherName, enrolledCourseNames,
+                enrolledCourseIds);
     }
 
     private AdminStudentResponse toResponse(Student student, Map<Long, TeachingUnit> unitsById) {

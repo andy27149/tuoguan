@@ -79,11 +79,12 @@ class AdminBillOverviewControllerTest extends IntegrationTestBase {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"pricePerLesson\":50.00}"))
                 .andExpect(status().isOk());
-        mockMvc.perform(post("/api/courses/" + courseId + "/enrollments")
-                        .header("Authorization", "Bearer " + teacherToken)
+        mockMvc.perform(patch("/api/admin/students/" + studentId)
+                        .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"studentId\":" + studentId + "}"))
-                .andExpect(status().isCreated());
+                        .content("{\"name\":\"学生甲\",\"schoolClassName\":\"一班\",\"teachingUnitId\":" + classRoomId
+                                + ",\"enrolled\":true,\"courseIds\":[" + courseId + "]}"))
+                .andExpect(status().isOk());
         mockMvc.perform(post("/api/courses/" + courseId + "/consumption")
                         .header("Authorization", "Bearer " + teacherToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -286,23 +287,18 @@ class AdminBillOverviewControllerTest extends IntegrationTestBase {
         Long chineseCourseId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherAId, "语文课",
                 BillingMode.LESSON_COUNT, 60, null, true, null));
         String adminToken = login("13900014030", "admin-password");
-        String teacherAToken = login("13900014031", "teacher-password-a");
 
         studentDao.insert(new Student(null, institutionId, classRoomBId, "托管乙", "一班", true, null, null));
         studentDao.insert(new Student(null, institutionId, classRoomAId, "托管甲", "一班", true, null, null));
-        Long offCampusChineseId = studentDao.insert(
-                new Student(null, institutionId, null, "课外乙", null, true, null, null));
-        Long offCampusMathId = studentDao.insert(
-                new Student(null, institutionId, null, "课外甲", null, true, null, null));
-        mockMvc.perform(post("/api/courses/" + chineseCourseId + "/enrollments")
-                        .header("Authorization", "Bearer " + teacherAToken)
+        mockMvc.perform(post("/api/admin/students")
+                        .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"studentId\":" + offCampusChineseId + "}"))
+                        .content("{\"name\":\"课外乙\",\"courseIds\":[" + chineseCourseId + "]}"))
                 .andExpect(status().isCreated());
-        mockMvc.perform(post("/api/courses/" + mathCourseId + "/enrollments")
-                        .header("Authorization", "Bearer " + teacherAToken)
+        mockMvc.perform(post("/api/admin/students")
+                        .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"studentId\":" + offCampusMathId + "}"))
+                        .content("{\"name\":\"课外甲\",\"courseIds\":[" + mathCourseId + "]}"))
                 .andExpect(status().isCreated());
 
         MvcResult result = mockMvc.perform(get("/api/admin/bills")
