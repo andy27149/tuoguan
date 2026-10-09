@@ -34,14 +34,6 @@ describe('CourseConsumptionPage', () => {
     expect(await screen.findByText('暂无课外课，请联系管理员分配')).toBeInTheDocument()
   })
 
-  it('renders the roster with billing-mode badges explaining the actual financial treatment', async () => {
-    setup()
-
-    expect(await screen.findByText('小明')).toBeInTheDocument()
-    expect(screen.getByText('托管（计入月度账单）')).toBeInTheDocument()
-    expect(screen.getByText('纯课外（扣课时余额）')).toBeInTheDocument()
-  })
-
   it('shows the balance badge for any student with a non-null balance, color-coded by threshold', async () => {
     vi.mocked(courseApi.fetchCourseRoster).mockResolvedValue([
       { studentId: 100, name: '小明', schoolClassName: '三年级一班', offCampusOnly: false, balance: null },
@@ -55,13 +47,21 @@ describe('CourseConsumptionPage', () => {
     await screen.findByText('小明')
 
     expect(screen.queryByText(/小明.*余额/)).not.toBeInTheDocument()
-    expect(screen.getByText('余额：5 课时')).toHaveClass('text-gray-600')
-    expect(screen.getByText('余额：-1 课时')).toHaveClass('text-red-700')
-    expect(screen.getByText('余额：2 课时')).toHaveClass('text-amber-700')
-    expect(screen.getByText('余额：1 课时')).toHaveClass('text-amber-700')
+    expect(screen.getByText('余额：5 课时')).toHaveClass('balance-badge--ok')
+    expect(screen.getByText('余额：-1 课时')).toHaveClass('balance-badge--danger')
+    expect(screen.getByText('余额：2 课时')).toHaveClass('balance-badge--warn')
+    expect(screen.getByText('余额：1 课时')).toHaveClass('balance-badge--warn')
   })
 
-  it('sorts the roster with pure off-campus students first, then custody students, each group by name', async () => {
+  it('does not show a billing-mode classification badge — that bookkeeping is the backend\'s job, not the teacher\'s', async () => {
+    setup()
+    await screen.findByText('小明')
+
+    expect(screen.queryByText('托管（计入月度账单）')).not.toBeInTheDocument()
+    expect(screen.queryByText('纯课外（扣课时余额）')).not.toBeInTheDocument()
+  })
+
+  it('sorts the roster alphabetically by name, with no billing-mode grouping', async () => {
     vi.mocked(courseApi.fetchCourseRoster).mockResolvedValue([
       { studentId: 100, name: '小丙', schoolClassName: null, offCampusOnly: false, balance: null },
       { studentId: 200, name: '小乙', schoolClassName: null, offCampusOnly: true, balance: 100 },
@@ -71,9 +71,10 @@ describe('CourseConsumptionPage', () => {
     setup()
     await screen.findByText('小乙')
 
-    const names = screen.getAllByRole('listitem').map((li) => li.textContent?.slice(0, 2))
-    // 纯课外（小丁、小乙）按姓名排在前面，托管班（小丙、小甲）按姓名排在后面；余额完全不参与排序。
-    expect(names).toEqual(['小丁', '小乙', '小丙', '小甲'])
+    const names = screen
+      .getAllByRole('listitem')
+      .map((li) => li.querySelector('.roster-card__name')?.textContent)
+    expect(names).toEqual(['小丁', '小丙', '小乙', '小甲'])
   })
 
   it('shows a hint that course enrollment is managed by the admin, with no self-service controls', async () => {
@@ -115,9 +116,9 @@ describe('CourseConsumptionPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '确认消课（2人）' }))
 
-    // 花名册按余额倒序排列，小红（余额3）排在无余额概念的小明前面。
+    // 花名册按姓名排序：小明 在 小红 前面。
     await waitFor(() =>
-      expect(courseApi.recordBatchConsumption).toHaveBeenCalledWith(1, expect.any(String), [200, 100]),
+      expect(courseApi.recordBatchConsumption).toHaveBeenCalledWith(1, expect.any(String), [100, 200]),
     )
   })
 

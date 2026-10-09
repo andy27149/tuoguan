@@ -59,13 +59,17 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
   }, [activeCourseId])
 
   function applyRoster(list: courseApi.CourseRosterEntry[]) {
-    const sorted = [...list].sort((a, b) => {
-      // 纯课外课学生优先展示，托管班学生（双重身份）排在后面，组内按姓名排序。
-      if (a.offCampusOnly !== b.offCampusOnly) return a.offCampusOnly ? -1 : 1
-      return a.name.localeCompare(b.name)
-    })
+    // 老师不需要关心这个学生是纯课外课还是托管班（双重身份）——那是后端的记账口径，
+    // 所以花名册不再按身份分组，直接按姓名排序。
+    const sorted = [...list].sort((a, b) => a.name.localeCompare(b.name))
     setRoster(sorted)
     setPresentStudentIds(new Set(sorted.map((r) => r.studentId)))
+  }
+
+  function balanceBadgeClass(balance: number): string {
+    if (balance <= 0) return 'balance-badge balance-badge--danger'
+    if (balance < 3) return 'balance-badge balance-badge--warn'
+    return 'balance-badge balance-badge--ok'
   }
 
   function togglePresent(studentId: number) {
@@ -144,72 +148,52 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
         )}
 
         {!loading && activeCourseId !== null && courses.length > 0 && (
-          <div className="rounded-lg border border-gray-200 bg-white p-3">
-            <h2 className="text-sm font-medium text-gray-700">花名册（{roster.length}）</h2>
-            {unpriced && (
-              <p className="mt-1 text-xs text-amber-600">该课程尚未配置单价，请联系管理员配置后再消课</p>
-            )}
-            <ul className="mt-2 space-y-2">
-              {roster.map((entry) => (
-                <li key={entry.studentId} className="rounded border border-gray-100 p-2 text-sm">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={presentStudentIds.has(entry.studentId)}
-                      onChange={() => togglePresent(entry.studentId)}
-                      disabled={unpriced}
-                    />
-                    <span>
-                      {entry.name}
-                      {entry.schoolClassName && <span className="text-gray-500"> · {entry.schoolClassName}</span>}
-                      <span
-                        className={
-                          entry.offCampusOnly
-                            ? 'ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700'
-                            : 'ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700'
-                        }
-                      >
-                        {entry.offCampusOnly ? '纯课外（扣课时余额）' : '托管（计入月度账单）'}
+          <>
+            <div className="roster-heading">
+              <h2>花名册（{roster.length}）</h2>
+              <span>已选 {presentStudentIds.size} 人</span>
+            </div>
+            {unpriced && <div className="unpriced-banner">该课程尚未配置单价，请联系管理员配置后再消课</div>}
+
+            <ul className="roster-grid">
+              {roster.map((entry) => {
+                const present = presentStudentIds.has(entry.studentId)
+                return (
+                  <li key={entry.studentId}>
+                    <label
+                      className={`roster-card ${present ? 'is-present' : 'is-absent'}${unpriced ? ' roster-card--disabled' : ''}`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="roster-card__input"
+                        checked={present}
+                        onChange={() => togglePresent(entry.studentId)}
+                        disabled={unpriced}
+                      />
+                      <span className="roster-card__avatar" aria-hidden="true">
+                        {entry.name.slice(0, 1)}
                       </span>
-                      {entry.balance !== null && (
-                        <span
-                          className={
-                            entry.balance <= 0
-                              ? 'ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700'
-                              : entry.balance < 3
-                                ? 'ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700'
-                                : 'ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600'
-                          }
-                        >
-                          余额：{entry.balance} 课时
-                        </span>
-                      )}
-                    </span>
-                  </label>
-                </li>
-              ))}
-              {roster.length === 0 && <li className="text-xs text-gray-400">该课程暂无学生</li>}
+                      <span className="roster-card__body">
+                        <span className="roster-card__name">{entry.name}</span>
+                        <span className="roster-card__class">{entry.schoolClassName ?? '—'}</span>
+                        {entry.balance !== null && (
+                          <span className={balanceBadgeClass(entry.balance)}>余额：{entry.balance} 课时</span>
+                        )}
+                      </span>
+                      <span className="roster-card__check" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                      </span>
+                    </label>
+                  </li>
+                )
+              })}
+              {roster.length === 0 && <li className="roster-empty">该课程暂无学生</li>}
             </ul>
 
-            {roster.length > 0 && (
-              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
-                <input
-                  type="date"
-                  aria-label="消课日期"
-                  value={rollCallDate}
-                  onChange={(e) => setRollCallDate(e.target.value)}
-                  className="rounded border px-2 py-1 text-sm"
-                />
-                <button
-                  type="button"
-                  onClick={submitRollCall}
-                  disabled={unpriced || rollCallSubmitting || presentStudentIds.size === 0}
-                  className="rounded bg-blue-600 px-3 py-1 text-sm text-white disabled:opacity-50"
-                >
-                  确认消课（{presentStudentIds.size}人）
-                </button>
-              </div>
-            )}
+            <p className="admin-hint">课外课报名由管理员在后台统一配置</p>
+
             {rollCallError && (
               <p role="alert" className="mt-1 text-xs text-red-600">
                 {rollCallError}
@@ -221,10 +205,25 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
               </p>
             )}
 
-            <p className="mt-3 border-t border-gray-100 pt-3 text-xs text-gray-400">
-              课外课报名由管理员在后台统一配置
-            </p>
-          </div>
+            {roster.length > 0 && (
+              <div className="rollcall-bar">
+                <input
+                  type="date"
+                  aria-label="消课日期"
+                  value={rollCallDate}
+                  onChange={(e) => setRollCallDate(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="submit"
+                  onClick={submitRollCall}
+                  disabled={unpriced || rollCallSubmitting || presentStudentIds.size === 0}
+                >
+                  确认消课（{presentStudentIds.size}人）
+                </button>
+              </div>
+            )}
+          </>
         )}
       </main>
     </div>

@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>课外消课页重设计 - 静态预览</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<style>
+  :root {
+    --canvas: #F4F6FB;
+    --bg-blob-blue: #DCEAFF;
+    --bg-blob-purple: #ECE3FF;
+    --bg-blob-pink: #FFE3ED;
+    --ink: #1D1D1F;
+    --ink-mid: #48484A;
+    --ink-soft: #6E6E73;
+    --ink-faint: #AEAEB4;
+    --glass: rgba(255, 255, 255, 0.62);
+    --glass-strong: rgba(255, 255, 255, 0.78);
+    --glass-border: rgba(255, 255, 255, 0.85);
+    --glass-shadow: rgba(31, 41, 68, 0.10);
+    --accent-1: #4F86F7;
+    --accent-2: #9B6BFF;
+    --accent-gradient: linear-gradient(135deg, #4F86F7, #9B6BFF);
+    --warn: #FF9500;
+    --danger: #D70015;
+    --danger-bg: rgba(255, 59, 48, 0.12);
+    --ok: #07c160;
+    --card-radius: 22px;
+    --radius-pill: 999px;
+    --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Rounded", "PingFang SC", "Helvetica Neue", sans-serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", "Segoe UI", sans-serif;
+    --font-mono: "SF Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    min-height: 100vh;
+    background-image:
+      radial-gradient(640px 520px at 6% -8%, var(--bg-blob-blue), transparent 60%),
+      radial-gradient(580px 480px at 102% 2%, var(--bg-blob-purple), transparent 58%),
+      radial-gradient(620px 540px at 30% 108%, var(--bg-blob-pink), transparent 58%);
+    background-attachment: fixed;
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  }
+  button { font-family: inherit; cursor: pointer; }
+
+  /* ---------- 说明条（仅静态预览用，不属于真实页面） ---------- */
+  .preview-note {
+    max-width: 720px;
+    margin: 12px auto 0;
+    padding: 10px 16px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    background: rgba(79, 134, 247, 0.08);
+    border: 1px dashed rgba(79, 134, 247, 0.35);
+    border-radius: 12px;
+  }
+  .preview-note b { color: var(--ink); }
+
+  /* ---------- 头部（复用现有 app-header / class-tabs 视觉语言） ---------- */
+  .app-header {
+    position: sticky; top: 0; z-index: 20;
+    background: var(--glass-strong);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: 0 1px 0 rgba(17, 17, 17, 0.04);
+  }
+  .app-header__top {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px clamp(16px, 4vw, 32px) 10px;
+  }
+  .app-header__title {
+    margin: 0; display: flex; align-items: center; gap: 8px;
+    font-family: var(--font-display); font-size: clamp(18px, 2.6vw, 24px); font-weight: 800;
+    letter-spacing: -0.02em;
+    background: var(--accent-gradient);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .logout-btn {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(255, 255, 255, 0.5);
+    color: var(--ink-soft);
+    font-size: 13px; font-weight: 600;
+    padding: 6px 14px; border-radius: var(--radius-pill);
+  }
+  .class-tabs {
+    display: flex; gap: 4px; overflow-x: auto;
+    margin: 0 clamp(16px, 4vw, 32px) 12px;
+    padding: 4px;
+    background: rgba(120, 120, 128, 0.12);
+    border-radius: var(--radius-pill);
+    width: fit-content;
+    max-width: calc(100% - 2 * clamp(16px, 4vw, 32px));
+  }
+  .class-tab {
+    flex: 0 0 auto; border: none; background: transparent;
+    color: var(--ink-soft); font-size: 14px; font-weight: 600;
+    padding: 7px 16px; border-radius: var(--radius-pill);
+  }
+  .class-tab[aria-selected="true"] {
+    color: var(--ink); background: #fff;
+    box-shadow: 0 2px 6px rgba(31, 41, 68, 0.14);
+  }
+
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 16px clamp(16px, 4vw, 32px) 0;
+  }
+
+  .roster-heading {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .roster-heading h2 {
+    margin: 0; font-family: var(--font-display); font-size: 16px; font-weight: 800; color: var(--ink);
+  }
+  .roster-heading span {
+    font-size: 12.5px; color: var(--ink-soft);
+  }
+
+  .unpriced-banner {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(255, 149, 0, 0.1);
+    color: #9a5b00;
+    border: 1px solid rgba(255, 149, 0, 0.25);
+    border-radius: 14px;
+    padding: 8px 14px;
+    font-size: 12.5px;
+    margin-bottom: 14px;
+  }
+
+  /* ---------- 花名册：卡片网格，手机一列，宽屏自动多列 ---------- */
+  .roster-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+  }
+
+  .roster-card {
+    position: relative;
+    display: flex; align-items: center; gap: 12px;
+    background: var(--glass);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border: 1.5px solid rgba(255, 255, 255, 0.7);
+    border-radius: var(--card-radius);
+    padding: 12px 14px;
+    box-shadow: 0 8px 22px var(--glass-shadow);
+    transition: box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+    text-align: left;
+    width: 100%;
+  }
+  .roster-card.is-present {
+    border-color: rgba(7, 193, 96, 0.4);
+    box-shadow: 0 8px 22px rgba(7, 193, 96, 0.16);
+  }
+  .roster-card.is-absent {
+    opacity: 0.55;
+  }
+  .roster-card:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .roster-card__avatar {
+    flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--accent-gradient);
+    color: #fff; font-family: var(--font-display); font-weight: 800; font-size: 16px;
+    box-shadow: 0 4px 10px rgba(79, 134, 247, 0.3);
+  }
+
+  .roster-card__body { flex: 1; min-width: 0; }
+  .roster-card__name {
+    margin: 0; font-family: var(--font-display); font-size: 15px; font-weight: 800; color: var(--ink);
+    display: flex; align-items: center; gap: 6px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .roster-card__class {
+    margin: 2px 0 0; font-size: 12px; color: var(--ink-soft);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  .roster-card__balance {
+    margin-top: 5px;
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 11.5px; font-weight: 700;
+    padding: 2px 9px; border-radius: var(--radius-pill);
+  }
+  .roster-card__balance--ok { background: rgba(0,0,0,0.05); color: var(--ink-soft); }
+  .roster-card__balance--warn { background: rgba(255, 149, 0, 0.14); color: #9a5b00; }
+  .roster-card__balance--danger { background: var(--danger-bg); color: var(--danger); }
+
+  .roster-card__check {
+    flex-shrink: 0;
+    width: 26px; height: 26px; border-radius: 50%;
+    border: 2px solid rgba(0, 0, 0, 0.15);
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s ease, border-color 0.2s ease;
+  }
+  .roster-card.is-present .roster-card__check {
+    background: var(--ok);
+    border-color: var(--ok);
+  }
+  .roster-card__check svg {
+    width: 14px; height: 14px; opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+  .roster-card.is-present .roster-card__check svg { opacity: 1; }
+
+  .roster-empty {
+    text-align: center; color: var(--ink-soft); font-size: 13px; padding: 32px 0;
+  }
+
+  .admin-hint {
+    text-align: center; color: var(--ink-faint); font-size: 12px;
+    margin: 18px 0 8px;
+  }
+
+  /* ---------- 底部吸底操作栏：日期 + 确认消课，始终可见不用滚动 ---------- */
+  .rollcall-bar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px clamp(16px, 4vw, 32px) calc(10px + env(safe-area-inset-bottom, 0px));
+    background: var(--glass-strong);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-top: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: 0 -4px 20px rgba(31, 41, 68, 0.08);
+  }
+  .rollcall-bar input[type="date"] {
+    flex-shrink: 0;
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 13px;
+    background: #fff;
+  }
+  .rollcall-bar button.submit {
+    flex: 1;
+    border: none;
+    background: var(--accent-gradient);
+    color: #fff;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 11px 16px;
+    border-radius: var(--radius-pill);
+    box-shadow: 0 6px 16px rgba(79, 134, 247, 0.35);
+  }
+  .rollcall-bar button.submit:disabled {
+    opacity: 0.4;
+    box-shadow: none;
+  }
+
+  @media (min-width: 640px) {
+    .rollcall-bar {
+      position: sticky;
+      left: auto; right: auto;
+      max-width: 720px;
+      margin: 16px auto 0;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.7);
+      border-top: 1px solid rgba(255,255,255,0.7);
+      box-shadow: 0 10px 28px var(--glass-shadow);
+    }
+  }
+</style>
+</head>
+<body>
+
+  <div class="preview-note">
+    <b>静态预览说明：</b>这是课外消课页的重设计效果图（纯静态 HTML，不连接真实后端），点击学生卡片可以切换出勤状态，底部按钮数字会跟着变化。缩小/放大浏览器窗口能看到手机单列、宽屏多列的响应式效果。
+  </div>
+
+  <header class="app-header">
+    <div class="app-header__top">
+      <h1 class="app-header__title">课外消课</h1>
+      <button type="button" class="logout-btn">返回看板</button>
+    </div>
+    <div class="class-tabs" role="tablist">
+      <button type="button" role="tab" aria-selected="true" class="class-tab">数学课</button>
+      <button type="button" role="tab" aria-selected="false" class="class-tab">语文课</button>
+      <button type="button" role="tab" aria-selected="false" class="class-tab">英语课</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="unpriced-banner">⚠️ 该课程尚未配置单价，请联系管理员配置后再消课</div>
+
+    <div class="roster-heading">
+      <h2>花名册（8）</h2>
+      <span id="presentCount">已选 8 人</span>
+    </div>
+
+    <div class="roster-grid" id="rosterGrid">
+      <!-- 卡片由下面的 JS 渲染，纯静态预览数据 -->
+    </div>
+
+    <p class="admin-hint">课外课报名由管理员在后台统一配置</p>
+  </main>
+
+  <div class="rollcall-bar">
+    <input type="date" value="2026-10-09" aria-label="消课日期" />
+    <button type="button" class="submit" id="submitBtn">确认消课（8人）</button>
+  </div>
+
+<script>
+  const STUDENTS = [
+    { name: '陈小曦', schoolClass: '三年级一班', balance: null },
+    { name: '李明哲', schoolClass: '三年级二班', balance: 6 },
+    { name: '王梓涵', schoolClass: null, balance: 2 },
+    { name: '张雨桐', schoolClass: '四年级一班', balance: -1 },
+    { name: '刘思源', schoolClass: null, balance: 1 },
+    { name: '赵一诺', schoolClass: '四年级三班', balance: 9 },
+    { name: '孙若溪', schoolClass: null, balance: 0 },
+    { name: '周子墨', schoolClass: '五年级一班', balance: 4 },
+  ]
+
+  function balanceBadge(balance) {
+    if (balance === null) return ''
+    let cls = 'roster-card__balance--ok'
+    if (balance <= 0) cls = 'roster-card__balance--danger'
+    else if (balance < 3) cls = 'roster-card__balance--warn'
+    return `<span class="roster-card__balance ${cls}">余额 ${balance} 课时</span>`
+  }
+
+  const grid = document.getElementById('rosterGrid')
+  STUDENTS.forEach((s, i) => {
+    const card = document.createElement('button')
+    card.type = 'button'
+    card.className = 'roster-card is-present'
+    card.dataset.index = i
+    card.innerHTML = `
+      <span class="roster-card__avatar">${s.name.slice(0, 1)}</span>
+      <span class="roster-card__body">
+        <p class="roster-card__name">${s.name}</p>
+        <p class="roster-card__class">${s.schoolClass ?? '—'}</p>
+        ${balanceBadge(s.balance)}
+      </span>
+      <span class="roster-card__check">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </span>
+    `
+    card.addEventListener('click', () => {
+      card.classList.toggle('is-present')
+      card.classList.toggle('is-absent')
+      updateCount()
+    })
+    grid.appendChild(card)
+  })
+
+  function updateCount() {
+    const present = grid.querySelectorAll('.roster-card.is-present').length
+    document.getElementById('presentCount').textContent = `已选 ${present} 人`
+    const btn = document.getElementById('submitBtn')
+    btn.textContent = `确认消课（${present}人）`
+    btn.disabled = present === 0
+  }
+</script>
+
+</body>
+</html>

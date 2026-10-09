@@ -1672,6 +1672,230 @@
     gap: 8px;
   }
 
+  /* ---------- 课外消课页：花名册卡片 + 吸底操作栏 ----------
+   * 原来是横排 <ul><li> 文字行，手机上一行挤满姓名/学籍班/身份徽章/余额，勾选框又小又难点。
+   * 改成跟 .student-card 同一套玻璃卡片语言的花名册卡片，整张卡片可点（label 包 checkbox），
+   * 同时去掉"纯课外/托管"这个纯后端记账口径的分类徽章——老师消课不需要关心这个。
+   */
+  .roster-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .roster-heading h2 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--ink);
+  }
+  .roster-heading span {
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+
+  .unpriced-banner {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 149, 0, 0.1);
+    color: #9a5b00;
+    border: 1px solid rgba(255, 149, 0, 0.25);
+    border-radius: 14px;
+    padding: 8px 14px;
+    font-size: 12.5px;
+    margin-bottom: 14px;
+  }
+
+  .roster-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .roster-card {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--glass);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border: 1.5px solid rgba(255, 255, 255, 0.7);
+    border-radius: var(--card-radius);
+    padding: 12px 14px;
+    box-shadow: 0 8px 22px var(--glass-shadow);
+    transition: box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+    cursor: pointer;
+  }
+  .roster-card.is-present {
+    border-color: rgba(7, 193, 96, 0.4);
+    box-shadow: 0 8px 22px rgba(7, 193, 96, 0.16);
+  }
+  .roster-card.is-absent {
+    opacity: 0.55;
+  }
+  .roster-card--disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* 视觉上隐藏原生 checkbox，但保留可聚焦/可读屏——卡片本身的点击靠 <label> 包裹原生转发。 */
+  .roster-card__input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .roster-card__avatar {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent-gradient);
+    color: #fff;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 16px;
+    box-shadow: 0 4px 10px rgba(79, 134, 247, 0.3);
+  }
+
+  .roster-card__body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .roster-card__name {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .roster-card__class {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--ink-soft);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .balance-badge {
+    margin-top: 5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: var(--radius-pill);
+    width: fit-content;
+  }
+  .balance-badge--ok { background: rgba(0, 0, 0, 0.05); color: var(--ink-soft); }
+  .balance-badge--warn { background: rgba(255, 149, 0, 0.14); color: #9a5b00; }
+  .balance-badge--danger { background: var(--danger-bg); color: var(--danger); }
+
+  .roster-card__check {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 2px solid rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, border-color 0.2s ease;
+  }
+  .roster-card.is-present .roster-card__check {
+    background: #07c160;
+    border-color: #07c160;
+  }
+  .roster-card__check svg {
+    width: 14px;
+    height: 14px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+  .roster-card.is-present .roster-card__check svg { opacity: 1; }
+
+  .admin-hint {
+    text-align: center;
+    color: var(--ink-faint);
+    font-size: 12px;
+    margin: 18px 0 8px;
+  }
+
+  /* 吸底操作栏：消课日期 + 确认消课按钮，滚动花名册时始终贴底可见，不用来回找按钮。 */
+  .rollcall-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px clamp(16px, 4vw, 32px) calc(10px + env(safe-area-inset-bottom, 0px));
+    background: var(--glass-strong);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-top: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: 0 -4px 20px rgba(31, 41, 68, 0.08);
+  }
+  .rollcall-bar input[type="date"] {
+    flex-shrink: 0;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 13px;
+    background: #fff;
+  }
+  .rollcall-bar button.submit {
+    flex: 1;
+    border: none;
+    background: var(--accent-gradient);
+    color: #fff;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 11px 16px;
+    border-radius: var(--radius-pill);
+    box-shadow: 0 6px 16px rgba(79, 134, 247, 0.35);
+  }
+  .rollcall-bar button.submit:disabled {
+    opacity: 0.4;
+    box-shadow: none;
+  }
+
+  @media (min-width: 640px) {
+    .rollcall-bar {
+      position: sticky;
+      left: auto;
+      right: auto;
+      max-width: 720px;
+      margin: 16px auto 0;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      box-shadow: 0 10px 28px var(--glass-shadow);
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .student-card,
     .task-check::before,
