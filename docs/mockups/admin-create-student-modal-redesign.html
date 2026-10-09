@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>新建学生弹窗重设计 - 静态预览</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&display=swap" />
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: #f4f2fb;
+    color: #241f3d;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  body { min-height: 100vh; }
+  button { font-family: inherit; cursor: pointer; }
+  input, select { font-family: inherit; }
+
+  .preview-note {
+    max-width: 640px;
+    margin: 16px auto 0;
+    padding: 10px 16px;
+    font-size: 12.5px;
+    color: #5d5480;
+    background: rgba(109, 91, 208, 0.08);
+    border: 1px dashed rgba(109, 91, 208, 0.35);
+    border-radius: 12px;
+  }
+  .preview-note b { color: #241f3d; }
+
+  .page-behind {
+    max-width: 640px;
+    margin: 16px auto 0;
+    text-align: center;
+  }
+  .launch-btn {
+    border: none;
+    background: #6d5bd0;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 9px 20px;
+    border-radius: 999px;
+    box-shadow: 0 6px 16px rgba(109, 91, 208, 0.3);
+  }
+
+  .overlay {
+    position: fixed; inset: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 16px;
+  }
+  .modal {
+    width: 100%;
+    max-width: 30rem;
+    max-height: 90vh;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #ece7de;
+    border-radius: 1rem;
+    box-shadow: 0 20px 50px rgba(36, 31, 61, 0.25);
+  }
+  .modal__header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid #ece7de;
+  }
+  .modal__title {
+    margin: 0;
+    font-family: 'Sora', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: #241f3d;
+  }
+  .modal__close {
+    border: none; background: none;
+    font-size: 20px; line-height: 1; color: #7c7391;
+    padding: 2px 6px; border-radius: 8px;
+  }
+  .modal__close:hover { background: #faf7ff; color: #241f3d; }
+
+  .modal__body { padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+
+  .field label {
+    display: block;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #5d5480;
+    margin-bottom: 5px;
+  }
+  .field input[type="text"], .field select {
+    width: 100%;
+    border: 1px solid #ece7de;
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 13.5px;
+    color: #241f3d;
+    background: #fff;
+  }
+  .field input::placeholder { color: #b6b0c9; }
+  .field-row { display: flex; gap: 12px; }
+  .field-row .field { flex: 1; min-width: 0; }
+
+  /* ---------- 课外课多选：胶囊标签代替原生 checkbox ---------- */
+  .courses-field__head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 7px;
+  }
+  .courses-field__head label {
+    margin: 0; font-size: 12.5px; font-weight: 600; color: #5d5480;
+  }
+  .courses-field__count {
+    font-size: 11.5px; color: #7c7391;
+  }
+
+  .courses-well {
+    border: 1px solid #ece7de;
+    border-radius: 12px;
+    background: #faf9f6;
+    padding: 10px;
+    max-height: 150px;
+    overflow-y: auto;
+  }
+  .courses-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+  .course-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: 1.5px solid #ece7de;
+    background: #fff;
+    color: #5d5480;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 6px 13px;
+    border-radius: 999px;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  }
+  .course-chip:hover { background: #faf7ff; }
+  .course-chip .chip-check {
+    width: 13px; height: 13px;
+    opacity: 0;
+    transition: opacity 0.1s ease;
+  }
+  .course-chip.is-selected {
+    background: #6d5bd0;
+    border-color: #6d5bd0;
+    color: #fff;
+  }
+  .course-chip.is-selected .chip-check { opacity: 1; }
+
+  .courses-empty {
+    font-size: 12.5px;
+    color: #7c7391;
+    text-align: center;
+    padding: 8px 0;
+  }
+
+  .modal__footer {
+    display: flex; justify-content: flex-end; gap: 8px;
+    padding: 14px 20px;
+    border-top: 1px solid #ece7de;
+  }
+  .btn-secondary {
+    border: 1px solid #ece7de;
+    background: #fff;
+    color: #5d5480;
+    font-size: 13px; font-weight: 600;
+    padding: 8px 18px;
+    border-radius: 999px;
+  }
+  .btn-secondary:hover { background: #faf7ff; }
+  .btn-primary {
+    border: none;
+    background: #6d5bd0;
+    color: #fff;
+    font-size: 13px; font-weight: 600;
+    padding: 8px 20px;
+    border-radius: 999px;
+    box-shadow: 0 4px 10px rgba(109, 91, 208, 0.3);
+  }
+  .btn-primary:disabled {
+    opacity: 0.45;
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+</style>
+</head>
+<body>
+
+  <div class="preview-note">
+    <b>静态预览说明：</b>这是"新建学生"弹窗的重设计效果图（纯静态 HTML，不连真实后端）。课外课从原来一排 checkbox + 文字，改成可点击的胶囊标签，选中变紫色高亮，外层有最大高度+内部滚动（这里放了 14 门课程模拟课程很多的情况，可以在框内滚动）。点标签试试切换选中状态，右上角"已选 N 门"会跟着变。
+  </div>
+
+  <div class="page-behind">
+    <button class="launch-btn" onclick="document.querySelector('.overlay').style.display='flex'">重新打开弹窗</button>
+  </div>
+
+  <div class="overlay">
+    <div class="modal" role="dialog" aria-modal="true" aria-label="新建学生">
+      <div class="modal__header">
+        <h2 class="modal__title">新建学生</h2>
+        <button type="button" class="modal__close" onclick="document.querySelector('.overlay').style.display='none'">×</button>
+      </div>
+
+      <div class="modal__body">
+        <div class="field-row">
+          <div class="field">
+            <label>姓名</label>
+            <input type="text" placeholder="姓名" id="nameInput" oninput="updateCreateBtn()" />
+          </div>
+          <div class="field">
+            <label>学籍班（选填）</label>
+            <input type="text" placeholder="学籍班" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label>托管班（选填）</label>
+          <select>
+            <option>纯课外课学生</option>
+            <option>托管A班</option>
+            <option>托管B班</option>
+          </select>
+        </div>
+
+        <div class="courses-field">
+          <div class="courses-field__head">
+            <label>课外课（可多选）</label>
+            <span class="courses-field__count" id="selectedCount">已选 0 门</span>
+          </div>
+          <div class="courses-well">
+            <div class="courses-chips" id="chipList"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal__footer">
+        <button type="button" class="btn-secondary" onclick="document.querySelector('.overlay').style.display='none'">取消</button>
+        <button type="button" class="btn-primary" id="createBtn" disabled>创建</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const COURSES = [
+    '数学课', '语文课', '英语课', '书法课', '围棋课', '跆拳道课', '美术课', '编程课',
+    '钢琴课', '舞蹈课', '篮球课', '羽毛球课', '机器人课', '口才课',
+  ]
+
+  const chipList = document.getElementById('chipList')
+  const selected = new Set()
+
+  COURSES.forEach((name) => {
+    const chip = document.createElement('button')
+    chip.type = 'button'
+    chip.className = 'course-chip'
+    chip.innerHTML = `
+      <svg class="chip-check" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+      <span>${name}</span>
+    `
+    chip.addEventListener('click', () => {
+      chip.classList.toggle('is-selected')
+      if (selected.has(name)) selected.delete(name)
+      else selected.add(name)
+      document.getElementById('selectedCount').textContent = `已选 ${selected.size} 门`
+    })
+    chipList.appendChild(chip)
+  })
+
+  function updateCreateBtn() {
+    const name = document.getElementById('nameInput').value.trim()
+    document.getElementById('createBtn').disabled = !name
+  }
+</script>
+
+</body>
+</html>
