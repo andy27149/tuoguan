@@ -108,6 +108,29 @@ class AdminOverviewControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void lowBalanceExcludesStudentWithBalanceExactlyAtThreshold() throws Exception {
+        // 边界值：余额恰好等于 3——跟前端 CourseConsumptionPage 的既有约定（<3 才算预警，
+        // ==3 是中性灰）保持一致，不能因为 threshold=3 就把 balance==3 也纳入预警。
+        Long institutionId = institutionDao.insert("总览课时预警边界测试机构");
+        teacherDao.insert(new Teacher(null, institutionId, "13900018001",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900018002",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long courseId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "物理课",
+                BillingMode.LESSON_COUNT, 60, null, true, null));
+        Long studentId = studentDao.insert(
+                new Student(null, institutionId, null, "边界余额学生", null, true, null, null));
+        courseRechargeRecordDao.insert(new CourseRechargeRecord(null, institutionId, studentId, courseId,
+                3, null, teacherId, null));
+        String adminToken = login("13900018001", "admin-password");
+
+        mockMvc.perform(get("/api/admin/overview/low-balance")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.studentId == " + studentId + ")]").isEmpty());
+    }
+
+    @Test
     void lowBalanceIncludesZeroAndNegativeBalances() throws Exception {
         Long institutionId = institutionDao.insert("总览课时预警测试机构B");
         teacherDao.insert(new Teacher(null, institutionId, "13900015010",

@@ -134,7 +134,7 @@ public class CourseAccountService {
                     .filter(c -> c.studentId().equals(key.studentId()) && c.teachingUnitId().equals(key.teachingUnitId()))
                     .count();
             int balance = recharged - consumed;
-            if (balance > threshold) {
+            if (balance >= threshold) {
                 continue;
             }
             String studentName = studentNames.computeIfAbsent(key.studentId(),
