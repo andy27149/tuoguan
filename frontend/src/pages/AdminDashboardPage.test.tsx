@@ -28,6 +28,9 @@ vi.mock('./AdminSettingsModule', () => ({
 vi.mock('./AdminPricingModule', () => ({
   AdminPricingModule: () => <div>PricingModuleStub</div>,
 }))
+vi.mock('./AdminOverviewModule', () => ({
+  AdminOverviewModule: () => <div>OverviewModuleStub</div>,
+}))
 
 describe('AdminDashboardPage', () => {
   beforeEach(() => {
@@ -41,11 +44,12 @@ describe('AdminDashboardPage', () => {
     })
   })
 
-  it('renders the header and defaults to the teachers module', async () => {
+  it('renders the header and defaults to the overview module', async () => {
     render(<AdminDashboardPage onBack={vi.fn()} />)
 
     expect(await screen.findByText('阳光托管班')).toBeInTheDocument()
-    expect(screen.getByText('TeachersModuleStub')).toBeInTheDocument()
+    expect(screen.getByText('OverviewModuleStub')).toBeInTheDocument()
+    expect(screen.queryByText('TeachersModuleStub')).not.toBeInTheDocument()
     expect(screen.queryByText('UnitsModuleStub')).not.toBeInTheDocument()
   })
 
@@ -63,7 +67,7 @@ describe('AdminDashboardPage', () => {
     const title = await screen.findByText(longName)
     expect(title).toHaveClass('app-header__title')
     expect(title).toHaveAttribute('title', longName)
-    expect(screen.getByRole('button', { name: '教师列表' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('button', { name: '机构总览' })).toHaveAttribute('aria-current', 'page')
   })
 
   it('falls back to the default title while institution settings are loading', () => {

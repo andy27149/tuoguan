@@ -8,6 +8,7 @@ import { AdminTaskStatsModule } from './AdminTaskStatsModule'
 import { AdminPricingModule } from './AdminPricingModule'
 import { AdminBillingModule } from './AdminBillingModule'
 import { AdminSettingsModule } from './AdminSettingsModule'
+import { AdminOverviewModule } from './AdminOverviewModule'
 import { UpdatesButton } from '../components/UpdatesButton'
 import * as institutionApi from '../api/institution'
 
@@ -18,7 +19,7 @@ interface AdminDashboardPageProps {
 
 export function AdminDashboardPage({ onBack, onOpenClassKanban }: AdminDashboardPageProps) {
   const { logout } = useAuth()
-  const [activeModule, setActiveModule] = useState<AdminModule>('teachers')
+  const [activeModule, setActiveModule] = useState<AdminModule>('overview')
   const [institution, setInstitution] = useState<institutionApi.InstitutionSettings | null>(null)
   const custodyEnabled = institution?.custodyEnabled ?? true
   const offCampusEnabled = institution?.offCampusEnabled ?? true
@@ -30,7 +31,7 @@ export function AdminDashboardPage({ onBack, onOpenClassKanban }: AdminDashboard
   useEffect(() => {
     if (!institution) return
     if (isModuleHidden(activeModule, custodyEnabled, offCampusEnabled)) {
-      setActiveModule('teachers')
+      setActiveModule('overview')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [institution])
@@ -68,6 +69,7 @@ export function AdminDashboardPage({ onBack, onOpenClassKanban }: AdminDashboard
             offCampusEnabled={offCampusEnabled}
           />
           <main className="m-0 min-h-0 w-full min-w-0 max-w-none flex-1 overflow-y-auto p-0">
+            {activeModule === 'overview' && <AdminOverviewModule onOpenBilling={() => setActiveModule('billing')} />}
             {activeModule === 'teachers' && <AdminTeachersModule onOpenClassKanban={onOpenClassKanban} />}
             {activeModule === 'units' && (
               <AdminTeachingUnitsModule
