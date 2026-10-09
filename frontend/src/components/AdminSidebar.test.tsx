@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import { AdminSidebar, isModuleHidden } from './AdminSidebar'
 
@@ -72,5 +72,18 @@ describe('AdminSidebar', () => {
 
     expect(screen.getByRole('button', { name: '定价中心' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('button', { name: '教师列表' })).not.toHaveAttribute('aria-current')
+  })
+
+  it('renders the overview entry as its own top group and selects it on click', () => {
+    const onSelect = vi.fn()
+    render(<AdminSidebar active="overview" onSelect={onSelect} custodyEnabled offCampusEnabled />)
+
+    expect(screen.getByText('总览')).toBeInTheDocument()
+    const overviewButton = screen.getByText('机构总览')
+    expect(overviewButton).toBeInTheDocument()
+
+    fireEvent.click(overviewButton)
+
+    expect(onSelect).toHaveBeenCalledWith('overview')
   })
 })

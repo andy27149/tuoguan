@@ -1,4 +1,5 @@
 export type AdminModule =
+  | 'overview'
   | 'teachers'
   | 'units'
   | 'students'
@@ -26,6 +27,7 @@ interface NavGroup {
 }
 
 const NAV_GROUPS: NavGroup[] = [
+  { label: '总览', items: [{ key: 'overview', label: '机构总览' }] },
   { label: '基础设置', items: [{ key: 'settings', label: '基础配置' }] },
   {
     label: '结构信息',
