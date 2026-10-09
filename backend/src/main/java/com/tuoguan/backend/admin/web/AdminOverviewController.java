@@ -49,4 +49,9 @@ public class AdminOverviewController {
     public TodaySnapshot today(@AuthenticationPrincipal TeacherPrincipal principal) {
         return adminStatsService.getTodaySnapshot(principal.institutionId(), LocalDate.now());
     }
+
+    @GetMapping("/revenue")
+    public RevenueSnapshot revenue(@AuthenticationPrincipal TeacherPrincipal principal) {
+        return billGenerationService.getRevenueSnapshot(principal.institutionId());
+    }
 }

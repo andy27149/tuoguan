@@ -4,6 +4,7 @@ import com.tuoguan.backend.admin.web.BillOverviewRow;
 import com.tuoguan.backend.admin.web.BillingRateNotConfiguredException;
 import com.tuoguan.backend.admin.web.ClassBillingRateRow;
 import com.tuoguan.backend.admin.web.CourseConsumptionSummaryRow;
+import com.tuoguan.backend.admin.web.RevenueSnapshot;
 import com.tuoguan.backend.admin.web.UnpaidBillRow;
 import com.tuoguan.backend.admin.web.UnpaidBillSummary;
 import com.tuoguan.backend.auth.dao.TeacherDao;
@@ -361,6 +362,28 @@ public class BillGenerationService {
                 .filter(java.util.Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         return new UnpaidBillSummary(rows.size(), total, rows);
+    }
+
+    public RevenueSnapshot getRevenueSnapshot(Long institutionId) {
+        YearMonth tuitionMonth = YearMonth.now().minusMonths(1);
+        YearMonth consumptionMonth = YearMonth.now();
+
+        List<BillOverviewRow> lastMonthRows = getBillOverview(institutionId, tuitionMonth, null, null, false);
+        BigDecimal tuitionBilled = lastMonthRows.stream()
+                .filter(row -> row.billId() != null)
+                .map(BillOverviewRow::totalAmount)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal tuitionCollected = lastMonthRows.stream()
+                .filter(row -> row.billId() != null && row.isPaid())
+                .map(BillOverviewRow::totalAmount)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        int offCampusConsumptionCount = courseAccountService.countConsumptionsInMonth(institutionId, consumptionMonth);
+
+        return new RevenueSnapshot(tuitionMonth.toString(), tuitionBilled, tuitionCollected,
+                consumptionMonth.toString(), offCampusConsumptionCount);
     }
 
     private List<BillOverviewRow> buildOverviewRowsAllMonthsForUnit(TeachingUnit unit, String studentName) {

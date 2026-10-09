@@ -15,6 +15,8 @@ import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
 import com.tuoguan.backend.kanban.dao.StudentMealRecordDao;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
+import com.tuoguan.backend.unit.dao.StudentUnitEnrollmentDao;
+import com.tuoguan.backend.unit.domain.StudentUnitEnrollment;
 import com.tuoguan.backend.unit.dao.TeachingUnitDao;
 import com.tuoguan.backend.unit.domain.BillingMode;
 import com.tuoguan.backend.unit.domain.TeachingUnit;
@@ -27,11 +29,14 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.YearMonth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -63,6 +68,9 @@ class AdminOverviewControllerTest extends IntegrationTestBase {
 
     @Autowired
     private CourseConsumptionRecordDao courseConsumptionRecordDao;
+
+    @Autowired
+    private StudentUnitEnrollmentDao enrollmentDao;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -445,6 +453,117 @@ class AdminOverviewControllerTest extends IntegrationTestBase {
         String teacherToken = login("13900016040", "teacher-password");
 
         mockMvc.perform(get("/api/admin/overview/today")
+                        .header("Authorization", "Bearer " + teacherToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void revenueSnapshotSumsLastMonthTuitionAndExcludesCurrentMonth() throws Exception {
+        Long institutionId = institutionDao.insert("收入快照测试机构A");
+        teacherDao.insert(new Teacher(null, institutionId, "13900017001",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900017002",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "收入一班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long paidStudentId = studentDao.insert(
+                new Student(null, institutionId, classRoomId, "已缴费学生", "一班", true, null, null));
+        Long unpaidStudentId = studentDao.insert(
+                new Student(null, institutionId, classRoomId, "未缴费学生", "一班", true, null, null));
+        String adminToken = login("13900017001", "admin-password");
+
+        mockMvc.perform(put("/api/admin/classes/" + classRoomId + "/billing-rate")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tuitionRatePerMonth\":500.00,\"mealRatePerDay\":10.00}"))
+                .andExpect(status().isOk());
+
+        YearMonth lastMonth = YearMonth.now().minusMonths(1);
+        YearMonth currentMonth = YearMonth.now();
+
+        MvcResult paidGenerate = mockMvc.perform(post("/api/admin/students/" + paidStudentId
+                        + "/bills/generate?month=" + lastMonth)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn();
+        Long paidBillId = objectMapper.readTree(paidGenerate.getResponse().getContentAsString()).get("id").asLong();
+        mockMvc.perform(patch("/api/admin/bills/" + paidBillId + "/paid")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"isPaid\":true}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/admin/students/" + unpaidStudentId + "/bills/generate?month=" + lastMonth)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/admin/students/" + paidStudentId + "/bills/generate?month=" + currentMonth)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk());
+
+        MvcResult result = mockMvc.perform(get("/api/admin/overview/revenue")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tuitionMonth").value(lastMonth.toString()))
+                .andExpect(jsonPath("$.consumptionMonth").value(currentMonth.toString()))
+                .andReturn();
+
+        var json = objectMapper.readTree(result.getResponse().getContentAsString());
+        BigDecimal paidAmount = objectMapper.readTree(paidGenerate.getResponse().getContentAsString())
+                .get("totalAmount").decimalValue();
+        assertTrue(json.get("tuitionBilled").decimalValue().compareTo(json.get("tuitionCollected").decimalValue()) > 0);
+        assertTrue(json.get("tuitionCollected").decimalValue().compareTo(paidAmount) >= 0);
+    }
+
+    @Test
+    void revenueSnapshotCountsOnlyCurrentMonthOffCampusConsumptions() throws Exception {
+        Long institutionId = institutionDao.insert("收入快照测试机构B");
+        teacherDao.insert(new Teacher(null, institutionId, "13900017010",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900017011",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long courseId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "收入课程",
+                BillingMode.LESSON_COUNT, 45, new BigDecimal("50.00"), true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, null, "消课学生", null, true, null, null));
+        enrollmentDao.insert(new StudentUnitEnrollment(null, institutionId, studentId, courseId, true, null));
+        String adminToken = login("13900017010", "admin-password");
+
+        courseConsumptionRecordDao.insert(new CourseConsumptionRecord(null, institutionId, studentId, courseId,
+                java.time.LocalDate.now(), new BigDecimal("50.00"), teacherId, null));
+        courseConsumptionRecordDao.insert(new CourseConsumptionRecord(null, institutionId, studentId, courseId,
+                java.time.LocalDate.now().minusMonths(1), new BigDecimal("50.00"), teacherId, null));
+
+        mockMvc.perform(get("/api/admin/overview/revenue")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.offCampusConsumptionCount").value(1));
+    }
+
+    @Test
+    void revenueSnapshotForEmptyInstitutionReturnsZeroes() throws Exception {
+        Long institutionId = institutionDao.insert("收入快照测试机构C");
+        teacherDao.insert(new Teacher(null, institutionId, "13900017020",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        String adminToken = login("13900017020", "admin-password");
+
+        mockMvc.perform(get("/api/admin/overview/revenue")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tuitionBilled").value(0))
+                .andExpect(jsonPath("$.tuitionCollected").value(0))
+                .andExpect(jsonPath("$.offCampusConsumptionCount").value(0))
+                .andExpect(jsonPath("$.tuitionMonth").value(YearMonth.now().minusMonths(1).toString()))
+                .andExpect(jsonPath("$.consumptionMonth").value(YearMonth.now().toString()));
+    }
+
+    @Test
+    void revenueSnapshotRejectsNonAdminCaller() throws Exception {
+        Long institutionId = institutionDao.insert("收入快照测试机构D");
+        teacherDao.insert(new Teacher(null, institutionId, "13900017030",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        String teacherToken = login("13900017030", "teacher-password");
+
+        mockMvc.perform(get("/api/admin/overview/revenue")
                         .header("Authorization", "Bearer " + teacherToken))
                 .andExpect(status().isForbidden());
     }
