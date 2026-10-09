@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -42,5 +43,10 @@ public class AdminOverviewController {
     @GetMapping("/enrollment")
     public EnrollmentSummary enrollment(@AuthenticationPrincipal TeacherPrincipal principal) {
         return adminStatsService.getEnrollmentSummary(principal.institutionId());
+    }
+
+    @GetMapping("/today")
+    public TodaySnapshot today(@AuthenticationPrincipal TeacherPrincipal principal) {
+        return adminStatsService.getTodaySnapshot(principal.institutionId(), LocalDate.now());
     }
 }

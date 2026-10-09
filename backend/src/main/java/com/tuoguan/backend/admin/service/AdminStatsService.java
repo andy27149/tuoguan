@@ -3,10 +3,13 @@ package com.tuoguan.backend.admin.service;
 import com.tuoguan.backend.admin.web.AdminDashboardResponse.ClassSummary;
 import com.tuoguan.backend.admin.web.EnrollmentSummary;
 import com.tuoguan.backend.admin.web.TeacherStudentCount;
+import com.tuoguan.backend.admin.web.TodaySnapshot;
 import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Teacher;
+import com.tuoguan.backend.billing.dao.StudentLeaveRecordDao;
 import com.tuoguan.backend.kanban.dao.DailyTaskDao;
 import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
+import com.tuoguan.backend.kanban.dao.StudentMealRecordDao;
 import com.tuoguan.backend.kanban.domain.DailyTask;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
@@ -29,14 +32,19 @@ public class AdminStatsService {
     private final DailyTaskDao dailyTaskDao;
     private final StudentArrivalCheckinDao studentArrivalCheckinDao;
     private final TeacherDao teacherDao;
+    private final StudentMealRecordDao studentMealRecordDao;
+    private final StudentLeaveRecordDao studentLeaveRecordDao;
 
     public AdminStatsService(TeachingUnitDao teachingUnitDao, StudentDao studentDao, DailyTaskDao dailyTaskDao,
-                              StudentArrivalCheckinDao studentArrivalCheckinDao, TeacherDao teacherDao) {
+                              StudentArrivalCheckinDao studentArrivalCheckinDao, TeacherDao teacherDao,
+                              StudentMealRecordDao studentMealRecordDao, StudentLeaveRecordDao studentLeaveRecordDao) {
         this.teachingUnitDao = teachingUnitDao;
         this.studentDao = studentDao;
         this.dailyTaskDao = dailyTaskDao;
         this.studentArrivalCheckinDao = studentArrivalCheckinDao;
         this.teacherDao = teacherDao;
+        this.studentMealRecordDao = studentMealRecordDao;
+        this.studentLeaveRecordDao = studentLeaveRecordDao;
     }
 
     public EnrollmentSummary getEnrollmentSummary(Long institutionId) {
@@ -64,6 +72,28 @@ public class AdminStatsService {
                 .toList();
 
         return new EnrollmentSummary(enrolledStudents.size(), custodyCount, offCampusOnlyCount, byTeacher);
+    }
+
+    public TodaySnapshot getTodaySnapshot(Long institutionId, LocalDate date) {
+        List<TeachingUnit> custodyUnits = teachingUnitDao.findAllByInstitutionId(institutionId).stream()
+                .filter(unit -> unit.billingMode() == BillingMode.MONTHLY)
+                .toList();
+
+        int arrivedCount = 0;
+        int mealCount = 0;
+        int leaveCount = 0;
+        int totalCustodyStudentCount = 0;
+
+        for (TeachingUnit unit : custodyUnits) {
+            totalCustodyStudentCount += (int) studentDao.findAllByTeachingUnitId(unit.id()).stream()
+                    .filter(Student::enrolled)
+                    .count();
+            arrivedCount += studentArrivalCheckinDao.findAllByTeachingUnitIdAndDate(unit.id(), date).size();
+            mealCount += studentMealRecordDao.findAllByTeachingUnitIdAndDate(unit.id(), date).size();
+            leaveCount += studentLeaveRecordDao.findAllByTeachingUnitIdAndDate(unit.id(), date).size();
+        }
+
+        return new TodaySnapshot(arrivedCount, mealCount, leaveCount, totalCustodyStudentCount);
     }
 
     public List<ClassSummary> getDashboard(Long institutionId, LocalDate date) {

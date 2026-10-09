@@ -6,10 +6,13 @@ import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.auth.web.LoginResponse;
+import com.tuoguan.backend.billing.dao.StudentLeaveRecordDao;
 import com.tuoguan.backend.course.dao.CourseConsumptionRecordDao;
 import com.tuoguan.backend.course.dao.CourseRechargeRecordDao;
 import com.tuoguan.backend.course.domain.CourseConsumptionRecord;
 import com.tuoguan.backend.course.domain.CourseRechargeRecord;
+import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
+import com.tuoguan.backend.kanban.dao.StudentMealRecordDao;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.unit.dao.TeachingUnitDao;
@@ -45,6 +48,15 @@ class AdminOverviewControllerTest extends IntegrationTestBase {
 
     @Autowired
     private StudentDao studentDao;
+
+    @Autowired
+    private StudentArrivalCheckinDao studentArrivalCheckinDao;
+
+    @Autowired
+    private StudentMealRecordDao studentMealRecordDao;
+
+    @Autowired
+    private StudentLeaveRecordDao studentLeaveRecordDao;
 
     @Autowired
     private CourseRechargeRecordDao courseRechargeRecordDao;
@@ -301,6 +313,138 @@ class AdminOverviewControllerTest extends IntegrationTestBase {
         String teacherToken = login("13600007003", "teacher-password");
 
         mockMvc.perform(get("/api/admin/overview/enrollment")
+                        .header("Authorization", "Bearer " + teacherToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void todaySnapshotCountsArrivalMealLeaveForOneCustodyClass() throws Exception {
+        Long institutionId = institutionDao.insert("今日快照测试机构A");
+        teacherDao.insert(new Teacher(null, institutionId, "13900016001",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900016002",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "快照一班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long student1Id = studentDao.insert(new Student(null, institutionId, classRoomId, "学生甲", "一班", true, null, null));
+        studentDao.insert(new Student(null, institutionId, classRoomId, "学生乙", "一班", true, null, null));
+        LocalDate today = LocalDate.now();
+
+        studentArrivalCheckinDao.upsert(institutionId, classRoomId, student1Id, today, "08:00");
+        studentMealRecordDao.upsert(institutionId, classRoomId, student1Id, today);
+
+        String adminToken = login("13900016001", "admin-password");
+
+        mockMvc.perform(get("/api/admin/overview/today")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.arrivedCount").value(1))
+                .andExpect(jsonPath("$.mealCount").value(1))
+                .andExpect(jsonPath("$.leaveCount").value(0))
+                .andExpect(jsonPath("$.totalCustodyStudentCount").value(2));
+    }
+
+    @Test
+    void todaySnapshotSumsAcrossMultipleCustodyClasses() throws Exception {
+        Long institutionId = institutionDao.insert("今日快照测试机构B");
+        teacherDao.insert(new Teacher(null, institutionId, "13900016010",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherAId = teacherDao.insert(new Teacher(null, institutionId, "13900016011",
+                passwordEncoder.encode("teacher-password-a"), Role.TEACHER, false, null));
+        Long teacherBId = teacherDao.insert(new Teacher(null, institutionId, "13900016012",
+                passwordEncoder.encode("teacher-password-b"), Role.TEACHER, false, null));
+        Long classAId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherAId, "快照A班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long classBId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherBId, "快照B班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long studentAId = studentDao.insert(new Student(null, institutionId, classAId, "甲班学生", "一班", true, null, null));
+        Long studentBId = studentDao.insert(new Student(null, institutionId, classBId, "乙班学生", "一班", true, null, null));
+        LocalDate today = LocalDate.now();
+
+        studentArrivalCheckinDao.upsert(institutionId, classAId, studentAId, today, "08:00");
+        studentArrivalCheckinDao.upsert(institutionId, classBId, studentBId, today, "08:30");
+        studentLeaveRecordDao.upsert(institutionId, studentBId, classBId, today, "发烧");
+
+        String adminToken = login("13900016010", "admin-password");
+
+        mockMvc.perform(get("/api/admin/overview/today")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.arrivedCount").value(2))
+                .andExpect(jsonPath("$.mealCount").value(0))
+                .andExpect(jsonPath("$.leaveCount").value(1))
+                .andExpect(jsonPath("$.totalCustodyStudentCount").value(2));
+    }
+
+    @Test
+    void todaySnapshotExcludesDisabledStudentsFromTotalCustodyCount() throws Exception {
+        Long institutionId = institutionDao.insert("今日快照测试机构C");
+        teacherDao.insert(new Teacher(null, institutionId, "13900016020",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900016021",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "快照C班",
+                BillingMode.MONTHLY, null, null, true, null));
+        studentDao.insert(new Student(null, institutionId, classRoomId, "在读学生", "一班", true, null, null));
+        studentDao.insert(new Student(null, institutionId, classRoomId, "停用学生", "一班", false, null, null));
+
+        String adminToken = login("13900016020", "admin-password");
+
+        mockMvc.perform(get("/api/admin/overview/today")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalCustodyStudentCount").value(1))
+                .andExpect(jsonPath("$.arrivedCount").value(0));
+    }
+
+    @Test
+    void todaySnapshotForEmptyInstitutionReturnsAllZeros() throws Exception {
+        Long institutionId = institutionDao.insert("今日快照测试机构D");
+        teacherDao.insert(new Teacher(null, institutionId, "13900016030",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        String adminToken = login("13900016030", "admin-password");
+
+        mockMvc.perform(get("/api/admin/overview/today")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.arrivedCount").value(0))
+                .andExpect(jsonPath("$.mealCount").value(0))
+                .andExpect(jsonPath("$.leaveCount").value(0))
+                .andExpect(jsonPath("$.totalCustodyStudentCount").value(0));
+    }
+
+    @Test
+    void todaySnapshotForClassWithNoStudentsYetReturnsAllZerosWithoutThrowing() throws Exception {
+        // 覆盖"机构下有托管班，但这个班还没有学生"这个场景——跟上一个测试（机构里
+        // 一个托管班都没有）是不同的代码路径：这里 for 循环会真的跑一轮，只是内部
+        // 的学生列表和签到/用餐/请假列表都是空的，必须确认不会抛异常、不会把 null
+        // 当成 0 处理错。
+        Long institutionId = institutionDao.insert("今日快照测试机构F");
+        teacherDao.insert(new Teacher(null, institutionId, "13900016050",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900016051",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "空班",
+                BillingMode.MONTHLY, null, null, true, null));
+        String adminToken = login("13900016050", "admin-password");
+
+        mockMvc.perform(get("/api/admin/overview/today")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.arrivedCount").value(0))
+                .andExpect(jsonPath("$.mealCount").value(0))
+                .andExpect(jsonPath("$.leaveCount").value(0))
+                .andExpect(jsonPath("$.totalCustodyStudentCount").value(0));
+    }
+
+    @Test
+    void todaySnapshotRejectsNonAdminCaller() throws Exception {
+        Long institutionId = institutionDao.insert("今日快照测试机构E");
+        teacherDao.insert(new Teacher(null, institutionId, "13900016040",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        String teacherToken = login("13900016040", "teacher-password");
+
+        mockMvc.perform(get("/api/admin/overview/today")
                         .header("Authorization", "Bearer " + teacherToken))
                 .andExpect(status().isForbidden());
     }
