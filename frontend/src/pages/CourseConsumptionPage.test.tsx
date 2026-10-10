@@ -2,9 +2,15 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { CourseConsumptionPage } from './CourseConsumptionPage'
 import * as courseApi from '../api/course'
+import * as studentsApi from '../api/students'
 import { ApiError } from '../api/client'
+import QRCode from 'qrcode'
 
 vi.mock('../api/course')
+vi.mock('../api/students')
+vi.mock('qrcode', () => ({
+  default: { toCanvas: vi.fn() },
+}))
 
 const COURSES: courseApi.Course[] = [
   { id: 1, name: '书法课', pricePerLesson: 50, lessonDurationMinutes: 60, active: true },
@@ -26,6 +32,8 @@ describe('CourseConsumptionPage', () => {
     vi.resetAllMocks()
     vi.mocked(courseApi.fetchMyCourses).mockResolvedValue(COURSES)
     vi.mocked(courseApi.fetchCourseRoster).mockResolvedValue(ROSTER)
+    vi.mocked(studentsApi.fetchShareLink).mockResolvedValue({ token: 'abc123' })
+    vi.mocked(QRCode.toCanvas).mockResolvedValue(undefined as never)
   })
 
   it('shows a message to contact the admin when there are no assigned courses', async () => {
@@ -192,5 +200,28 @@ describe('CourseConsumptionPage', () => {
     expect(screen.getByText('该课程尚未配置单价，请联系管理员配置后再消课')).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: /小明/ })).toBeDisabled()
     expect(screen.getByRole('button', { name: /确认消课/ })).toBeDisabled()
+  })
+
+  it('opens the parent share-link modal for a student without toggling their attendance checkbox', async () => {
+    setup()
+    await screen.findByText('小明')
+
+    expect(screen.getByRole('checkbox', { name: /小明/ })).toBeChecked()
+    fireEvent.click(screen.getByRole('button', { name: '查看小明的家长专属链接' }))
+
+    expect(await screen.findByRole('dialog', { name: '家长专属链接' })).toBeInTheDocument()
+    expect(studentsApi.fetchShareLink).toHaveBeenCalledWith(100)
+    expect(screen.getByRole('checkbox', { name: /小明/ })).toBeChecked()
+  })
+
+  it('closes the share-link modal via its 完成 button', async () => {
+    setup()
+    await screen.findByText('小明')
+
+    fireEvent.click(screen.getByRole('button', { name: '查看小明的家长专属链接' }))
+    await screen.findByRole('dialog', { name: '家长专属链接' })
+    fireEvent.click(screen.getByRole('button', { name: '完成' }))
+
+    expect(screen.queryByRole('dialog', { name: '家长专属链接' })).not.toBeInTheDocument()
   })
 })

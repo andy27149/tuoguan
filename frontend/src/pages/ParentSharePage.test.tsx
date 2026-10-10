@@ -71,7 +71,7 @@ describe('ParentSharePage', () => {
     expect(screen.getByText('三年级1班')).toBeInTheDocument()
     expect(screen.getByText(/已完成 1 天/)).toBeInTheDocument()
     expect(screen.getByText(/未完成 1 天/, { selector: '.stats-summary__muted' })).toBeInTheDocument()
-    expect(screen.getByText(/关注机构公众号/)).toBeInTheDocument()
+    expect(screen.queryByText(/关注机构公众号/)).not.toBeInTheDocument()
     expect(publicShareApi.fetchPublicShare).toHaveBeenCalledWith('abc123', currentMonthString())
   })
 

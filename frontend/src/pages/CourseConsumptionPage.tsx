@@ -3,6 +3,9 @@ import * as courseApi from '../api/course'
 import { ApiError } from '../api/client'
 import { BrandMark } from '../brand/BrandMark'
 import { RollCallResultModal } from '../components/RollCallResultModal'
+import { ShareLinkModal } from '../components/ShareLinkModal'
+import { Toast } from '../components/Toast'
+import { useToast } from '../hooks/useToast'
 
 interface CourseConsumptionPageProps {
   onBack: () => void
@@ -28,6 +31,8 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
   const [presentStudentIds, setPresentStudentIds] = useState<Set<number>>(new Set())
   const [rollCallSubmitting, setRollCallSubmitting] = useState(false)
   const [rollCallResult, setRollCallResult] = useState<RollCallResult | null>(null)
+  const [sharingLinkStudent, setSharingLinkStudent] = useState<courseApi.CourseRosterEntry | null>(null)
+  const { toastMessage, showToast } = useToast()
 
   useEffect(() => {
     loadCourses()
@@ -187,6 +192,20 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
                           <span className={balanceBadgeClass(entry.balance)}>余额：{entry.balance} 课时</span>
                         )}
                       </span>
+                      <span className="roster-card__actions">
+                        <button
+                          type="button"
+                          className="roster-card__action-btn"
+                          aria-label={`查看${entry.name}的家长专属链接`}
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            setSharingLinkStudent(entry)
+                          }}
+                        >
+                          🔗
+                        </button>
+                      </span>
                       <span className="roster-card__check" aria-hidden="true">
                         <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
                           <polyline points="20 6 9 17 4 12"></polyline>
@@ -230,6 +249,17 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
           onClose={() => setRollCallResult(null)}
         />
       )}
+
+      {sharingLinkStudent && (
+        <ShareLinkModal
+          studentId={sharingLinkStudent.studentId}
+          studentName={sharingLinkStudent.name}
+          onClose={() => setSharingLinkStudent(null)}
+          onShowToast={showToast}
+        />
+      )}
+
+      <Toast message={toastMessage} />
     </div>
   )
 }

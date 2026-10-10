@@ -83,8 +83,6 @@ export function ParentSharePage({ token }: ParentSharePageProps) {
 
             {share.courseActivity.length > 0 && <CourseActivityView rows={share.courseActivity} />}
 
-            <p className="parent-share-page__cta">🌱 关注机构公众号，获取更多成长动态与消息提醒</p>
-
             <p className="parent-share-page__brand">
               <BrandMark size={14} />
               奕成长课后平台
