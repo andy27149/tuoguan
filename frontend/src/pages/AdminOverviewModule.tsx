@@ -11,7 +11,7 @@ interface AdminOverviewModuleProps {
 export function AdminOverviewModule({ onOpenBilling }: AdminOverviewModuleProps) {
   return (
     <div className="p-5">
-      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <LowBalanceCard />
           <UnpaidBillsCard onOpenBilling={onOpenBilling} />
