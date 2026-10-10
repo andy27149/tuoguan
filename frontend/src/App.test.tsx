@@ -93,17 +93,18 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '查看托管看板' })).toBeInTheDocument()
   })
 
-  it('shows 学生管理 but hides 消课 for a teacher with a class but no courses', async () => {
+  it('hides both 学生管理 (moved to the admin backend) and 消课 for a teacher with a class but no courses', async () => {
     loginAsTeacher()
     vi.mocked(classesApi.fetchClasses).mockResolvedValue([{ id: 1, name: '一班' }])
     vi.mocked(courseApi.fetchMyCourses).mockResolvedValue([])
 
     render(<App />)
 
-    expect(await screen.findByRole('button', { name: '学生管理' })).toBeInTheDocument()
+    expect(await screen.findByText('托管班看板')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '学生管理' })).not.toBeInTheDocument()
     // hasClasses/hasCourses both default to true before the resource-check effect resolves,
     // so 消课 can be present on the very first paint — wait for the effect to settle rather
-    // than asserting synchronously right after an unrelated findByRole.
+    // than asserting synchronously right after an unrelated findByText.
     await waitFor(() => expect(screen.queryByRole('button', { name: '消课' })).not.toBeInTheDocument())
   })
 

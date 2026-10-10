@@ -3,7 +3,6 @@ import { AuthProvider, useAuth } from './auth/AuthContext'
 import { LoginPage } from './pages/LoginPage'
 import { ChangePasswordPage } from './pages/ChangePasswordPage'
 import { KanbanPage } from './pages/KanbanPage'
-import { RosterPage } from './pages/RosterPage'
 import { CourseConsumptionPage } from './pages/CourseConsumptionPage'
 import { AdminDashboardPage } from './pages/AdminDashboardPage'
 import { PlatformAdminPage } from './pages/PlatformAdminPage'
@@ -17,7 +16,7 @@ function AuthenticatedApp() {
   const isAdmin = state.status === 'authenticated' && state.teacher.role === 'ADMIN'
   // 机构管理员默认落地机构管理后台（桌面端仪表盘），而不是为手机单班级场景设计的只读看板；
   // 教师仍然默认落地看板，这是他们的日常工作台。
-  const [view, setView] = useState<'kanban' | 'roster' | 'consumption' | 'admin'>(isAdmin ? 'admin' : 'kanban')
+  const [view, setView] = useState<'kanban' | 'consumption' | 'admin'>(isAdmin ? 'admin' : 'kanban')
   const [jumpToClassId, setJumpToClassId] = useState<number | null>(null)
   const [resourcesLoading, setResourcesLoading] = useState(!isAdmin)
   const [hasClasses, setHasClasses] = useState(true)
@@ -50,9 +49,6 @@ function AuthenticatedApp() {
   }
 
   function renderView() {
-    if (view === 'roster') {
-      return <RosterPage onBack={() => setView('kanban')} />
-    }
     if (view === 'consumption') {
       return <CourseConsumptionPage onBack={() => setView('kanban')} />
     }
@@ -60,11 +56,10 @@ function AuthenticatedApp() {
       return <AdminDashboardPage onBack={() => setView('kanban')} onOpenClassKanban={handleOpenClassKanban} />
     }
     if (!isAdmin && !resourcesLoading && !hasClasses && !hasCourses) {
-      return <EmptyTeacherState onOpenRoster={() => setView('roster')} onLogout={logout} />
+      return <EmptyTeacherState onLogout={logout} />
     }
     return (
       <KanbanPage
-        onOpenRoster={() => setView('roster')}
         onOpenConsumption={() => setView('consumption')}
         onOpenAdmin={() => setView('admin')}
         initialClassId={jumpToClassId ?? undefined}

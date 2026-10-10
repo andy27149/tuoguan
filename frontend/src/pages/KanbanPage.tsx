@@ -37,7 +37,6 @@ const EMPTY_ARRIVAL = ''
 const EMPTY_LEAVE = ''
 
 interface KanbanPageProps {
-  onOpenRoster: () => void
   onOpenConsumption: () => void
   onOpenAdmin?: () => void
   initialClassId?: number
@@ -46,7 +45,6 @@ interface KanbanPageProps {
 }
 
 export function KanbanPage({
-  onOpenRoster,
   onOpenConsumption,
   onOpenAdmin,
   initialClassId,
@@ -359,9 +357,6 @@ export function KanbanPage({
     }
     return (
       <EmptyState icon="📋" message="暂无托管班级，请联系管理员创建。">
-        <button type="button" onClick={onOpenRoster} className="logout-btn">
-          前往学生管理
-        </button>
         <button type="button" onClick={logout} className="logout-btn">
           退出登录
         </button>
@@ -448,11 +443,6 @@ export function KanbanPage({
             {isAdmin && <span className="flag-chip">只读</span>}
           </h1>
           <div className="flex gap-2">
-            {!isAdmin && hasClasses && (
-              <button type="button" onClick={onOpenRoster} className="logout-btn">
-                学生管理
-              </button>
-            )}
             {!isAdmin && hasCourses && (
               <button type="button" onClick={onOpenConsumption} className="logout-btn">
                 消课
