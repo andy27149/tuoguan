@@ -6,24 +6,40 @@ interface AssignTaskBarProps {
   studentsBySchoolClass: SchoolClassGroup[]
   templates: TaskTemplate[]
   onAssign: (schoolClassName: string | null, templateIds: number[]) => Promise<void>
+  onAssignAll: (templateIds: number[]) => Promise<void>
 }
 
 const UNASSIGNED_LABEL = '未分班'
+const ALL_LABEL = '全部学生'
+// 虚拟分组下标：真实分组下标从 0 开始，-1 专门留给“全部学生”这个跨分组选项。
+const ALL_TARGET_INDEX = -1
 
 function groupLabel(group: SchoolClassGroup): string {
   return group.schoolClassName ?? UNASSIGNED_LABEL
 }
 
-export function AssignTaskBar({ studentsBySchoolClass, templates, onAssign }: AssignTaskBarProps) {
+function defaultTargetIndex(groups: SchoolClassGroup[]): number | null {
+  if (groups.length > 1) return ALL_TARGET_INDEX
+  if (groups.length === 1) return 0
+  return null
+}
+
+function isValidTargetIndex(index: number | null, groups: SchoolClassGroup[]): boolean {
+  if (index === null) return false
+  if (index === ALL_TARGET_INDEX) return groups.length > 1
+  return index >= 0 && index < groups.length
+}
+
+export function AssignTaskBar({ studentsBySchoolClass, templates, onAssign, onAssignAll }: AssignTaskBarProps) {
   // 用下标而非班级名表示当前选中的分组：班级名可能为 null（学籍班选填且未填写），
   // 不能用 "名字是否为假值" 来判断"是否选中了一个分组"。
-  const [targetIndex, setTargetIndex] = useState<number | null>(studentsBySchoolClass.length > 0 ? 0 : null)
+  const [targetIndex, setTargetIndex] = useState<number | null>(defaultTargetIndex(studentsBySchoolClass))
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    if (targetIndex === null || targetIndex >= studentsBySchoolClass.length) {
-      setTargetIndex(studentsBySchoolClass.length > 0 ? 0 : null)
+    if (!isValidTargetIndex(targetIndex, studentsBySchoolClass)) {
+      setTargetIndex(defaultTargetIndex(studentsBySchoolClass))
       setSelected(new Set())
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -49,19 +65,25 @@ export function AssignTaskBar({ studentsBySchoolClass, templates, onAssign }: As
 
   async function handleAssign() {
     if (selected.size === 0 || targetIndex === null) return
-    const target = studentsBySchoolClass[targetIndex]
     setSubmitting(true)
     try {
-      await onAssign(target.schoolClassName, [...selected])
+      if (targetIndex === ALL_TARGET_INDEX) {
+        await onAssignAll([...selected])
+      } else {
+        const target = studentsBySchoolClass[targetIndex]
+        await onAssign(target.schoolClassName, [...selected])
+      }
       setSelected(new Set())
     } finally {
       setSubmitting(false)
     }
   }
 
-  const targetGroup = targetIndex !== null ? studentsBySchoolClass[targetIndex] : undefined
-  const targetCount = targetGroup?.students.length ?? 0
-  const targetLabel = targetGroup ? groupLabel(targetGroup) : ''
+  const isAllTarget = targetIndex === ALL_TARGET_INDEX
+  const targetGroup = targetIndex !== null && targetIndex >= 0 ? studentsBySchoolClass[targetIndex] : undefined
+  const allStudentsCount = studentsBySchoolClass.reduce((sum, g) => sum + g.students.length, 0)
+  const targetCount = isAllTarget ? allStudentsCount : (targetGroup?.students.length ?? 0)
+  const targetLabel = isAllTarget ? ALL_LABEL : targetGroup ? groupLabel(targetGroup) : ''
   const multiGroup = studentsBySchoolClass.length > 1
 
   return (
@@ -70,6 +92,15 @@ export function AssignTaskBar({ studentsBySchoolClass, templates, onAssign }: As
 
       {multiGroup ? (
         <div className="assign-target-tabs" role="tablist" aria-label="分配对象">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={targetIndex === ALL_TARGET_INDEX}
+            className="assign-target-tab"
+            onClick={() => selectTarget(ALL_TARGET_INDEX)}
+          >
+            {ALL_LABEL}（{allStudentsCount}人）
+          </button>
           {studentsBySchoolClass.map((g, i) => (
             <button
               key={g.schoolClassName ?? `__unassigned_${i}`}

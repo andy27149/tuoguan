@@ -15,6 +15,7 @@ import { todayDateString } from '../kanban/date'
 import { groupBySchoolClass } from '../kanban/schoolClass'
 import { StudentCard } from '../components/StudentCard'
 import { AssignTaskBar } from '../components/AssignTaskBar'
+import { CompleteAllTasksButton } from '../components/CompleteAllTasksButton'
 import { DismissButton } from '../components/DismissButton'
 import { TaskTemplateManager } from '../components/TaskTemplateManager'
 import { Toast } from '../components/Toast'
@@ -167,6 +168,21 @@ export function KanbanPage({
     )
     await refreshTasks()
     showToast(`已分配给${schoolClassName ?? '未分班'}`)
+  }
+
+  async function handleAssignAll(templateIds: number[]) {
+    if (activeClassId === null) return
+    await dailyTasksApi.batchAssign(activeClassId, templateIds, date)
+    await refreshTasks()
+    showToast('已分配给全部学生')
+  }
+
+  async function handleCompleteAll() {
+    const incompleteTasks = tasks.filter((t) => !t.completed)
+    if (incompleteTasks.length === 0) return
+    await Promise.all(incompleteTasks.map((t) => dailyTasksApi.setCompleted(t.id, true)))
+    await refreshTasks()
+    showToast('已将今日任务全部标记为完成')
   }
 
   async function handleAddFromTemplate(studentId: number, templateId: number) {
@@ -500,6 +516,13 @@ export function KanbanPage({
                   studentsBySchoolClass={schoolClassGroups}
                   templates={templates}
                   onAssign={handleBatchAssign}
+                  onAssignAll={handleAssignAll}
+                />
+
+                <CompleteAllTasksButton
+                  taskCount={tasks.filter((t) => !t.completed).length}
+                  studentCount={new Set(tasks.filter((t) => !t.completed).map((t) => t.studentId)).size}
+                  onCompleteAll={handleCompleteAll}
                 />
               </>
             )}
