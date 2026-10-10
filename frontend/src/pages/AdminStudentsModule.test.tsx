@@ -7,6 +7,24 @@ import * as unitApi from '../api/unit'
 vi.mock('../api/course')
 vi.mock('../api/unit')
 
+function makeStudents(count: number, idOffset = 100, teacherName: string | null = null): courseApi.AdminStudent[] {
+  return Array.from({ length: count }, (_, i) => {
+    const n = i + 1
+    return {
+      id: idOffset + n,
+      name: `学生${String(n).padStart(3, '0')}`,
+      schoolClassName: null,
+      classRoomId: null,
+      classRoomName: null,
+      offCampusOnly: true,
+      enrolled: true,
+      teacherName,
+      enrolledCourseNames: [],
+      enrolledCourseIds: [],
+    }
+  })
+}
+
 const STUDENTS: courseApi.AdminStudent[] = [
   {
     id: 1,
@@ -474,5 +492,83 @@ describe('AdminStudentsModule', () => {
     await waitFor(() => expect(courseApi.fetchAdminStudents).toHaveBeenCalledTimes(2))
     expect(screen.queryByText('小红')).not.toBeInTheDocument()
     expect(screen.getByText('暂无学生')).toBeInTheDocument()
+  })
+
+  it('renders pagination controls reflecting the total filtered count and a page size of 20', async () => {
+    render(<AdminStudentsModule />)
+    await screen.findByText('小明')
+
+    expect(screen.getByText('共 3 条 · 第 1 页 / 共 1 页')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '上一页' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '下一页' })).toBeDisabled()
+  })
+
+  it('shows only 20 students on the first page, advancing to the rest via the pagination control', async () => {
+    vi.mocked(courseApi.fetchAdminStudents).mockResolvedValue(makeStudents(25))
+    render(<AdminStudentsModule />)
+    await screen.findByText('学生001')
+
+    expect(screen.getByText('学生020')).toBeInTheDocument()
+    expect(screen.queryByText('学生021')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '下一页' }))
+
+    expect(await screen.findByText('学生021')).toBeInTheDocument()
+    expect(screen.getByText('学生025')).toBeInTheDocument()
+    expect(screen.queryByText('学生001')).not.toBeInTheDocument()
+  })
+
+  it('resets to page 1 when a filter changes, even if the current page was not page 1', async () => {
+    vi.mocked(courseApi.fetchAdminStudents).mockResolvedValue(makeStudents(25))
+    render(<AdminStudentsModule />)
+    await screen.findByText('学生001')
+
+    fireEvent.click(screen.getByRole('button', { name: '下一页' }))
+    await screen.findByText('学生021')
+
+    // 这个查询仍然匹配全部 25 个学生（都叫"学生xxx"），只是用来触发一次筛选条件变化。
+    fireEvent.change(screen.getByLabelText('姓名搜索'), { target: { value: '学生' } })
+
+    expect(await screen.findByText('学生001')).toBeInTheDocument()
+    expect(screen.getByText('共 25 条 · 第 1 页 / 共 2 页')).toBeInTheDocument()
+  })
+
+  it('resets to page 1 when the identity or custody-teacher filter changes, not just the name search', async () => {
+    vi.mocked(courseApi.fetchAdminStudents).mockResolvedValue(makeStudents(25, 100, '赵老师'))
+    render(<AdminStudentsModule />)
+    await screen.findByText('学生001')
+
+    fireEvent.click(screen.getByRole('button', { name: '下一页' }))
+    await screen.findByText('学生021')
+    fireEvent.change(screen.getByLabelText('身份筛选'), { target: { value: 'OFF_CAMPUS_ONLY' } })
+    expect(await screen.findByText('学生001')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '下一页' }))
+    await screen.findByText('学生021')
+    fireEvent.change(screen.getByLabelText('托管教师筛选'), { target: { value: '赵老师' } })
+    expect(await screen.findByText('学生001')).toBeInTheDocument()
+  })
+
+  it('clamps to the new last page (not page 1) when a data refresh shrinks the filtered results across fewer pages', async () => {
+    vi.mocked(courseApi.fetchAdminStudents)
+      .mockResolvedValueOnce(makeStudents(45))
+      .mockResolvedValueOnce(makeStudents(25))
+    vi.mocked(courseApi.updateAdminStudent).mockResolvedValue(makeStudents(45)[40])
+    render(<AdminStudentsModule />)
+    await screen.findByText('学生001')
+
+    fireEvent.click(screen.getByRole('button', { name: '下一页' }))
+    await screen.findByText('学生021')
+    fireEvent.click(screen.getByRole('button', { name: '下一页' }))
+    const student041 = await screen.findByText('学生041')
+    expect(student041).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '编辑学生041' }))
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+
+    await waitFor(() => expect(courseApi.fetchAdminStudents).toHaveBeenCalledTimes(2))
+    expect(await screen.findByText('共 25 条 · 第 2 页 / 共 2 页')).toBeInTheDocument()
+    expect(screen.getByText('学生021')).toBeInTheDocument()
+    expect(screen.queryByText('学生041')).not.toBeInTheDocument()
   })
 })

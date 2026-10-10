@@ -5,6 +5,7 @@ import { ApiError } from '../api/client'
 import { AdminCourseStatementModal } from '../components/AdminCourseStatementModal'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { CreateStudentModal } from '../components/CreateStudentModal'
+import { Pagination } from '../components/Pagination'
 
 export function AdminStudentsModule() {
   const [students, setStudents] = useState<courseApi.AdminStudent[]>([])
@@ -20,6 +21,9 @@ export function AdminStudentsModule() {
   const [identityFilter, setIdentityFilter] = useState<IdentityFilter>('ALL')
   const [teacherFilter, setTeacherFilter] = useState('')
   const [nameQuery, setNameQuery] = useState('')
+
+  const PAGE_SIZE = 20
+  const [currentPage, setCurrentPage] = useState(1)
 
   const [statementStudent, setStatementStudent] = useState<{ id: number; name: string } | null>(null)
 
@@ -75,6 +79,28 @@ export function AdminStudentsModule() {
       return true
     })
   }, [students, identityFilter, teacherFilter, nameQuery])
+
+  const totalPages = Math.max(1, Math.ceil(filteredStudents.length / PAGE_SIZE))
+  const currentPageClamped = Math.min(currentPage, totalPages)
+  const pageItems = useMemo(
+    () => filteredStudents.slice((currentPageClamped - 1) * PAGE_SIZE, currentPageClamped * PAGE_SIZE),
+    [filteredStudents, currentPageClamped],
+  )
+
+  function handleIdentityFilterChange(value: IdentityFilter) {
+    setIdentityFilter(value)
+    setCurrentPage(1)
+  }
+
+  function handleTeacherFilterChange(value: string) {
+    setTeacherFilter(value)
+    setCurrentPage(1)
+  }
+
+  function handleNameQueryChange(value: string) {
+    setNameQuery(value)
+    setCurrentPage(1)
+  }
 
   function toggleCourseId(courseIds: number[], courseId: number): number[] {
     return courseIds.includes(courseId) ? courseIds.filter((id) => id !== courseId) : [...courseIds, courseId]
@@ -194,7 +220,7 @@ export function AdminStudentsModule() {
             <select
               aria-label="身份筛选"
               value={identityFilter}
-              onChange={(e) => setIdentityFilter(e.target.value as IdentityFilter)}
+              onChange={(e) => handleIdentityFilterChange(e.target.value as IdentityFilter)}
               className="mt-1 block rounded-lg border border-[#ece7de] px-2.5 py-1.5 text-sm text-[#241f3d]"
             >
               <option value="ALL">全部</option>
@@ -207,7 +233,7 @@ export function AdminStudentsModule() {
             <select
               aria-label="托管教师筛选"
               value={teacherFilter}
-              onChange={(e) => setTeacherFilter(e.target.value)}
+              onChange={(e) => handleTeacherFilterChange(e.target.value)}
               className="mt-1 block rounded-lg border border-[#ece7de] px-2.5 py-1.5 text-sm text-[#241f3d]"
             >
               <option value="">全部</option>
@@ -224,7 +250,7 @@ export function AdminStudentsModule() {
               aria-label="姓名搜索"
               placeholder="搜索姓名"
               value={nameQuery}
-              onChange={(e) => setNameQuery(e.target.value)}
+              onChange={(e) => handleNameQueryChange(e.target.value)}
               className="mt-1 block rounded-lg border border-[#ece7de] px-2.5 py-1.5 text-sm text-[#241f3d]"
             />
           </div>
@@ -253,7 +279,7 @@ export function AdminStudentsModule() {
               </tr>
             </thead>
             <tbody>
-              {filteredStudents.map((student) => {
+              {pageItems.map((student) => {
                 const isEditing = editingStudent?.id === student.id
                 return (
                   <tr key={student.id} className="border-b border-[#ece7de] align-middle hover:bg-[#faf7ff]">
@@ -430,6 +456,12 @@ export function AdminStudentsModule() {
               )}
             </tbody>
           </table>
+          <Pagination
+            page={currentPageClamped}
+            totalPages={totalPages}
+            totalItems={filteredStudents.length}
+            onPageChange={setCurrentPage}
+          />
           </div>
         )}
       </div>
