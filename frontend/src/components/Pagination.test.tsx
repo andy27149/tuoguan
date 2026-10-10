@@ -42,4 +42,32 @@ describe('Pagination', () => {
     expect(screen.getByRole('button', { name: '上一页' })).not.toBeDisabled()
     expect(screen.getByRole('button', { name: '下一页' })).not.toBeDisabled()
   })
+
+  it('calls onPageChange with the previous page number when clicking 上一页', () => {
+    const onPageChange = vi.fn()
+    render(<Pagination page={2} totalPages={3} totalItems={50} onPageChange={onPageChange} />)
+
+    fireEvent.click(screen.getByRole('button', { name: '上一页' }))
+
+    expect(onPageChange).toHaveBeenCalledWith(1)
+  })
+
+  it('calls onPageChange with the next page number when clicking 下一页', () => {
+    const onPageChange = vi.fn()
+    render(<Pagination page={2} totalPages={3} totalItems={50} onPageChange={onPageChange} />)
+
+    fireEvent.click(screen.getByRole('button', { name: '下一页' }))
+
+    expect(onPageChange).toHaveBeenCalledWith(3)
+  })
+
+  it('does not call onPageChange when clicking a disabled button', () => {
+    const onPageChange = vi.fn()
+    render(<Pagination page={1} totalPages={1} totalItems={5} onPageChange={onPageChange} />)
+
+    fireEvent.click(screen.getByRole('button', { name: '上一页' }))
+    fireEvent.click(screen.getByRole('button', { name: '下一页' }))
+
+    expect(onPageChange).not.toHaveBeenCalled()
+  })
 })
