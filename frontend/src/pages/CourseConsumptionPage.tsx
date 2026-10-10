@@ -2,9 +2,15 @@ import { useEffect, useState } from 'react'
 import * as courseApi from '../api/course'
 import { ApiError } from '../api/client'
 import { BrandMark } from '../brand/BrandMark'
+import { RollCallResultModal } from '../components/RollCallResultModal'
 
 interface CourseConsumptionPageProps {
   onBack: () => void
+}
+
+interface RollCallResult {
+  type: 'success' | 'warning'
+  message: string
 }
 
 function todayDateString() {
@@ -21,8 +27,7 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
   const [rollCallDate, setRollCallDate] = useState(todayDateString())
   const [presentStudentIds, setPresentStudentIds] = useState<Set<number>>(new Set())
   const [rollCallSubmitting, setRollCallSubmitting] = useState(false)
-  const [rollCallError, setRollCallError] = useState<string | null>(null)
-  const [rollCallSuccess, setRollCallSuccess] = useState<string | null>(null)
+  const [rollCallResult, setRollCallResult] = useState<RollCallResult | null>(null)
 
   useEffect(() => {
     loadCourses()
@@ -49,8 +54,7 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
     if (activeCourseId === null) return
     setLoading(true)
     setLoadError(null)
-    setRollCallError(null)
-    setRollCallSuccess(null)
+    setRollCallResult(null)
     courseApi
       .fetchCourseRoster(activeCourseId)
       .then(applyRoster)
@@ -86,20 +90,23 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
 
   async function submitRollCall() {
     if (activeCourseId === null) return
-    setRollCallError(null)
-    setRollCallSuccess(null)
+    setRollCallResult(null)
     if (rollCallDate > todayDateString()) {
-      setRollCallError('无法对未来日期进行消课处理！')
+      setRollCallResult({ type: 'warning', message: '无法对未来日期进行消课处理！' })
       return
     }
     setRollCallSubmitting(true)
     try {
       const created = await courseApi.recordBatchConsumption(activeCourseId, rollCallDate, Array.from(presentStudentIds))
-      setRollCallSuccess(created.length > 0 ? `已确认消课，新增 ${created.length} 条记录` : '该日期已全部确认过，无新增记录')
+      setRollCallResult({
+        type: 'success',
+        message: created.length > 0 ? `已确认消课，新增 ${created.length} 条记录` : '该日期已全部确认过，无新增记录',
+      })
     } catch (err) {
-      setRollCallError(
-        err instanceof ApiError && err.status === 400 ? '该课程尚未配置单价，请联系管理员配置' : '消课失败，请重试',
-      )
+      setRollCallResult({
+        type: 'warning',
+        message: err instanceof ApiError && err.status === 400 ? '该课程尚未配置单价，请联系管理员配置' : '消课失败，请重试',
+      })
     } finally {
       setRollCallSubmitting(false)
     }
@@ -194,17 +201,6 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
 
             <p className="admin-hint">课外课报名由管理员在后台统一配置</p>
 
-            {rollCallError && (
-              <p role="alert" className="mt-1 text-xs text-red-600">
-                {rollCallError}
-              </p>
-            )}
-            {rollCallSuccess && !rollCallError && (
-              <p role="status" className="mt-1 text-xs text-green-600">
-                {rollCallSuccess}
-              </p>
-            )}
-
             {roster.length > 0 && (
               <div className="rollcall-bar">
                 <input
@@ -226,6 +222,14 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
           </>
         )}
       </main>
+
+      {rollCallResult && (
+        <RollCallResultModal
+          type={rollCallResult.type}
+          message={rollCallResult.message}
+          onClose={() => setRollCallResult(null)}
+        />
+      )}
     </div>
   )
 }

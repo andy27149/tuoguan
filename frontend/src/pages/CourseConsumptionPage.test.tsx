@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { CourseConsumptionPage } from './CourseConsumptionPage'
 import * as courseApi from '../api/course'
@@ -122,14 +122,39 @@ describe('CourseConsumptionPage', () => {
     )
   })
 
-  it('rejects submitting a roll call for a future date', async () => {
+  it('shows a success result modal after confirming a roll call, dismissible via 知道了', async () => {
+    vi.mocked(courseApi.recordBatchConsumption).mockResolvedValue([
+      {
+        id: 1,
+        studentId: 100,
+        courseId: 1,
+        courseName: null,
+        consumptionDate: '2026-09-30',
+        priceSnapshot: 50,
+        teacherName: null,
+      },
+    ])
+    setup()
+    await screen.findByText('小明')
+
+    fireEvent.click(screen.getByRole('button', { name: '确认消课（2人）' }))
+
+    const dialog = await screen.findByRole('dialog', { name: '消课成功' })
+    expect(within(dialog).getByText('已确认消课，新增 1 条记录')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '知道了' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('rejects submitting a roll call for a future date with a warning result modal', async () => {
     setup()
     await screen.findByText('小明')
 
     fireEvent.change(screen.getByLabelText('消课日期'), { target: { value: '2099-01-01' } })
     fireEvent.click(screen.getByRole('button', { name: '确认消课（2人）' }))
 
-    expect(await screen.findByText('无法对未来日期进行消课处理！')).toBeInTheDocument()
+    const dialog = await screen.findByRole('dialog', { name: '消课提醒' })
+    expect(within(dialog).getByText('无法对未来日期进行消课处理！')).toBeInTheDocument()
     expect(courseApi.recordBatchConsumption).not.toHaveBeenCalled()
   })
 
@@ -155,7 +180,8 @@ describe('CourseConsumptionPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '确认消课（2人）' }))
 
-    expect(await screen.findByText('该课程尚未配置单价，请联系管理员配置')).toBeInTheDocument()
+    const dialog = await screen.findByRole('dialog', { name: '消课提醒' })
+    expect(within(dialog).getByText('该课程尚未配置单价，请联系管理员配置')).toBeInTheDocument()
   })
 
   it('shows an unpriced-course warning and disables roll call when the course has no price', async () => {
