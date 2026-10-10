@@ -169,6 +169,19 @@ describe('AdminStudentsModule', () => {
     expect(await screen.findByText('加载学生列表失败，请刷新重试')).toBeInTheDocument()
   })
 
+  it('opens the CreateStudentModal when clicking + 新建学生, and closing it removes the modal from the page', async () => {
+    render(<AdminStudentsModule />)
+    await screen.findByText('小明')
+
+    expect(screen.queryByRole('dialog', { name: '新建学生' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '+ 新建学生' }))
+    expect(screen.getByRole('dialog', { name: '新建学生' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '关闭' }))
+    expect(screen.queryByRole('dialog', { name: '新建学生' })).not.toBeInTheDocument()
+  })
+
   it('creates a pure off-campus student when no teaching unit is picked', async () => {
     vi.mocked(courseApi.createAdminStudent).mockResolvedValue({
       id: 3,
@@ -185,11 +198,13 @@ describe('AdminStudentsModule', () => {
     render(<AdminStudentsModule />)
     await screen.findByText('小明')
 
-    fireEvent.change(screen.getByPlaceholderText('姓名'), { target: { value: '小刚' } })
+    fireEvent.click(screen.getByRole('button', { name: '+ 新建学生' }))
+    fireEvent.change(screen.getByLabelText('姓名'), { target: { value: '小刚' } })
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
 
     await waitFor(() => expect(courseApi.createAdminStudent).toHaveBeenCalledWith('小刚', null, null, []))
     await waitFor(() => expect(courseApi.fetchAdminStudents).toHaveBeenCalledTimes(2))
+    expect(screen.queryByRole('dialog', { name: '新建学生' })).not.toBeInTheDocument()
   })
 
   it('creates a student attached to a selected teaching unit', async () => {
@@ -208,9 +223,10 @@ describe('AdminStudentsModule', () => {
     render(<AdminStudentsModule />)
     await screen.findByText('小明')
 
-    fireEvent.change(screen.getByPlaceholderText('姓名'), { target: { value: '小芳' } })
-    fireEvent.change(screen.getByPlaceholderText('学籍班'), { target: { value: '三年级一班' } })
-    fireEvent.change(screen.getByLabelText('托管班'), { target: { value: '20' } })
+    fireEvent.click(screen.getByRole('button', { name: '+ 新建学生' }))
+    fireEvent.change(screen.getByLabelText('姓名'), { target: { value: '小芳' } })
+    fireEvent.change(screen.getByLabelText('学籍班（选填）'), { target: { value: '三年级一班' } })
+    fireEvent.change(screen.getByLabelText('托管班（选填）'), { target: { value: '20' } })
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
 
     await waitFor(() =>
@@ -234,8 +250,9 @@ describe('AdminStudentsModule', () => {
     render(<AdminStudentsModule />)
     await screen.findByText('小明')
 
-    fireEvent.change(screen.getByPlaceholderText('姓名'), { target: { value: '小华' } })
-    fireEvent.click(screen.getByLabelText('书法课'))
+    fireEvent.click(screen.getByRole('button', { name: '+ 新建学生' }))
+    fireEvent.change(screen.getByLabelText('姓名'), { target: { value: '小华' } })
+    fireEvent.click(screen.getByRole('button', { name: '书法课' }))
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
 
     await waitFor(() =>
@@ -243,15 +260,17 @@ describe('AdminStudentsModule', () => {
     )
   })
 
-  it('shows an error when student creation fails', async () => {
+  it('shows an error inside the modal when student creation fails, and keeps the modal open', async () => {
     vi.mocked(courseApi.createAdminStudent).mockRejectedValue(new Error('boom'))
     render(<AdminStudentsModule />)
     await screen.findByText('小明')
 
-    fireEvent.change(screen.getByPlaceholderText('姓名'), { target: { value: '小刚' } })
+    fireEvent.click(screen.getByRole('button', { name: '+ 新建学生' }))
+    fireEvent.change(screen.getByLabelText('姓名'), { target: { value: '小刚' } })
     fireEvent.click(screen.getByRole('button', { name: '创建' }))
 
     expect(await screen.findByText('创建失败，请重试')).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: '新建学生' })).toBeInTheDocument()
   })
 
   it('edits a student name, school class, and teaching unit assignment', async () => {
