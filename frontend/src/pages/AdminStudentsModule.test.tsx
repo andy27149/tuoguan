@@ -175,6 +175,22 @@ describe('AdminStudentsModule', () => {
     await waitFor(() => expect(courseApi.fetchStudentCourseStatement).toHaveBeenCalledWith(2))
   })
 
+  it('passes the enrolled course ids down so recharging an unenrolled course is rejected', async () => {
+    render(<AdminStudentsModule />)
+    const rowFor小明 = (await screen.findAllByRole('row')).find((r) => r.textContent?.includes('小明')) as HTMLElement
+
+    fireEvent.click(within(rowFor小明).getByRole('button', { name: '对账单/充值' }))
+    await screen.findByText('课外账户对账单 - 小明')
+
+    // 小明 只报名了书法课（id 30），围棋课（id 31）没报名。
+    fireEvent.change(screen.getByLabelText('充值课程'), { target: { value: '31' } })
+    fireEvent.change(screen.getByLabelText('充值课时数'), { target: { value: '5' } })
+    fireEvent.click(screen.getByRole('button', { name: '充值' }))
+
+    expect(await screen.findByText('学生尚未报名该课程，请报名后再来充值！')).toBeInTheDocument()
+    expect(courseApi.rechargeStudentAccount).not.toHaveBeenCalled()
+  })
+
   it('shows an empty state when there are no students', async () => {
     vi.mocked(courseApi.fetchAdminStudents).mockResolvedValue([])
     render(<AdminStudentsModule />)

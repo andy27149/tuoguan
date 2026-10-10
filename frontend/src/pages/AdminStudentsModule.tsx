@@ -25,7 +25,11 @@ export function AdminStudentsModule() {
   const PAGE_SIZE = 20
   const [currentPage, setCurrentPage] = useState(1)
 
-  const [statementStudent, setStatementStudent] = useState<{ id: number; name: string } | null>(null)
+  const [statementStudent, setStatementStudent] = useState<{
+    id: number
+    name: string
+    enrolledCourseIds: number[]
+  } | null>(null)
 
   const [editingStudent, setEditingStudent] = useState<courseApi.AdminStudent | null>(null)
   const [editingName, setEditingName] = useState('')
@@ -435,7 +439,13 @@ export function AdminStudentsModule() {
                           {(student.offCampusOnly || student.enrolledCourseNames.length > 0) && (
                             <button
                               type="button"
-                              onClick={() => setStatementStudent({ id: student.id, name: student.name })}
+                              onClick={() =>
+                                setStatementStudent({
+                                  id: student.id,
+                                  name: student.name,
+                                  enrolledCourseIds: student.enrolledCourseIds,
+                                })
+                              }
                               className="rounded-full border border-[#ece7de] px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]"
                             >
                               对账单/充值
@@ -479,6 +489,7 @@ export function AdminStudentsModule() {
         <AdminCourseStatementModal
           studentId={statementStudent.id}
           studentName={statementStudent.name}
+          enrolledCourseIds={statementStudent.enrolledCourseIds}
           onClose={() => setStatementStudent(null)}
         />
       )}

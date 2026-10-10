@@ -8,10 +8,16 @@ import { formatDateTime } from '../kanban/date'
 interface AdminCourseStatementModalProps {
   studentId: number
   studentName: string
+  enrolledCourseIds: number[]
   onClose: () => void
 }
 
-export function AdminCourseStatementModal({ studentId, studentName, onClose }: AdminCourseStatementModalProps) {
+export function AdminCourseStatementModal({
+  studentId,
+  studentName,
+  enrolledCourseIds,
+  onClose,
+}: AdminCourseStatementModalProps) {
   const [statement, setStatement] = useState<courseApi.StudentCourseStatement | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -51,6 +57,10 @@ export function AdminCourseStatementModal({ studentId, studentName, onClose }: A
     }
     if (!Number.isInteger(lessonCount) || lessonCount <= 0) {
       setSubmitError('请输入有效的课时数')
+      return
+    }
+    if (!enrolledCourseIds.includes(courseId)) {
+      setSubmitError('学生尚未报名该课程，请报名后再来充值！')
       return
     }
     setSubmitting(true)
