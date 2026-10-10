@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import * as courseApi from '../api/course'
 import * as unitApi from '../api/unit'
 import { ApiError } from '../api/client'
@@ -15,6 +15,11 @@ export function AdminStudentsModule() {
   const [offCampusCourses, setOffCampusCourses] = useState<unitApi.TeachingUnit[]>([])
 
   const [showCreateModal, setShowCreateModal] = useState(false)
+
+  type IdentityFilter = 'ALL' | 'CUSTODY' | 'OFF_CAMPUS_ONLY'
+  const [identityFilter, setIdentityFilter] = useState<IdentityFilter>('ALL')
+  const [teacherFilter, setTeacherFilter] = useState('')
+  const [nameQuery, setNameQuery] = useState('')
 
   const [statementStudent, setStatementStudent] = useState<{ id: number; name: string } | null>(null)
 
@@ -51,6 +56,25 @@ export function AdminStudentsModule() {
       .then((all) => setOffCampusCourses(all.filter((c) => c.active)))
       .catch(() => setOffCampusCourses([]))
   }, [])
+
+  const teacherOptions = useMemo(() => {
+    const names = new Set<string>()
+    students.forEach((s) => {
+      if (s.teacherName) names.add(s.teacherName)
+    })
+    return Array.from(names).sort((a, b) => a.localeCompare(b))
+  }, [students])
+
+  const filteredStudents = useMemo(() => {
+    const query = nameQuery.trim().toLowerCase()
+    return students.filter((s) => {
+      if (identityFilter === 'CUSTODY' && s.offCampusOnly) return false
+      if (identityFilter === 'OFF_CAMPUS_ONLY' && !s.offCampusOnly) return false
+      if (teacherFilter && s.teacherName !== teacherFilter) return false
+      if (query && !s.name.toLowerCase().includes(query)) return false
+      return true
+    })
+  }, [students, identityFilter, teacherFilter, nameQuery])
 
   function toggleCourseId(courseIds: number[], courseId: number): number[] {
     return courseIds.includes(courseId) ? courseIds.filter((id) => id !== courseId) : [...courseIds, courseId]
@@ -164,7 +188,51 @@ export function AdminStudentsModule() {
       </div>
 
       <div className="rounded-2xl border border-[#ece7de] bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
-        <h2 className="font-['Sora'] text-base font-semibold text-[#241f3d]">学生总览（{students.length}）</h2>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="text-xs font-semibold text-[#5d5480]">
+            身份
+            <select
+              aria-label="身份筛选"
+              value={identityFilter}
+              onChange={(e) => setIdentityFilter(e.target.value as IdentityFilter)}
+              className="mt-1 block rounded-lg border border-[#ece7de] px-2.5 py-1.5 text-sm text-[#241f3d]"
+            >
+              <option value="ALL">全部</option>
+              <option value="CUSTODY">托管</option>
+              <option value="OFF_CAMPUS_ONLY">纯课外</option>
+            </select>
+          </div>
+          <div className="text-xs font-semibold text-[#5d5480]">
+            托管教师
+            <select
+              aria-label="托管教师筛选"
+              value={teacherFilter}
+              onChange={(e) => setTeacherFilter(e.target.value)}
+              className="mt-1 block rounded-lg border border-[#ece7de] px-2.5 py-1.5 text-sm text-[#241f3d]"
+            >
+              <option value="">全部</option>
+              {teacherOptions.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="text-xs font-semibold text-[#5d5480]">
+            姓名
+            <input
+              aria-label="姓名搜索"
+              placeholder="搜索姓名"
+              value={nameQuery}
+              onChange={(e) => setNameQuery(e.target.value)}
+              className="mt-1 block rounded-lg border border-[#ece7de] px-2.5 py-1.5 text-sm text-[#241f3d]"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-[#ece7de] bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
+        <h2 className="font-['Sora'] text-base font-semibold text-[#241f3d]">学生总览（{filteredStudents.length}）</h2>
         {loadError && <p className="mt-2 text-sm text-[#b7591f]">{loadError}</p>}
         {editError && <p className="mt-2 text-sm text-[#b7591f]">{editError}</p>}
         {statusError && <p className="mt-2 text-sm text-[#b7591f]">{statusError}</p>}
@@ -185,7 +253,7 @@ export function AdminStudentsModule() {
               </tr>
             </thead>
             <tbody>
-              {students.map((student) => {
+              {filteredStudents.map((student) => {
                 const isEditing = editingStudent?.id === student.id
                 return (
                   <tr key={student.id} className="border-b border-[#ece7de] align-middle hover:bg-[#faf7ff]">
@@ -353,7 +421,7 @@ export function AdminStudentsModule() {
                   </tr>
                 )
               })}
-              {students.length === 0 && (
+              {filteredStudents.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-4 py-3 text-xs text-[#7c7391]">
                     暂无学生

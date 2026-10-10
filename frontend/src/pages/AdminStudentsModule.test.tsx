@@ -104,9 +104,10 @@ describe('AdminStudentsModule', () => {
 
     expect(await screen.findByText('小明')).toBeInTheDocument()
     expect(screen.getByText('小红')).toBeInTheDocument()
-    expect(screen.getAllByText('托管一班').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('托管').length).toBe(2)
-    expect(screen.getByText('纯课外')).toBeInTheDocument()
+    const table = within(screen.getByRole('table'))
+    expect(table.getAllByText('托管一班').length).toBeGreaterThan(0)
+    expect(table.getAllByText('托管').length).toBe(2)
+    expect(table.getByText('纯课外')).toBeInTheDocument()
   })
 
   it('shows enrolled course names, or a dash when none', async () => {
@@ -141,8 +142,9 @@ describe('AdminStudentsModule', () => {
     render(<AdminStudentsModule />)
     await screen.findByText('小明')
 
-    expect(screen.getAllByText('王老师').length).toBe(2)
-    expect(screen.getAllByText('已启用').length).toBe(3)
+    const table = within(screen.getByRole('table'))
+    expect(table.getAllByText('王老师').length).toBe(2)
+    expect(table.getAllByText('已启用').length).toBe(3)
   })
 
   it('opens the course statement modal with the correct student when clicked', async () => {
@@ -377,5 +379,100 @@ describe('AdminStudentsModule', () => {
       expect(courseApi.updateAdminStudent).toHaveBeenCalledWith(3, '小刚', '五年级一班', 20, true, []),
     )
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('filters students by identity (全部/托管/纯课外)', async () => {
+    render(<AdminStudentsModule />)
+    await screen.findByText('小明')
+
+    fireEvent.change(screen.getByLabelText('身份筛选'), { target: { value: 'OFF_CAMPUS_ONLY' } })
+
+    expect(screen.queryByText('小明')).not.toBeInTheDocument()
+    expect(screen.queryByText('小刚')).not.toBeInTheDocument()
+    expect(screen.getByText('小红')).toBeInTheDocument()
+  })
+
+  it('filters students by custody teacher', async () => {
+    render(<AdminStudentsModule />)
+    await screen.findByText('小明')
+
+    fireEvent.change(screen.getByLabelText('托管教师筛选'), { target: { value: '王老师' } })
+
+    expect(screen.getByText('小明')).toBeInTheDocument()
+    expect(screen.getByText('小刚')).toBeInTheDocument()
+    expect(screen.queryByText('小红')).not.toBeInTheDocument()
+  })
+
+  it('filters students by fuzzy, case-insensitive name search', async () => {
+    render(<AdminStudentsModule />)
+    await screen.findByText('小明')
+
+    fireEvent.change(screen.getByLabelText('姓名搜索'), { target: { value: '明' } })
+
+    expect(screen.getByText('小明')).toBeInTheDocument()
+    expect(screen.queryByText('小红')).not.toBeInTheDocument()
+    expect(screen.queryByText('小刚')).not.toBeInTheDocument()
+  })
+
+  it('combines all three filters with AND semantics', async () => {
+    render(<AdminStudentsModule />)
+    await screen.findByText('小明')
+
+    fireEvent.change(screen.getByLabelText('身份筛选'), { target: { value: 'CUSTODY' } })
+    fireEvent.change(screen.getByLabelText('托管教师筛选'), { target: { value: '王老师' } })
+    fireEvent.change(screen.getByLabelText('姓名搜索'), { target: { value: '刚' } })
+
+    expect(screen.queryByText('小明')).not.toBeInTheDocument()
+    expect(screen.getByText('小刚')).toBeInTheDocument()
+  })
+
+  it('shows an empty, non-crashing result for a contradictory filter combination', async () => {
+    render(<AdminStudentsModule />)
+    await screen.findByText('小明')
+
+    // 小红是纯课外学生，teacherName 恒为 null，这个组合必然匹配不到任何人。
+    fireEvent.change(screen.getByLabelText('身份筛选'), { target: { value: 'OFF_CAMPUS_ONLY' } })
+    fireEvent.change(screen.getByLabelText('托管教师筛选'), { target: { value: '王老师' } })
+
+    expect(screen.queryByText('小明')).not.toBeInTheDocument()
+    expect(screen.queryByText('小红')).not.toBeInTheDocument()
+    expect(screen.queryByText('小刚')).not.toBeInTheDocument()
+    expect(screen.getByText('暂无学生')).toBeInTheDocument()
+  })
+
+  it('derives the custody teacher dropdown options from the full student list, not the filtered subset', async () => {
+    render(<AdminStudentsModule />)
+    await screen.findByText('小明')
+
+    fireEvent.change(screen.getByLabelText('身份筛选'), { target: { value: 'OFF_CAMPUS_ONLY' } })
+
+    const teacherSelect = screen.getByLabelText('托管教师筛选') as HTMLSelectElement
+    const optionLabels = Array.from(teacherSelect.options).map((o) => o.textContent)
+    expect(optionLabels).toContain('王老师')
+  })
+
+  it('removes a student from the current filtered view after an edit changes them out of the active identity filter', async () => {
+    // 小红原本是纯课外学生；编辑后把她分到托管一班，身份变成托管——在"身份=纯课外"
+    // 筛选下应该从列表里消失，而不是继续显示一个已经不符合筛选条件的学生。
+    const updatedStudents = STUDENTS.map((s) =>
+      s.id === 2
+        ? { ...s, classRoomId: 20, classRoomName: '托管一班', offCampusOnly: false, teacherName: '王老师' }
+        : s,
+    )
+    vi.mocked(courseApi.fetchAdminStudents).mockResolvedValueOnce(STUDENTS).mockResolvedValueOnce(updatedStudents)
+    vi.mocked(courseApi.updateAdminStudent).mockResolvedValue(updatedStudents[1])
+    render(<AdminStudentsModule />)
+    await screen.findByText('小明')
+
+    fireEvent.change(screen.getByLabelText('身份筛选'), { target: { value: 'OFF_CAMPUS_ONLY' } })
+    expect(screen.getByText('小红')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '编辑小红' }))
+    fireEvent.change(screen.getByLabelText('托管班2'), { target: { value: '20' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+
+    await waitFor(() => expect(courseApi.fetchAdminStudents).toHaveBeenCalledTimes(2))
+    expect(screen.queryByText('小红')).not.toBeInTheDocument()
+    expect(screen.getByText('暂无学生')).toBeInTheDocument()
   })
 })
