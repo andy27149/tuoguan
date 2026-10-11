@@ -12,8 +12,10 @@ import com.tuoguan.backend.platform.domain.InstitutionStatus;
 import com.tuoguan.backend.platform.domain.RenewalPlan;
 import com.tuoguan.backend.platform.web.PlatformInstitutionResponse;
 import com.tuoguan.backend.platform.web.PlatformInstitutionSummary;
+import com.tuoguan.backend.platform.web.RenewalRecordRow;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
+import com.tuoguan.backend.roster.web.NotFoundException;
 import com.tuoguan.backend.unit.dao.TeachingUnitDao;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -65,6 +67,29 @@ public class PlatformInstitutionService {
         return institutionDao.findAll().stream()
                 .map(this::toSummary)
                 .toList();
+    }
+
+    public PlatformInstitutionSummary recordRenewal(Long institutionId, RenewalPlan plan, java.math.BigDecimal amount,
+                                                      LocalDate validUntil, String note, Long recordedByTeacherId) {
+        requireInstitution(institutionId);
+        renewalRecordDao.insert(institutionId, plan, amount, validUntil, note, recordedByTeacherId);
+        institutionDao.updateValidUntil(institutionId, validUntil);
+        return toSummary(requireInstitution(institutionId));
+    }
+
+    public List<RenewalRecordRow> getRenewalHistory(Long institutionId) {
+        requireInstitution(institutionId);
+        return renewalRecordDao.findAllByInstitutionId(institutionId).stream()
+                .map(record -> new RenewalRecordRow(record.id(), record.plan(), record.amount(),
+                        record.validUntil(), record.note(),
+                        teacherDao.findById(record.recordedByTeacherId()).map(Teacher::name).orElse("-"),
+                        record.createdAt()))
+                .toList();
+    }
+
+    private Institution requireInstitution(Long institutionId) {
+        return institutionDao.findById(institutionId)
+                .orElseThrow(() -> new NotFoundException("Institution not found: " + institutionId));
     }
 
     private PlatformInstitutionSummary toSummary(Institution institution) {

@@ -157,6 +157,91 @@ class PlatformInstitutionControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void recordRenewalUpdatesValidUntilAndIsReflectedInList() throws Exception {
+        teacherDao.insert(new Teacher(null, null, "13600003020",
+                passwordEncoder.encode("platform-password"), Role.PLATFORM_ADMIN, false, null));
+        String platformToken = login("13600003020", "platform-password");
+        Long institutionId = institutionDao.insert("续费接口测试机构A");
+        institutionDao.updateValidUntil(institutionId, java.time.LocalDate.of(2026, 11, 1));
+
+        mockMvc.perform(post("/api/platform/institutions/" + institutionId + "/renewals")
+                        .header("Authorization", "Bearer " + platformToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"plan\":\"MONTHLY\",\"amount\":299.00,\"validUntil\":\"2026-12-01\","
+                                + "\"note\":\"首次续费\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.validUntil").value("2026-12-01"))
+                .andExpect(jsonPath("$.currentPlan").value("MONTHLY"))
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
+
+        mockMvc.perform(get("/api/platform/institutions")
+                        .header("Authorization", "Bearer " + platformToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == " + institutionId + ")].validUntil")
+                        .value(org.hamcrest.Matchers.contains("2026-12-01")));
+    }
+
+    @Test
+    void recordRenewalAllowsNullAmountForAnyPlan() throws Exception {
+        teacherDao.insert(new Teacher(null, null, "13600003021",
+                passwordEncoder.encode("platform-password"), Role.PLATFORM_ADMIN, false, null));
+        String platformToken = login("13600003021", "platform-password");
+        Long institutionId = institutionDao.insert("续费接口测试机构B");
+
+        mockMvc.perform(post("/api/platform/institutions/" + institutionId + "/renewals")
+                        .header("Authorization", "Bearer " + platformToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"plan\":\"YEARLY\",\"validUntil\":\"2027-10-01\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.validUntil").value("2027-10-01"));
+    }
+
+    @Test
+    void renewalHistoryReturnsRecordsNewestFirstWithRecorderName() throws Exception {
+        teacherDao.insert(new Teacher(null, null, "13600003022", "平台",
+                passwordEncoder.encode("platform-password"), Role.PLATFORM_ADMIN, false, null));
+        String platformToken = login("13600003022", "platform-password");
+        Long institutionId = institutionDao.insert("续费历史测试机构");
+        mockMvc.perform(post("/api/platform/institutions/" + institutionId + "/renewals")
+                        .header("Authorization", "Bearer " + platformToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"plan\":\"TRIAL\",\"validUntil\":\"2026-11-01\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/api/platform/institutions/" + institutionId + "/renewals")
+                        .header("Authorization", "Bearer " + platformToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"plan\":\"HALF_YEAR\",\"amount\":1499.00,\"validUntil\":\"2027-05-01\","
+                                + "\"note\":\"老客户优惠\"}"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/platform/institutions/" + institutionId + "/renewals")
+                        .header("Authorization", "Bearer " + platformToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].plan").value("HALF_YEAR"))
+                .andExpect(jsonPath("$[0].note").value("老客户优惠"))
+                .andExpect(jsonPath("$[0].recordedByTeacherName").value("平台"))
+                .andExpect(jsonPath("$[1].plan").value("TRIAL"));
+    }
+
+    @Test
+    void nonPlatformAdminCannotRecordOrViewRenewals() throws Exception {
+        Long institutionId = institutionDao.insert("续费权限测试机构");
+        teacherDao.insert(new Teacher(null, institutionId, "13600003023",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        String adminToken = login("13600003023", "admin-password");
+
+        mockMvc.perform(post("/api/platform/institutions/" + institutionId + "/renewals")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"plan\":\"MONTHLY\",\"validUntil\":\"2026-12-01\"}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/platform/institutions/" + institutionId + "/renewals")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void rejectsMissingContactPhone() throws Exception {
         teacherDao.insert(new Teacher(null, null, "13600003007",
                 passwordEncoder.encode("platform-password"), Role.PLATFORM_ADMIN, false, null));
