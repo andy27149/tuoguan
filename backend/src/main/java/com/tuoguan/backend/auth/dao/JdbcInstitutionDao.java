@@ -2,10 +2,12 @@ package com.tuoguan.backend.auth.dao;
 
 import com.tuoguan.backend.auth.domain.Institution;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.util.List;
@@ -13,6 +15,22 @@ import java.util.Optional;
 
 @Repository
 public class JdbcInstitutionDao implements InstitutionDao {
+
+    private static final RowMapper<Institution> ROW_MAPPER = (rs, rowNum) -> new Institution(
+            rs.getLong("id"),
+            rs.getString("name"),
+            rs.getString("logo_object_key"),
+            rs.getBoolean("custody_enabled"),
+            rs.getBoolean("off_campus_enabled"),
+            rs.getString("contact_name"),
+            rs.getString("contact_phone"),
+            rs.getString("address"),
+            rs.getDate("valid_until") != null ? rs.getDate("valid_until").toLocalDate() : null,
+            rs.getTimestamp("created_at").toInstant());
+
+    private static final String SELECT_COLUMNS =
+            "id, name, logo_object_key, custody_enabled, off_campus_enabled, "
+                    + "contact_name, contact_phone, address, valid_until, created_at";
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -36,31 +54,16 @@ public class JdbcInstitutionDao implements InstitutionDao {
     @Override
     public Optional<Institution> findById(Long id) {
         List<Institution> results = jdbcTemplate.query(
-                "SELECT id, name, logo_object_key, custody_enabled, off_campus_enabled, created_at "
-                        + "FROM institution WHERE id = ?",
-                (rs, rowNum) -> new Institution(
-                        rs.getLong("id"),
-                        rs.getString("name"),
-                        rs.getString("logo_object_key"),
-                        rs.getBoolean("custody_enabled"),
-                        rs.getBoolean("off_campus_enabled"),
-                        rs.getTimestamp("created_at").toInstant()),
-                id);
+                "SELECT " + SELECT_COLUMNS + " FROM institution WHERE id = ?",
+                ROW_MAPPER, id);
         return results.stream().findFirst();
     }
 
     @Override
     public List<Institution> findAll() {
         return jdbcTemplate.query(
-                "SELECT id, name, logo_object_key, custody_enabled, off_campus_enabled, created_at "
-                        + "FROM institution ORDER BY created_at",
-                (rs, rowNum) -> new Institution(
-                        rs.getLong("id"),
-                        rs.getString("name"),
-                        rs.getString("logo_object_key"),
-                        rs.getBoolean("custody_enabled"),
-                        rs.getBoolean("off_campus_enabled"),
-                        rs.getTimestamp("created_at").toInstant()));
+                "SELECT " + SELECT_COLUMNS + " FROM institution ORDER BY created_at",
+                ROW_MAPPER);
     }
 
     @Override
@@ -77,5 +80,18 @@ public class JdbcInstitutionDao implements InstitutionDao {
     public void updateFeatureFlags(Long id, boolean custodyEnabled, boolean offCampusEnabled) {
         jdbcTemplate.update("UPDATE institution SET custody_enabled = ?, off_campus_enabled = ? WHERE id = ?",
                 custodyEnabled, offCampusEnabled, id);
+    }
+
+    @Override
+    public void updateContact(Long id, String contactName, String contactPhone, String address) {
+        jdbcTemplate.update(
+                "UPDATE institution SET contact_name = ?, contact_phone = ?, address = ? WHERE id = ?",
+                contactName, contactPhone, address, id);
+    }
+
+    @Override
+    public void updateValidUntil(Long id, java.time.LocalDate validUntil) {
+        jdbcTemplate.update("UPDATE institution SET valid_until = ? WHERE id = ?",
+                validUntil != null ? Date.valueOf(validUntil) : null, id);
     }
 }

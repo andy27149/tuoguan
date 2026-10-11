@@ -2,6 +2,7 @@ package com.tuoguan.backend.auth.dao;
 
 import com.tuoguan.backend.auth.domain.Institution;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,4 +19,8 @@ public interface InstitutionDao {
     void updateLogoObjectKey(Long id, String logoObjectKey);
 
     void updateFeatureFlags(Long id, boolean custodyEnabled, boolean offCampusEnabled);
+
+    void updateContact(Long id, String contactName, String contactPhone, String address);
+
+    void updateValidUntil(Long id, LocalDate validUntil);
 }
