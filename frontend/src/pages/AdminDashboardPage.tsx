@@ -68,7 +68,11 @@ export function AdminDashboardPage({ onBack, onOpenClassKanban }: AdminDashboard
             custodyEnabled={custodyEnabled}
             offCampusEnabled={offCampusEnabled}
           />
-          <main className="m-0 min-h-0 w-full min-w-0 max-w-none flex-1 overflow-y-auto p-0">
+          {/* 用 div 不用 main：index.css 里有条全局的裸标签选择器 `main { max-width: 1180px;
+              margin: 0 auto; }`（给托管看板那类居中窄版页面用的），不在 Tailwind 的 layer
+              里，会盖过这里 Tailwind 的 max-w-none，导致侧边栏右侧这块内容区怎么都撑不满。
+              用 div + role="main" 绕开那条全局规则，无障碍语义不变。 */}
+          <div role="main" className="m-0 min-h-0 w-full min-w-0 max-w-none flex-1 overflow-y-auto p-0">
             {activeModule === 'overview' && <AdminOverviewModule onOpenBilling={() => setActiveModule('billing')} />}
             {activeModule === 'teachers' && <AdminTeachersModule onOpenClassKanban={onOpenClassKanban} />}
             {activeModule === 'units' && (
@@ -85,7 +89,7 @@ export function AdminDashboardPage({ onBack, onOpenClassKanban }: AdminDashboard
             )}
             {activeModule === 'billing' && <AdminBillingModule />}
             {activeModule === 'settings' && <AdminSettingsModule onInstitutionUpdated={setInstitution} />}
-          </main>
+          </div>
         </div>
       </div>
     </div>
