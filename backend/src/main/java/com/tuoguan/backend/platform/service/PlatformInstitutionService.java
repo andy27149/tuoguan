@@ -87,6 +87,13 @@ public class PlatformInstitutionService {
                 .toList();
     }
 
+    public PlatformInstitutionSummary updateContact(Long institutionId, String contactName, String contactPhone,
+                                                      String address) {
+        requireInstitution(institutionId);
+        institutionDao.updateContact(institutionId, contactName, contactPhone, address);
+        return toSummary(requireInstitution(institutionId));
+    }
+
     private Institution requireInstitution(Long institutionId) {
         return institutionDao.findById(institutionId)
                 .orElseThrow(() -> new NotFoundException("Institution not found: " + institutionId));

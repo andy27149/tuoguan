@@ -242,6 +242,46 @@ class PlatformInstitutionControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void updateContactPersistsAndIsReflectedInList() throws Exception {
+        teacherDao.insert(new Teacher(null, null, "13600003030",
+                passwordEncoder.encode("platform-password"), Role.PLATFORM_ADMIN, false, null));
+        String platformToken = login("13600003030", "platform-password");
+        Long institutionId = institutionDao.insert("联系信息测试机构");
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .patch("/api/platform/institutions/" + institutionId + "/contact")
+                        .header("Authorization", "Bearer " + platformToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"contactName\":\"王校长\",\"contactPhone\":\"13900009999\","
+                                + "\"address\":\"示例大道2号\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contactName").value("王校长"))
+                .andExpect(jsonPath("$.contactPhone").value("13900009999"))
+                .andExpect(jsonPath("$.address").value("示例大道2号"));
+
+        mockMvc.perform(get("/api/platform/institutions")
+                        .header("Authorization", "Bearer " + platformToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == " + institutionId + ")].contactName")
+                        .value(org.hamcrest.Matchers.contains("王校长")));
+    }
+
+    @Test
+    void nonPlatformAdminCannotUpdateContact() throws Exception {
+        Long institutionId = institutionDao.insert("联系信息权限测试机构");
+        teacherDao.insert(new Teacher(null, institutionId, "13600003031",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        String adminToken = login("13600003031", "admin-password");
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .patch("/api/platform/institutions/" + institutionId + "/contact")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"contactName\":\"不该成功\",\"contactPhone\":\"13900000000\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void rejectsMissingContactPhone() throws Exception {
         teacherDao.insert(new Teacher(null, null, "13600003007",
                 passwordEncoder.encode("platform-password"), Role.PLATFORM_ADMIN, false, null));

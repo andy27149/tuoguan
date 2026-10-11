@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -55,5 +56,13 @@ public class PlatformInstitutionController {
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     public List<RenewalRecordRow> listRenewals(@PathVariable Long institutionId) {
         return platformInstitutionService.getRenewalHistory(institutionId);
+    }
+
+    @PatchMapping("/api/platform/institutions/{institutionId}/contact")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    public PlatformInstitutionSummary updateContact(@PathVariable Long institutionId,
+                                                      @RequestBody UpdateInstitutionContactRequest request) {
+        return platformInstitutionService.updateContact(institutionId, request.contactName(),
+                request.contactPhone(), request.address());
     }
 }
