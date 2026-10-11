@@ -5,6 +5,33 @@ import { useAuth } from '../auth/AuthContext'
 import { BrandMark } from '../brand/BrandMark'
 import { formatDate } from '../kanban/date'
 
+function defaultTrialValidUntil(): string {
+  const d = new Date()
+  d.setDate(d.getDate() + 30)
+  return d.toISOString().slice(0, 10)
+}
+
+function statusBadge(institution: platformApi.PlatformInstitution): { label: string; className: string } {
+  if (institution.status === 'NONE' || !institution.validUntil) {
+    return { label: '未设置', className: 'bg-gray-100 text-gray-500' }
+  }
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const until = new Date(institution.validUntil)
+  until.setHours(0, 0, 0, 0)
+  const diffDays = Math.round((until.getTime() - today.getTime()) / 86400000)
+  if (institution.status === 'EXPIRED') {
+    return { label: `已过期 ${-diffDays} 天`, className: 'bg-red-100 text-red-600' }
+  }
+  if (institution.status === 'EXPIRING_SOON') {
+    return {
+      label: diffDays === 0 ? '今天到期' : `${diffDays} 天后到期`,
+      className: 'bg-orange-100 text-orange-600',
+    }
+  }
+  return { label: `有效至 ${institution.validUntil}`, className: 'bg-green-100 text-green-600' }
+}
+
 export function PlatformAdminPage() {
   const { logout } = useAuth()
 
@@ -15,6 +42,10 @@ export function PlatformAdminPage() {
   const [name, setName] = useState('')
   const [adminPhone, setAdminPhone] = useState('')
   const [adminPassword, setAdminPassword] = useState('')
+  const [contactName, setContactName] = useState('')
+  const [contactPhone, setContactPhone] = useState('')
+  const [address, setAddress] = useState('')
+  const [trialValidUntil, setTrialValidUntil] = useState(defaultTrialValidUntil())
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [createdNotice, setCreatedNotice] = useState<{ name: string; phone: string; password: string } | null>(null)
@@ -38,15 +69,28 @@ export function PlatformAdminPage() {
     const institutionName = name.trim()
     const phone = adminPhone.trim()
     const password = adminPassword.trim()
-    if (!institutionName || !phone || !password) return
+    const phoneToContact = contactPhone.trim()
+    if (!institutionName || !phone || !password || !phoneToContact || !trialValidUntil) return
     setCreating(true)
     setCreateError(null)
     try {
-      await platformApi.createInstitution(institutionName, phone, password)
+      await platformApi.createInstitution(
+        institutionName,
+        phone,
+        password,
+        contactName.trim(),
+        phoneToContact,
+        address.trim(),
+        trialValidUntil,
+      )
       setCreatedNotice({ name: institutionName, phone, password })
       setName('')
       setAdminPhone('')
       setAdminPassword('')
+      setContactName('')
+      setContactPhone('')
+      setAddress('')
+      setTrialValidUntil(defaultTrialValidUntil())
       loadInstitutions()
     } catch (err) {
       setCreateError(err instanceof ApiError && err.status === 409 ? '该手机号已注册' : '创建失败，请重试')
@@ -54,6 +98,9 @@ export function PlatformAdminPage() {
       setCreating(false)
     }
   }
+
+  const canSubmit =
+    !!name.trim() && !!adminPhone.trim() && !!adminPassword.trim() && !!contactPhone.trim() && !!trialValidUntil
 
   return (
     <div className="min-h-screen pb-8">
@@ -69,10 +116,10 @@ export function PlatformAdminPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl space-y-4 px-4 pt-4">
+      <main className="mx-auto max-w-4xl space-y-4 px-4 pt-4">
         <div className="rounded-lg border border-gray-200 bg-white p-3">
           <h2 className="text-sm font-medium text-gray-700">开通新机构</h2>
-          <form onSubmit={handleCreate} className="mt-2 flex flex-wrap gap-2">
+          <form onSubmit={handleCreate} className="mt-2 flex flex-wrap items-end gap-2">
             <input
               placeholder="机构名称"
               value={name}
@@ -91,9 +138,37 @@ export function PlatformAdminPage() {
               onChange={(e) => setAdminPassword(e.target.value)}
               className="w-32 rounded border px-2 py-1 text-sm"
             />
+            <input
+              placeholder="联系电话"
+              value={contactPhone}
+              onChange={(e) => setContactPhone(e.target.value)}
+              className="w-28 rounded border px-2 py-1 text-sm"
+            />
+            <input
+              placeholder="联系人姓名（选填）"
+              value={contactName}
+              onChange={(e) => setContactName(e.target.value)}
+              className="w-32 rounded border px-2 py-1 text-sm"
+            />
+            <input
+              placeholder="地址（选填）"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              className="w-32 rounded border px-2 py-1 text-sm"
+            />
+            <label className="flex flex-col text-xs text-gray-500">
+              试用到期日
+              <input
+                type="date"
+                aria-label="试用到期日"
+                value={trialValidUntil}
+                onChange={(e) => setTrialValidUntil(e.target.value)}
+                className="rounded border px-2 py-1 text-sm text-gray-900"
+              />
+            </label>
             <button
               type="submit"
-              disabled={creating || !name.trim() || !adminPhone.trim() || !adminPassword.trim()}
+              disabled={creating || !canSubmit}
               className="rounded bg-blue-600 px-3 py-1 text-sm text-white disabled:opacity-50"
             >
               开通
@@ -126,15 +201,47 @@ export function PlatformAdminPage() {
           {loadError && <p className="mt-1 text-sm text-red-600">{loadError}</p>}
           {loading && <p className="mt-1 text-sm text-gray-400">加载中...</p>}
           {!loading && (
-            <ul className="mt-2 space-y-2">
-              {institutions.map((institution) => (
-                <li key={institution.id} className="rounded border border-gray-100 p-2 text-sm">
-                  {institution.name} · {institution.teacherCount} 位教师 · 创建于{' '}
-                  {formatDate(institution.createdAt)}
-                </li>
-              ))}
-              {institutions.length === 0 && <li className="text-xs text-gray-400">暂无机构</li>}
-            </ul>
+            <table className="mt-2 w-full text-left text-sm">
+              <thead>
+                <tr className="text-xs text-gray-500">
+                  <th className="border-b border-gray-100 py-2">机构名称</th>
+                  <th className="border-b border-gray-100 py-2">学生数</th>
+                  <th className="border-b border-gray-100 py-2">班级数</th>
+                  <th className="border-b border-gray-100 py-2">教师数</th>
+                  <th className="border-b border-gray-100 py-2">联系人</th>
+                  <th className="border-b border-gray-100 py-2">到期状态</th>
+                </tr>
+              </thead>
+              <tbody>
+                {institutions.map((institution) => {
+                  const badge = statusBadge(institution)
+                  return (
+                    <tr key={institution.id} className="border-b border-gray-50">
+                      <td className="py-2">
+                        {institution.name}
+                        <div className="text-xs text-gray-400">创建于 {formatDate(institution.createdAt)}</div>
+                      </td>
+                      <td className="py-2">{institution.studentCount}</td>
+                      <td className="py-2">{institution.classCount}</td>
+                      <td className="py-2">{institution.teacherCount}</td>
+                      <td className="py-2 text-xs text-gray-600">
+                        {institution.contactName || '—'} · {institution.contactPhone || '—'}
+                      </td>
+                      <td className="py-2">
+                        <span className={`rounded-full px-2 py-0.5 text-xs ${badge.className}`}>{badge.label}</span>
+                      </td>
+                    </tr>
+                  )
+                })}
+                {institutions.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="py-2 text-xs text-gray-400">
+                      暂无机构
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           )}
         </div>
       </main>
