@@ -4,6 +4,7 @@ import { ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { BrandMark } from '../brand/BrandMark'
 import { formatDate } from '../kanban/date'
+import { RenewalModal } from '../components/RenewalModal'
 
 function defaultTrialValidUntil(): string {
   const d = new Date()
@@ -49,6 +50,7 @@ export function PlatformAdminPage() {
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [createdNotice, setCreatedNotice] = useState<{ name: string; phone: string; password: string } | null>(null)
+  const [renewingInstitution, setRenewingInstitution] = useState<platformApi.PlatformInstitution | null>(null)
 
   function loadInstitutions() {
     setLoading(true)
@@ -210,6 +212,7 @@ export function PlatformAdminPage() {
                   <th className="border-b border-gray-100 py-2">教师数</th>
                   <th className="border-b border-gray-100 py-2">联系人</th>
                   <th className="border-b border-gray-100 py-2">到期状态</th>
+                  <th className="border-b border-gray-100 py-2">操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -230,12 +233,21 @@ export function PlatformAdminPage() {
                       <td className="py-2">
                         <span className={`rounded-full px-2 py-0.5 text-xs ${badge.className}`}>{badge.label}</span>
                       </td>
+                      <td className="py-2">
+                        <button
+                          type="button"
+                          onClick={() => setRenewingInstitution(institution)}
+                          className="rounded-full border border-gray-200 px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-50"
+                        >
+                          续费
+                        </button>
+                      </td>
                     </tr>
                   )
                 })}
                 {institutions.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="py-2 text-xs text-gray-400">
+                    <td colSpan={7} className="py-2 text-xs text-gray-400">
                       暂无机构
                     </td>
                   </tr>
@@ -245,6 +257,16 @@ export function PlatformAdminPage() {
           )}
         </div>
       </main>
+
+      {renewingInstitution && (
+        <RenewalModal
+          institutionId={renewingInstitution.id}
+          institutionName={renewingInstitution.name}
+          currentValidUntil={renewingInstitution.validUntil}
+          onClose={() => setRenewingInstitution(null)}
+          onSaved={loadInstitutions}
+        />
+      )}
     </div>
   )
 }

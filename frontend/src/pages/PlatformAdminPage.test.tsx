@@ -10,6 +10,16 @@ vi.mock('../api/platform')
 vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({ logout }),
 }))
+vi.mock('../components/RenewalModal', () => ({
+  RenewalModal: (props: { institutionId: number; institutionName: string; onClose: () => void }) => (
+    <div>
+      RenewalModalStub:{props.institutionId}:{props.institutionName}
+      <button type="button" onClick={props.onClose}>
+        关闭续费弹窗
+      </button>
+    </div>
+  ),
+}))
 
 const INSTITUTIONS: platformApi.PlatformInstitution[] = [
   {
@@ -140,6 +150,18 @@ describe('PlatformAdminPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '开通' }))
 
     expect(await screen.findByText('该手机号已注册')).toBeInTheDocument()
+  })
+
+  it('opens the renewal modal for the clicked institution and closes it', async () => {
+    render(<PlatformAdminPage />)
+    await screen.findByText('机构A')
+
+    fireEvent.click(screen.getByRole('button', { name: '续费' }))
+
+    expect(await screen.findByText('RenewalModalStub:1:机构A')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '关闭续费弹窗' }))
+    expect(screen.queryByText('RenewalModalStub:1:机构A')).not.toBeInTheDocument()
   })
 
   it('calls logout when the logout button is clicked', async () => {
