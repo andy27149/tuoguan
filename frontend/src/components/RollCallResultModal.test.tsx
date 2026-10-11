@@ -17,6 +17,14 @@ describe('RollCallResultModal', () => {
     expect(screen.getByText('该课程尚未配置单价，请联系管理员配置')).toBeInTheDocument()
   })
 
+  it('uses a custom title when provided, for reuse outside the roll-call flow', () => {
+    render(
+      <RollCallResultModal type="success" message="已生成 42 份账单" title="账单生成完成" onClose={vi.fn()} />,
+    )
+
+    expect(screen.getByRole('dialog', { name: '账单生成完成' })).toBeInTheDocument()
+  })
+
   it('calls onClose when clicking the 知道了 button', () => {
     const onClose = vi.fn()
     render(<RollCallResultModal type="success" message="ok" onClose={onClose} />)

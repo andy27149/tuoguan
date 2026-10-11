@@ -5,6 +5,7 @@ import { currentMonthString } from '../kanban/date'
 import { FeeManagementModal } from '../components/FeeManagementModal'
 import { BillDetailModal } from '../components/BillDetailModal'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { RollCallResultModal } from '../components/RollCallResultModal'
 import { Toast } from '../components/Toast'
 import { useToast } from '../hooks/useToast'
 
@@ -42,6 +43,9 @@ export function AdminBillingModule() {
   } | null>(null)
   const [billLoadError, setBillLoadError] = useState<string | null>(null)
   const [confirmingPaidToggle, setConfirmingPaidToggle] = useState<billingApi.BillOverviewRow | null>(null)
+  const [confirmingBulkGenerate, setConfirmingBulkGenerate] = useState(false)
+  const [bulkGenerating, setBulkGenerating] = useState(false)
+  const [bulkGenerateResult, setBulkGenerateResult] = useState<billingApi.BulkBillGenerationResult | null>(null)
   const { toastMessage, showToast } = useToast()
 
   useEffect(() => {
@@ -65,6 +69,19 @@ export function AdminBillingModule() {
     loadRows()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month, classFilter, studentName])
+
+  async function applyBulkGenerate() {
+    if (!month) return
+    setBulkGenerating(true)
+    try {
+      const result = await billingApi.generateInstitutionBills(month)
+      setBulkGenerateResult(result)
+      loadRows()
+    } finally {
+      setBulkGenerating(false)
+      setConfirmingBulkGenerate(false)
+    }
+  }
 
   function handleTogglePaid(row: billingApi.BillOverviewRow) {
     if (row.billId === null) return
@@ -111,6 +128,15 @@ export function AdminBillingModule() {
             />
           </label>
           <span className="text-xs text-[#7c7391]">留空查看全部月份</span>
+          {month && (
+            <button
+              type="button"
+              onClick={() => setConfirmingBulkGenerate(true)}
+              className="rounded-full border border-[#ece7de] px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]"
+            >
+              一键生成本月账单
+            </button>
+          )}
           <label className="text-sm text-[#5d5480]">
             班级
             <select
@@ -259,6 +285,32 @@ export function AdminBillingModule() {
           danger={false}
           onConfirm={applyTogglePaid}
           onCancel={() => setConfirmingPaidToggle(null)}
+        />
+      )}
+
+      {confirmingBulkGenerate && (
+        <ConfirmDialog
+          title="一键生成本月账单"
+          message={`确定要生成 ${month} 的全部学生账单吗？已生成过的账单会被重新计算覆盖。`}
+          confirmLabel="确认生成"
+          danger={false}
+          confirming={bulkGenerating}
+          onConfirm={applyBulkGenerate}
+          onCancel={() => setConfirmingBulkGenerate(false)}
+        />
+      )}
+
+      {bulkGenerateResult && (
+        <RollCallResultModal
+          type={bulkGenerateResult.failures.length === 0 ? 'success' : 'warning'}
+          title={bulkGenerateResult.failures.length === 0 ? '账单生成完成' : '账单生成提醒'}
+          message={
+            bulkGenerateResult.failures.length === 0
+              ? `已生成 ${bulkGenerateResult.generatedCount} 份账单`
+              : `已生成 ${bulkGenerateResult.generatedCount} 份账单，${bulkGenerateResult.failures.length} 名学生因班级未配置单价被跳过：` +
+                bulkGenerateResult.failures.map((f) => f.studentName).join('、')
+          }
+          onClose={() => setBulkGenerateResult(null)}
         />
       )}
 

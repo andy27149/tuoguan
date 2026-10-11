@@ -242,4 +242,59 @@ describe('AdminBillingModule', () => {
     expect(dash.tagName).not.toBe('BUTTON')
     expect(billingApi.fetchBillDetail).not.toHaveBeenCalled()
   })
+
+  it('hides the bulk-generate button in the all-months view (no month selected)', async () => {
+    render(<AdminBillingModule />)
+    await screen.findByText('小明')
+
+    fireEvent.change(screen.getByLabelText('月份'), { target: { value: '' } })
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: '一键生成本月账单' })).not.toBeInTheDocument())
+  })
+
+  it('asks for confirmation before bulk-generating, and does nothing on cancel', async () => {
+    render(<AdminBillingModule />)
+    await screen.findByText('小明')
+
+    fireEvent.click(screen.getByRole('button', { name: '一键生成本月账单' }))
+    expect(await screen.findByText(`确定要生成 ${MONTH} 的全部学生账单吗？已生成过的账单会被重新计算覆盖。`)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+
+    expect(billingApi.generateInstitutionBills).not.toHaveBeenCalled()
+  })
+
+  it('bulk-generates bills for the selected month, reloads the overview, and shows a success summary', async () => {
+    vi.mocked(billingApi.generateInstitutionBills).mockResolvedValue({ generatedCount: 42, failures: [] })
+    render(<AdminBillingModule />)
+    await screen.findByText('小明')
+
+    fireEvent.click(screen.getByRole('button', { name: '一键生成本月账单' }))
+    fireEvent.click(await screen.findByRole('button', { name: '确认生成' }))
+
+    await waitFor(() => expect(billingApi.generateInstitutionBills).toHaveBeenCalledWith(MONTH))
+    expect(await screen.findByRole('dialog', { name: '账单生成完成' })).toBeInTheDocument()
+    expect(screen.getByText('已生成 42 份账单')).toBeInTheDocument()
+    await waitFor(() => expect(billingApi.fetchBillOverview).toHaveBeenCalledTimes(2))
+  })
+
+  it('shows a warning summary listing students skipped for an unconfigured billing rate', async () => {
+    vi.mocked(billingApi.generateInstitutionBills).mockResolvedValue({
+      generatedCount: 10,
+      failures: [
+        { studentId: 1, studentName: '张三', reason: '班级未配置计费单价' },
+        { studentId: 2, studentName: '李四', reason: '班级未配置计费单价' },
+      ],
+    })
+    render(<AdminBillingModule />)
+    await screen.findByText('小明')
+
+    fireEvent.click(screen.getByRole('button', { name: '一键生成本月账单' }))
+    fireEvent.click(await screen.findByRole('button', { name: '确认生成' }))
+
+    expect(await screen.findByRole('dialog', { name: '账单生成提醒' })).toBeInTheDocument()
+    expect(
+      screen.getByText('已生成 10 份账单，2 名学生因班级未配置单价被跳过：张三、李四'),
+    ).toBeInTheDocument()
+  })
 })

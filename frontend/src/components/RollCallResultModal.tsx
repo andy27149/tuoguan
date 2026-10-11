@@ -4,9 +4,11 @@ interface RollCallResultModalProps {
   type: 'success' | 'warning'
   message: string
   onClose: () => void
+  /** 对话框标题/无障碍标签，默认沿用消课场景的文案；其它场景（如批量生成账单）传入自己的标题。 */
+  title?: string
 }
 
-export function RollCallResultModal({ type, message, onClose }: RollCallResultModalProps) {
+export function RollCallResultModal({ type, message, onClose, title }: RollCallResultModalProps) {
   const isSuccess = type === 'success'
 
   return createPortal(
@@ -19,7 +21,7 @@ export function RollCallResultModal({ type, message, onClose }: RollCallResultMo
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={isSuccess ? '消课成功' : '消课提醒'}
+        aria-label={title ?? (isSuccess ? '消课成功' : '消课提醒')}
         className="w-full max-w-xs rounded-2xl border border-[#ece7de] bg-white p-5 text-center shadow-[0_20px_50px_rgba(36,31,61,0.25)]"
       >
         <div

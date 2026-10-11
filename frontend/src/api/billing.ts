@@ -54,6 +54,17 @@ export interface MonthlyBill {
   leaveLines: MonthlyBillLeaveLine[]
 }
 
+export interface BulkBillGenerationFailure {
+  studentId: number
+  studentName: string
+  reason: string
+}
+
+export interface BulkBillGenerationResult {
+  generatedCount: number
+  failures: BulkBillGenerationFailure[]
+}
+
 export interface BillOverviewRow {
   studentId: number
   studentName: string
@@ -127,6 +138,10 @@ export function fetchBillOverview(
   if (studentName) params.set('studentName', studentName)
   if (offCampusOnly) params.set('offCampusOnly', 'true')
   return apiFetch<BillOverviewRow[]>(`/admin/bills?${params.toString()}`)
+}
+
+export function generateInstitutionBills(month: string): Promise<BulkBillGenerationResult> {
+  return apiFetch<BulkBillGenerationResult>(`/admin/bills/generate?month=${month}`, { method: 'POST' })
 }
 
 export function fetchBillDetail(billId: number): Promise<MonthlyBill> {

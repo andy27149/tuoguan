@@ -226,6 +226,83 @@ class AdminBillOverviewControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void bulkGenerateCoversAllStudentsSkipsUnconfiguredClassesAndRecordsAnAuditLogEntry() throws Exception {
+        Long institutionId = institutionDao.insert("账单批量生成测试机构");
+        teacherDao.insert(new Teacher(null, institutionId, "13900014050",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900014051",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long configuredClassId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "已配置班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long unconfiguredClassId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "未配置班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long configuredClassStudentId = studentDao.insert(
+                new Student(null, institutionId, configuredClassId, "已配置班学生", "一班", true, null, null));
+        Long unconfiguredClassStudentId = studentDao.insert(
+                new Student(null, institutionId, unconfiguredClassId, "未配置班学生", "一班", true, null, null));
+        Long offCampusStudentId = studentDao.insert(
+                new Student(null, institutionId, null, "纯课外学生", null, true, null, null));
+        Long unenrolledStudentId = studentDao.insert(
+                new Student(null, institutionId, configuredClassId, "已退学学生", "一班", false, null, null));
+        String adminToken = login("13900014050", "admin-password");
+
+        mockMvc.perform(put("/api/admin/classes/" + configuredClassId + "/billing-rate")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tuitionRatePerMonth\":50.00,\"mealRatePerDay\":10.00}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/admin/bills/generate?month=2024-01")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.generatedCount").value(2))
+                .andExpect(jsonPath("$.failures.length()").value(1))
+                .andExpect(jsonPath("$.failures[0].studentId").value(unconfiguredClassStudentId))
+                .andExpect(jsonPath("$.failures[0].studentName").value("未配置班学生"))
+                .andExpect(jsonPath("$.failures[0].reason").value("班级未配置计费单价"));
+
+        mockMvc.perform(get("/api/admin/bills?month=2024-01")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.studentId == " + configuredClassStudentId + ")].billId").value(
+                        org.hamcrest.Matchers.contains(org.hamcrest.Matchers.notNullValue())))
+                .andExpect(jsonPath("$[?(@.studentId == " + offCampusStudentId + ")].billId").value(
+                        org.hamcrest.Matchers.contains(org.hamcrest.Matchers.notNullValue())))
+                .andExpect(jsonPath("$[?(@.studentId == " + unconfiguredClassStudentId + ")].billId").value(
+                        org.hamcrest.Matchers.contains(org.hamcrest.Matchers.nullValue())))
+                .andExpect(jsonPath("$[?(@.studentId == " + unenrolledStudentId + ")]").doesNotExist());
+
+        Integer auditCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM audit_log WHERE action = 'BILL_BULK_GENERATE' AND target_id = ?",
+                Integer.class, institutionId);
+        assertThat(auditCount).isEqualTo(1);
+    }
+
+    @Test
+    void bulkGenerateOnlyCoversTheRequestingAdminsOwnInstitution() throws Exception {
+        Long institutionAId = institutionDao.insert("账单批量生成隔离机构A");
+        Long institutionBId = institutionDao.insert("账单批量生成隔离机构B");
+        teacherDao.insert(new Teacher(null, institutionAId, "13900014060",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long studentAId = studentDao.insert(new Student(null, institutionAId, null, "机构A学生", null, true, null, null));
+        studentDao.insert(new Student(null, institutionBId, null, "机构B学生", null, true, null, null));
+        String adminAToken = login("13900014060", "admin-password");
+
+        mockMvc.perform(post("/api/admin/bills/generate?month=2024-01")
+                        .header("Authorization", "Bearer " + adminAToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.generatedCount").value(1))
+                .andExpect(jsonPath("$.failures.length()").value(0));
+
+        mockMvc.perform(get("/api/admin/bills?month=2024-01")
+                        .header("Authorization", "Bearer " + adminAToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.studentId == " + studentAId + ")].billId").value(
+                        org.hamcrest.Matchers.contains(org.hamcrest.Matchers.notNullValue())))
+                .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
     void getBillForNonExistentIdReturnsNotFound() throws Exception {
         Long institutionId = institutionDao.insert("账单详情测试机构B");
         teacherDao.insert(new Teacher(null, institutionId, "13900014003",

@@ -2,6 +2,8 @@ package com.tuoguan.backend.billing.service;
 
 import com.tuoguan.backend.admin.web.BillOverviewRow;
 import com.tuoguan.backend.admin.web.BillingRateNotConfiguredException;
+import com.tuoguan.backend.admin.web.BulkBillGenerationFailure;
+import com.tuoguan.backend.admin.web.BulkBillGenerationResult;
 import com.tuoguan.backend.admin.web.ClassBillingRateRow;
 import com.tuoguan.backend.admin.web.CourseConsumptionSummaryRow;
 import com.tuoguan.backend.admin.web.RevenueSnapshot;
@@ -219,6 +221,26 @@ public class BillGenerationService {
                 .filter(Student::enrolled)
                 .map(s -> generateBill(institutionId, s.id(), month))
                 .toList();
+    }
+
+    // 覆盖机构下所有在读学生（含没有托管班的纯课外课学生）。单个学生因班级未配置计费单价
+    // 失败是预期中会发生的情况（管理员忘记配），跳过并记下原因，不影响同批次其它学生；
+    // 除此之外的异常照常往外抛——那是真 bug，不该被悄悄吞掉。
+    public BulkBillGenerationResult generateBillsForInstitution(Long institutionId, YearMonth month) {
+        List<BulkBillGenerationFailure> failures = new ArrayList<>();
+        int generatedCount = 0;
+        for (Student student : studentDao.findAllByInstitutionId(institutionId)) {
+            if (!student.enrolled()) {
+                continue;
+            }
+            try {
+                generateBill(institutionId, student.id(), month);
+                generatedCount++;
+            } catch (BillingRateNotConfiguredException e) {
+                failures.add(new BulkBillGenerationFailure(student.id(), student.name(), e.getMessage()));
+            }
+        }
+        return new BulkBillGenerationResult(generatedCount, failures);
     }
 
     public MonthlyBill getBill(Long institutionId, Long billId) {
