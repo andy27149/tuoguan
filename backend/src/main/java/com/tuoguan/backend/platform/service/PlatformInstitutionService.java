@@ -7,9 +7,14 @@ import com.tuoguan.backend.auth.domain.Institution;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.platform.dao.InstitutionRenewalRecordDao;
+import com.tuoguan.backend.platform.domain.InstitutionRenewalRecord;
+import com.tuoguan.backend.platform.domain.InstitutionStatus;
 import com.tuoguan.backend.platform.domain.RenewalPlan;
 import com.tuoguan.backend.platform.web.PlatformInstitutionResponse;
 import com.tuoguan.backend.platform.web.PlatformInstitutionSummary;
+import com.tuoguan.backend.roster.dao.StudentDao;
+import com.tuoguan.backend.roster.domain.Student;
+import com.tuoguan.backend.unit.dao.TeachingUnitDao;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -19,18 +24,25 @@ import java.util.List;
 @Service
 public class PlatformInstitutionService {
 
+    private static final int EXPIRING_SOON_THRESHOLD_DAYS = 7;
+
     private final InstitutionDao institutionDao;
     private final TeacherDao teacherDao;
     private final PasswordEncoder passwordEncoder;
     private final InstitutionRenewalRecordDao renewalRecordDao;
+    private final StudentDao studentDao;
+    private final TeachingUnitDao teachingUnitDao;
 
     public PlatformInstitutionService(InstitutionDao institutionDao, TeacherDao teacherDao,
                                        PasswordEncoder passwordEncoder,
-                                       InstitutionRenewalRecordDao renewalRecordDao) {
+                                       InstitutionRenewalRecordDao renewalRecordDao,
+                                       StudentDao studentDao, TeachingUnitDao teachingUnitDao) {
         this.institutionDao = institutionDao;
         this.teacherDao = teacherDao;
         this.passwordEncoder = passwordEncoder;
         this.renewalRecordDao = renewalRecordDao;
+        this.studentDao = studentDao;
+        this.teachingUnitDao = teachingUnitDao;
     }
 
     public PlatformInstitutionResponse createInstitution(String institutionName, String adminPhone,
@@ -50,13 +62,38 @@ public class PlatformInstitutionService {
     }
 
     public List<PlatformInstitutionSummary> listInstitutions() {
-        List<Institution> institutions = institutionDao.findAll();
-        return institutions.stream()
-                .map(institution -> new PlatformInstitutionSummary(
-                        institution.id(),
-                        institution.name(),
-                        institution.createdAt(),
-                        teacherDao.findAllByInstitutionId(institution.id()).size()))
+        return institutionDao.findAll().stream()
+                .map(this::toSummary)
                 .toList();
+    }
+
+    private PlatformInstitutionSummary toSummary(Institution institution) {
+        int teacherCount = teacherDao.findAllByInstitutionId(institution.id()).size();
+        int studentCount = (int) studentDao.findAllByInstitutionId(institution.id()).stream()
+                .filter(Student::enrolled)
+                .count();
+        int classCount = teachingUnitDao.findAllByInstitutionId(institution.id()).size();
+        RenewalPlan currentPlan = renewalRecordDao.findLatestByInstitutionId(institution.id())
+                .map(InstitutionRenewalRecord::plan)
+                .orElse(null);
+        return new PlatformInstitutionSummary(institution.id(), institution.name(), institution.createdAt(),
+                teacherCount, studentCount, classCount, institution.contactName(), institution.contactPhone(),
+                institution.address(), institution.validUntil(), currentPlan,
+                deriveStatus(institution.validUntil()));
+    }
+
+    private InstitutionStatus deriveStatus(LocalDate validUntil) {
+        if (validUntil == null) {
+            return InstitutionStatus.NONE;
+        }
+        LocalDate today = LocalDate.now();
+        if (validUntil.isBefore(today)) {
+            return InstitutionStatus.EXPIRED;
+        }
+        long daysLeft = java.time.temporal.ChronoUnit.DAYS.between(today, validUntil);
+        if (daysLeft <= EXPIRING_SOON_THRESHOLD_DAYS) {
+            return InstitutionStatus.EXPIRING_SOON;
+        }
+        return InstitutionStatus.ACTIVE;
     }
 }

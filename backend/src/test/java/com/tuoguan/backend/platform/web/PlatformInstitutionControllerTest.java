@@ -32,6 +32,12 @@ class PlatformInstitutionControllerTest extends IntegrationTestBase {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private com.tuoguan.backend.unit.dao.TeachingUnitDao teachingUnitDao;
+
+    @Autowired
+    private com.tuoguan.backend.roster.dao.StudentDao studentDao;
+
     @Test
     void platformAdminCreatesInstitutionAndNewAdminCanLogIn() throws Exception {
         teacherDao.insert(new Teacher(null, null, "13600003001",
@@ -66,7 +72,88 @@ class PlatformInstitutionControllerTest extends IntegrationTestBase {
         mockMvc.perform(get("/api/platform/institutions")
                         .header("Authorization", "Bearer " + platformToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.id == " + created.institutionId() + ")].teacherCount").value(1));
+                .andExpect(jsonPath("$[?(@.id == " + created.institutionId() + ")].teacherCount").value(1))
+                .andExpect(jsonPath("$[?(@.id == " + created.institutionId() + ")].validUntil")
+                        .value(org.hamcrest.Matchers.contains("2026-12-01")))
+                .andExpect(jsonPath("$[?(@.id == " + created.institutionId() + ")].currentPlan")
+                        .value(org.hamcrest.Matchers.contains("TRIAL")))
+                .andExpect(jsonPath("$[?(@.id == " + created.institutionId() + ")].status")
+                        .value(org.hamcrest.Matchers.contains("ACTIVE")));
+    }
+
+    @Test
+    void listIncludesStudentAndClassCounts() throws Exception {
+        teacherDao.insert(new Teacher(null, null, "13600003010",
+                passwordEncoder.encode("platform-password"), Role.PLATFORM_ADMIN, false, null));
+        String platformToken = login("13600003010", "platform-password");
+        Long institutionId = institutionDao.insert("规模统计测试机构");
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13600003011",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new com.tuoguan.backend.unit.domain.TeachingUnit(
+                null, institutionId, teacherId, "规模一班",
+                com.tuoguan.backend.unit.domain.BillingMode.MONTHLY, null, null, true, null));
+        studentDao.insert(new com.tuoguan.backend.roster.domain.Student(
+                null, institutionId, classRoomId, "在读学生", "一班", true, null, null));
+        studentDao.insert(new com.tuoguan.backend.roster.domain.Student(
+                null, institutionId, classRoomId, "已退学学生", "一班", false, null, null));
+
+        mockMvc.perform(get("/api/platform/institutions")
+                        .header("Authorization", "Bearer " + platformToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == " + institutionId + ")].studentCount")
+                        .value(org.hamcrest.Matchers.contains(1)))
+                .andExpect(jsonPath("$[?(@.id == " + institutionId + ")].classCount")
+                        .value(org.hamcrest.Matchers.contains(1)));
+    }
+
+    @Test
+    void statusIsNoneWhenValidUntilNotSet() throws Exception {
+        teacherDao.insert(new Teacher(null, null, "13600003012",
+                passwordEncoder.encode("platform-password"), Role.PLATFORM_ADMIN, false, null));
+        String platformToken = login("13600003012", "platform-password");
+        Long institutionId = institutionDao.insert("未设置到期日测试机构");
+
+        mockMvc.perform(get("/api/platform/institutions")
+                        .header("Authorization", "Bearer " + platformToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == " + institutionId + ")].status")
+                        .value(org.hamcrest.Matchers.contains("NONE")))
+                .andExpect(jsonPath("$[?(@.id == " + institutionId + ")].currentPlan")
+                        .value(org.hamcrest.Matchers.contains(org.hamcrest.Matchers.nullValue())));
+    }
+
+    @Test
+    void statusIsExpiredWhenValidUntilIsYesterday() throws Exception {
+        teacherDao.insert(new Teacher(null, null, "13600003013",
+                passwordEncoder.encode("platform-password"), Role.PLATFORM_ADMIN, false, null));
+        String platformToken = login("13600003013", "platform-password");
+        Long institutionId = institutionDao.insert("已过期测试机构");
+        institutionDao.updateValidUntil(institutionId, java.time.LocalDate.now().minusDays(1));
+
+        mockMvc.perform(get("/api/platform/institutions")
+                        .header("Authorization", "Bearer " + platformToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == " + institutionId + ")].status")
+                        .value(org.hamcrest.Matchers.contains("EXPIRED")));
+    }
+
+    @Test
+    void statusIsExpiringSoonAtExactlySevenDaysLeftButActiveAtEight() throws Exception {
+        teacherDao.insert(new Teacher(null, null, "13600003014",
+                passwordEncoder.encode("platform-password"), Role.PLATFORM_ADMIN, false, null));
+        String platformToken = login("13600003014", "platform-password");
+        Long sevenDaysId = institutionDao.insert("七天后到期测试机构");
+        institutionDao.updateValidUntil(sevenDaysId, java.time.LocalDate.now().plusDays(7));
+        Long eightDaysId = institutionDao.insert("八天后到期测试机构");
+        institutionDao.updateValidUntil(eightDaysId, java.time.LocalDate.now().plusDays(8));
+
+        mockMvc.perform(get("/api/platform/institutions")
+                        .header("Authorization", "Bearer " + platformToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == " + sevenDaysId + ")].status")
+                        .value(org.hamcrest.Matchers.contains("EXPIRING_SOON")))
+                .andExpect(jsonPath("$[?(@.id == " + eightDaysId + ")].status")
+                        .value(org.hamcrest.Matchers.contains("ACTIVE")));
     }
 
     @Test
