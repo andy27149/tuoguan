@@ -101,7 +101,7 @@ export function EditInstitutionContactModal({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={saving}
+            disabled={saving || !contactPhone.trim()}
             className="rounded-full bg-blue-600 px-3 py-1 text-sm font-medium text-white disabled:opacity-50"
           >
             {saving ? '保存中...' : '保存'}

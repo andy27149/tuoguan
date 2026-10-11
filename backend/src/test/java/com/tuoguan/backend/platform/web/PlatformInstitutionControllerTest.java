@@ -157,6 +157,21 @@ class PlatformInstitutionControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void statusIsExpiringSoonWhenValidUntilIsToday() throws Exception {
+        teacherDao.insert(new Teacher(null, null, "13600003015",
+                passwordEncoder.encode("platform-password"), Role.PLATFORM_ADMIN, false, null));
+        String platformToken = login("13600003015", "platform-password");
+        Long institutionId = institutionDao.insert("今天到期测试机构");
+        institutionDao.updateValidUntil(institutionId, java.time.LocalDate.now());
+
+        mockMvc.perform(get("/api/platform/institutions")
+                        .header("Authorization", "Bearer " + platformToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == " + institutionId + ")].status")
+                        .value(org.hamcrest.Matchers.contains("EXPIRING_SOON")));
+    }
+
+    @Test
     void recordRenewalUpdatesValidUntilAndIsReflectedInList() throws Exception {
         teacherDao.insert(new Teacher(null, null, "13600003020",
                 passwordEncoder.encode("platform-password"), Role.PLATFORM_ADMIN, false, null));
@@ -264,6 +279,28 @@ class PlatformInstitutionControllerTest extends IntegrationTestBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.id == " + institutionId + ")].contactName")
                         .value(org.hamcrest.Matchers.contains("王校长")));
+    }
+
+    @Test
+    void rejectsBlankContactPhoneOnUpdate() throws Exception {
+        teacherDao.insert(new Teacher(null, null, "13600003032",
+                passwordEncoder.encode("platform-password"), Role.PLATFORM_ADMIN, false, null));
+        String platformToken = login("13600003032", "platform-password");
+        Long institutionId = institutionDao.insert("联系电话必填测试机构");
+        institutionDao.updateContact(institutionId, "原联系人", "13900008888", "原地址");
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .patch("/api/platform/institutions/" + institutionId + "/contact")
+                        .header("Authorization", "Bearer " + platformToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"contactName\":\"新联系人\",\"contactPhone\":\"\",\"address\":\"新地址\"}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/platform/institutions")
+                        .header("Authorization", "Bearer " + platformToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == " + institutionId + ")].contactPhone")
+                        .value(org.hamcrest.Matchers.contains("13900008888")));
     }
 
     @Test

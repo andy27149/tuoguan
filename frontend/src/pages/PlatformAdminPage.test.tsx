@@ -114,6 +114,17 @@ describe('PlatformAdminPage', () => {
     expect(screen.getByText('5 天后到期')).toBeInTheDocument()
   })
 
+  it('shows a "今天到期" status badge when the institution expires today', async () => {
+    const today = new Date().toISOString().slice(0, 10)
+    vi.mocked(platformApi.fetchInstitutions).mockResolvedValue([
+      { ...INSTITUTIONS[0], validUntil: today, status: 'EXPIRING_SOON' },
+    ])
+    render(<PlatformAdminPage />)
+    await screen.findByText('机构A')
+
+    expect(screen.getByText('今天到期')).toBeInTheDocument()
+  })
+
   it('creates an institution with contact info and trial date, and shows the one-time password banner', async () => {
     const created = { institutionId: 2, institutionName: '机构B', adminPhone: '13700000002' }
     vi.mocked(platformApi.createInstitution).mockResolvedValue(created)

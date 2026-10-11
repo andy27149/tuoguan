@@ -93,6 +93,25 @@ describe('EditInstitutionContactModal', () => {
     expect(onClose).not.toHaveBeenCalled()
   })
 
+  it('disables 保存 when contact phone is cleared, so it cannot be blanked out', () => {
+    render(
+      <EditInstitutionContactModal
+        institutionId={1}
+        institutionName="机构A"
+        initialContactName="张校长"
+        initialContactPhone="13900000001"
+        initialAddress="示例路1号"
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText('联系电话'), { target: { value: '' } })
+
+    expect(screen.getByRole('button', { name: '保存' })).toBeDisabled()
+    expect(platformApi.updateInstitutionContact).not.toHaveBeenCalled()
+  })
+
   it('calls onClose when clicking 取消', () => {
     const onClose = vi.fn()
     render(

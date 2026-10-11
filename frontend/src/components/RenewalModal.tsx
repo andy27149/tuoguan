@@ -36,7 +36,13 @@ function addDays(dateStr: string, days: number): string {
 
 function addMonths(dateStr: string, months: number): string {
   const d = new Date(dateStr)
+  const day = d.getDate()
+  // 先把日期挪到 1 号再加月份，避免原日期是 29/30/31 号时，JS 的 setMonth
+  // 溢出进位到下下个月（比如 1 月 31 号 + 1 个月被 JS 算成 3 月 3 号）。
+  d.setDate(1)
   d.setMonth(d.getMonth() + months)
+  const lastDayOfTargetMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+  d.setDate(Math.min(day, lastDayOfTargetMonth))
   return d.toISOString().slice(0, 10)
 }
 

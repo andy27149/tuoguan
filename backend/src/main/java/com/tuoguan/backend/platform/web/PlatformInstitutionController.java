@@ -61,7 +61,7 @@ public class PlatformInstitutionController {
     @PatchMapping("/api/platform/institutions/{institutionId}/contact")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     public PlatformInstitutionSummary updateContact(@PathVariable Long institutionId,
-                                                      @RequestBody UpdateInstitutionContactRequest request) {
+                                                      @Valid @RequestBody UpdateInstitutionContactRequest request) {
         return platformInstitutionService.updateContact(institutionId, request.contactName(),
                 request.contactPhone(), request.address());
     }

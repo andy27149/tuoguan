@@ -92,6 +92,25 @@ describe('RenewalModal', () => {
     expect(screen.getByLabelText('新的到期日')).toHaveValue('2027-11-01')
   })
 
+  it('suggests the last day of the target month instead of overflowing into the next month', async () => {
+    // 用远未来的日期做 currentValidUntil，确保 baseDateFor 不会被“今天”钳制掉，
+    // 这样测的才是 addMonths 本身的月末溢出行为，不是 baseDateFor 的回退逻辑。
+    render(
+      <RenewalModal
+        institutionId={1}
+        institutionName="机构A"
+        currentValidUntil="2099-01-31"
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    )
+    await screen.findByText('平台')
+
+    // 月套餐默认已经是 MONTHLY，2099-01-31 + 1 个月不应该溢出到 2099-03-03，
+    // 应该钳制到 2 月的最后一天。
+    expect(screen.getByLabelText('新的到期日')).toHaveValue('2099-02-28')
+  })
+
   it('submits the renewal with the chosen plan, amount, date and note, then saves and closes', async () => {
     const onClose = vi.fn()
     const onSaved = vi.fn()

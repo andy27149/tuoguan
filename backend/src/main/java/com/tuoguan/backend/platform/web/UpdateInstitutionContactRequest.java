@@ -1,4 +1,6 @@
 package com.tuoguan.backend.platform.web;
 
-public record UpdateInstitutionContactRequest(String contactName, String contactPhone, String address) {
+import jakarta.validation.constraints.NotBlank;
+
+public record UpdateInstitutionContactRequest(String contactName, @NotBlank String contactPhone, String address) {
 }
