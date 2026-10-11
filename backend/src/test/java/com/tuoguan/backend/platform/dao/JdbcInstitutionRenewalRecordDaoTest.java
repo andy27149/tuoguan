@@ -31,7 +31,7 @@ class JdbcInstitutionRenewalRecordDaoTest extends IntegrationTestBase {
     @Test
     void insertAndFindAllByInstitutionIdReturnsNewestFirst() {
         Long institutionId = institutionDao.insert("续费记录测试机构A");
-        Long platformAdminId = teacherDao.insert(new Teacher(null, null, "13900020001",
+        Long platformAdminId = teacherDao.insert(new Teacher(null, null, "13900029001",
                 "hash", Role.PLATFORM_ADMIN, false, null));
 
         renewalRecordDao.insert(institutionId, RenewalPlan.TRIAL, null,
@@ -61,7 +61,7 @@ class JdbcInstitutionRenewalRecordDaoTest extends IntegrationTestBase {
     @Test
     void findLatestByInstitutionIdReturnsMostRecentRecord() {
         Long institutionId = institutionDao.insert("续费记录测试机构C");
-        Long platformAdminId = teacherDao.insert(new Teacher(null, null, "13900020002",
+        Long platformAdminId = teacherDao.insert(new Teacher(null, null, "13900029002",
                 "hash", Role.PLATFORM_ADMIN, false, null));
         renewalRecordDao.insert(institutionId, RenewalPlan.TRIAL, null,
                 LocalDate.of(2026, 11, 1), null, platformAdminId);
