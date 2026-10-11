@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext'
 import { BrandMark } from '../brand/BrandMark'
 import { formatDate } from '../kanban/date'
 import { RenewalModal } from '../components/RenewalModal'
+import { EditInstitutionContactModal } from '../components/EditInstitutionContactModal'
 
 function defaultTrialValidUntil(): string {
   const d = new Date()
@@ -51,6 +52,8 @@ export function PlatformAdminPage() {
   const [createError, setCreateError] = useState<string | null>(null)
   const [createdNotice, setCreatedNotice] = useState<{ name: string; phone: string; password: string } | null>(null)
   const [renewingInstitution, setRenewingInstitution] = useState<platformApi.PlatformInstitution | null>(null)
+  const [editingContactInstitution, setEditingContactInstitution] =
+    useState<platformApi.PlatformInstitution | null>(null)
 
   function loadInstitutions() {
     setLoading(true)
@@ -241,6 +244,13 @@ export function PlatformAdminPage() {
                         >
                           续费
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingContactInstitution(institution)}
+                          className="ml-1 rounded-full border border-gray-200 px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-50"
+                        >
+                          编辑联系信息
+                        </button>
                       </td>
                     </tr>
                   )
@@ -264,6 +274,18 @@ export function PlatformAdminPage() {
           institutionName={renewingInstitution.name}
           currentValidUntil={renewingInstitution.validUntil}
           onClose={() => setRenewingInstitution(null)}
+          onSaved={loadInstitutions}
+        />
+      )}
+
+      {editingContactInstitution && (
+        <EditInstitutionContactModal
+          institutionId={editingContactInstitution.id}
+          institutionName={editingContactInstitution.name}
+          initialContactName={editingContactInstitution.contactName}
+          initialContactPhone={editingContactInstitution.contactPhone}
+          initialAddress={editingContactInstitution.address}
+          onClose={() => setEditingContactInstitution(null)}
           onSaved={loadInstitutions}
         />
       )}

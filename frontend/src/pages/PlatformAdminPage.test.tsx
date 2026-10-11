@@ -20,6 +20,16 @@ vi.mock('../components/RenewalModal', () => ({
     </div>
   ),
 }))
+vi.mock('../components/EditInstitutionContactModal', () => ({
+  EditInstitutionContactModal: (props: { institutionId: number; institutionName: string; onClose: () => void }) => (
+    <div>
+      EditContactModalStub:{props.institutionId}:{props.institutionName}
+      <button type="button" onClick={props.onClose}>
+        关闭联系信息弹窗
+      </button>
+    </div>
+  ),
+}))
 
 const INSTITUTIONS: platformApi.PlatformInstitution[] = [
   {
@@ -162,6 +172,18 @@ describe('PlatformAdminPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '关闭续费弹窗' }))
     expect(screen.queryByText('RenewalModalStub:1:机构A')).not.toBeInTheDocument()
+  })
+
+  it('opens the edit-contact modal for the clicked institution and closes it', async () => {
+    render(<PlatformAdminPage />)
+    await screen.findByText('机构A')
+
+    fireEvent.click(screen.getByRole('button', { name: '编辑联系信息' }))
+
+    expect(await screen.findByText('EditContactModalStub:1:机构A')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '关闭联系信息弹窗' }))
+    expect(screen.queryByText('EditContactModalStub:1:机构A')).not.toBeInTheDocument()
   })
 
   it('calls logout when the logout button is clicked', async () => {
