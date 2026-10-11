@@ -42,7 +42,8 @@ class PlatformInstitutionControllerTest extends IntegrationTestBase {
                         .header("Authorization", "Bearer " + platformToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"institutionName\":\"新开通机构A\",\"adminPhone\":\"13600003002\","
-                                + "\"adminInitialPassword\":\"initial123\"}"))
+                                + "\"adminInitialPassword\":\"initial123\",\"contactPhone\":\"13900000001\","
+                                + "\"trialValidUntil\":\"2026-12-01\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.institutionName").value("新开通机构A"))
                 .andExpect(jsonPath("$.adminPhone").value("13600003002"))
@@ -69,6 +70,20 @@ class PlatformInstitutionControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void rejectsMissingContactPhone() throws Exception {
+        teacherDao.insert(new Teacher(null, null, "13600003007",
+                passwordEncoder.encode("platform-password"), Role.PLATFORM_ADMIN, false, null));
+        String platformToken = login("13600003007", "platform-password");
+
+        mockMvc.perform(post("/api/platform/institutions")
+                        .header("Authorization", "Bearer " + platformToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"institutionName\":\"缺联系电话测试机构\",\"adminPhone\":\"13600003008\","
+                                + "\"adminInitialPassword\":\"initial123\",\"trialValidUntil\":\"2026-12-01\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void rejectsDuplicateAdminPhone() throws Exception {
         teacherDao.insert(new Teacher(null, null, "13600003003",
                 passwordEncoder.encode("platform-password"), Role.PLATFORM_ADMIN, false, null));
@@ -78,14 +93,16 @@ class PlatformInstitutionControllerTest extends IntegrationTestBase {
                         .header("Authorization", "Bearer " + platformToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"institutionName\":\"新开通机构B\",\"adminPhone\":\"13600003004\","
-                                + "\"adminInitialPassword\":\"initial123\"}"))
+                                + "\"adminInitialPassword\":\"initial123\",\"contactPhone\":\"13900000002\","
+                                + "\"trialValidUntil\":\"2026-12-01\"}"))
                 .andExpect(status().isCreated());
 
         mockMvc.perform(post("/api/platform/institutions")
                         .header("Authorization", "Bearer " + platformToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"institutionName\":\"新开通机构C\",\"adminPhone\":\"13600003004\","
-                                + "\"adminInitialPassword\":\"initial123\"}"))
+                                + "\"adminInitialPassword\":\"initial123\",\"contactPhone\":\"13900000003\","
+                                + "\"trialValidUntil\":\"2026-12-01\"}"))
                 .andExpect(status().isConflict());
     }
 
@@ -100,7 +117,8 @@ class PlatformInstitutionControllerTest extends IntegrationTestBase {
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"institutionName\":\"新开通机构D\",\"adminPhone\":\"13600003006\","
-                                + "\"adminInitialPassword\":\"initial123\"}"))
+                                + "\"adminInitialPassword\":\"initial123\",\"contactPhone\":\"13900000004\","
+                                + "\"trialValidUntil\":\"2026-12-01\"}"))
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(get("/api/platform/institutions")
