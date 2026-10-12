@@ -1,4 +1,11 @@
 <!doctype html>
+<!--
+  维护提示（2026-10-12）：这份手册的文字部分（不含截图）在应用里重复了一份轻量版，
+  见 frontend/src/components/HelpModal.tsx（AdminDashboardPage/KanbanPage 头部的
+  「帮助」按钮）。改这份文件里任何涉及登录流程、机构搭建步骤、托管看板操作、课外课
+  消课规则、账单计费规则的内容时，记得同步检查并更新 HelpModal.tsx，反之亦然。
+  详见 docs/INDEX.md 的维护提示第 4 条。
+-->
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -259,7 +266,7 @@
     <div class="step-head"><span class="step-num">1</span><h2>第一次登录：改密码</h2></div>
     <div class="step-body">
       <p>平台方会给你一个手机号和一个初始密码。第一次登录系统会强制跳到"修改密码"页面，<strong>必须改完密码才能进系统</strong>，改之前看不到任何其他页面。</p>
-      <div class="callout tip">记不住密码也不用怕——找平台方帮你重置，或者等你自己建了其他管理员/教师账号后，可以在"教师列表"里帮他们重置密码。</div>
+      <div class="callout warn">⚠️ 系统目前没有"忘记密码"的找回/重置功能，一定要在这一步设置一个自己记得住的密码，或者用密码管理工具保存好——忘记之后需要联系技术支持才能处理。</div>
     </div>
   </div>
 
@@ -369,7 +376,7 @@
 
   <details class="faq-item">
     <summary>忘记密码了怎么办？</summary>
-    <div class="faq-answer">找平台方帮你重置。如果你机构里还有别的管理员账号，也可以用那个账号登录后在「教师列表」里给你重置。</div>
+    <div class="faq-answer">目前系统里没有"忘记密码"的自助找回或重置入口——不管是教师还是管理员，自己设置过密码之后忘记了，教师列表里也没有重置按钮，需要联系技术支持处理。建议用密码管理工具保存好密码，避免忘记。</div>
   </details>
   <details class="faq-item">
     <summary>一个学生既在托管班又报了课外课，算哪种？</summary>
@@ -392,6 +399,7 @@
     <div class="step-head"><span class="step-num">1</span><h2>第一次登录：改密码</h2></div>
     <div class="step-body">
       <p>管理员会给你一个手机号和初始密码，第一次登录会强制要求改密码，改完才能进系统。</p>
+      <div class="callout warn">⚠️ 系统目前没有"忘记密码"的找回/重置功能，一定要设置一个自己记得住的密码。</div>
     </div>
   </div>
 
@@ -452,8 +460,12 @@
   </div>
 
   <details class="faq-item">
-    <summary>忘记密码 / 看板上没有班级怎么办？</summary>
-    <div class="faq-answer">找你们机构的管理员重置密码、建班或者分配课程——教学单元（托管班/课外课）现在都只能由管理员在后台创建和分配，教师这边没有自建入口。如果你确实还没有任何托管班和课外课，看板会提示你联系管理员。</div>
+    <summary>忘记密码了怎么办？</summary>
+    <div class="faq-answer">目前系统里没有"忘记密码"的自助找回或重置入口，管理员那边也没有重置按钮，需要联系技术支持处理。建议用密码管理工具保存好密码。</div>
+  </details>
+  <details class="faq-item">
+    <summary>看板上没有班级怎么办？</summary>
+    <div class="faq-answer">找你们机构的管理员建班或者分配课程——教学单元（托管班/课外课）现在都只能由管理员在后台创建和分配，教师这边没有自建入口。如果你确实还没有任何托管班和课外课，看板会提示你联系管理员。</div>
   </details>
   <details class="faq-item">
     <summary>消课点错了，能撤销吗？</summary>
