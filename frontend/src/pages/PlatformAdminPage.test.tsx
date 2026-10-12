@@ -45,6 +45,7 @@ const INSTITUTIONS: platformApi.PlatformInstitution[] = [
     validUntil: '2026-12-01',
     currentPlan: 'TRIAL',
     status: 'ACTIVE',
+    todayViewCount: 7,
   },
 ]
 
@@ -71,6 +72,13 @@ describe('PlatformAdminPage', () => {
     expect(screen.getByText('2')).toBeInTheDocument()
     expect(screen.getByText(/张校长/)).toBeInTheDocument()
     expect(screen.getByText(/13900000001/)).toBeInTheDocument()
+  })
+
+  it('shows today\'s distinct-student view count', async () => {
+    render(<PlatformAdminPage />)
+    await screen.findByText('机构A')
+
+    expect(screen.getByText('7')).toBeInTheDocument()
   })
 
   it('shows an ACTIVE status badge with the valid-until date', async () => {

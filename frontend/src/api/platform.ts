@@ -16,6 +16,7 @@ export interface PlatformInstitution {
   validUntil: string | null
   currentPlan: RenewalPlan | null
   status: InstitutionStatus
+  todayViewCount: number
 }
 
 export interface CreatedPlatformInstitution {

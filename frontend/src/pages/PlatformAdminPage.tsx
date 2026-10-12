@@ -213,6 +213,7 @@ export function PlatformAdminPage() {
                   <th className="border-b border-gray-100 py-2">学生数</th>
                   <th className="border-b border-gray-100 py-2">班级数</th>
                   <th className="border-b border-gray-100 py-2">教师数</th>
+                  <th className="border-b border-gray-100 py-2">今日查看</th>
                   <th className="border-b border-gray-100 py-2">联系人</th>
                   <th className="border-b border-gray-100 py-2">到期状态</th>
                   <th className="border-b border-gray-100 py-2">操作</th>
@@ -230,6 +231,7 @@ export function PlatformAdminPage() {
                       <td className="py-2">{institution.studentCount}</td>
                       <td className="py-2">{institution.classCount}</td>
                       <td className="py-2">{institution.teacherCount}</td>
+                      <td className="py-2">{institution.todayViewCount}</td>
                       <td className="py-2 text-xs text-gray-600">
                         {institution.contactName || '—'} · {institution.contactPhone || '—'}
                       </td>
@@ -257,7 +259,7 @@ export function PlatformAdminPage() {
                 })}
                 {institutions.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="py-2 text-xs text-gray-400">
+                    <td colSpan={8} className="py-2 text-xs text-gray-400">
                       暂无机构
                     </td>
                   </tr>
