@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>奕成长课后平台 · 操作培训手册</title>
+<meta name="description" content="面向机构管理员和教师的上手操作指南">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+  :root {
+    --bg: #F5F7FB;
+    --surface: #FFFFFF;
+    --surface-alt: #ECF0FA;
+    --ink: #14172B;
+    --ink-soft: #565B7A;
+    --ink-faint: #8489A6;
+    --line: #E1E5F2;
+    --accent-1: #4F86F7;
+    --accent-2: #9B6BFF;
+    --gold-1: #FFD65A;
+    --gold-2: #FF9142;
+    --good: #1E9C5A;
+    --alert: #D8483A;
+    --shadow: 0 18px 40px -24px rgba(30, 40, 90, 0.28);
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0E1120;
+      --surface: #171A30;
+      --surface-alt: #1E2240;
+      --ink: #F1F2FA;
+      --ink-soft: #ABAFCB;
+      --ink-faint: #767AA0;
+      --line: #2B2F52;
+      --good: #3FC77E;
+      --alert: #FF6B5B;
+      --shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.55);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0E1120;
+    --surface: #171A30;
+    --surface-alt: #1E2240;
+    --ink: #F1F2FA;
+    --ink-soft: #ABAFCB;
+    --ink-faint: #767AA0;
+    --line: #2B2F52;
+    --good: #3FC77E;
+    --alert: #FF6B5B;
+    --shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.55);
+  }
+
+  * { box-sizing: border-box; }
+  html { color-scheme: light dark; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3 {
+    font-family: "Noto Sans SC", "PingFang SC", sans-serif;
+    font-weight: 900;
+    letter-spacing: -0.01em;
+    margin: 0;
+    color: var(--ink);
+  }
+
+  .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+
+  .eyebrow {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent-1);
+  }
+
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 20px; }
+  a { color: var(--accent-1); }
+  img { max-width: 100%; display: block; }
+  [hidden] { display: none !important; }
+
+  /* ---------- Header / role switch ---------- */
+  header.top {
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 20;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    padding: 14px 0;
+  }
+  .top-inner { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .brand { font-weight: 900; font-size: 1.02rem; }
+  .brand small { display: block; font-weight: 400; font-size: 0.72rem; color: var(--ink-faint); margin-top: 1px; }
+
+  .role-tabs {
+    display: flex;
+    gap: 6px;
+    background: var(--surface-alt);
+    padding: 4px;
+    border-radius: 999px;
+  }
+  .role-tab {
+    appearance: none;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 8px 14px;
+    border-radius: 999px;
+    color: var(--ink-soft);
+    cursor: pointer;
+  }
+  .role-tab[aria-selected="true"] {
+    background: var(--surface);
+    color: var(--accent-1);
+    box-shadow: 0 2px 8px rgba(30,40,90,0.12);
+  }
+
+  /* ---------- Hero ---------- */
+  .hero { padding: 36px 0 28px; }
+  .hero h1 { font-size: clamp(1.5rem, 5vw, 2rem); line-height: 1.3; }
+  .hero p.lede { margin-top: 12px; color: var(--ink-soft); font-size: 0.98rem; }
+  .hero .accent-word {
+    background: linear-gradient(100deg, var(--accent-1), var(--accent-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+
+  section.role-content { padding-bottom: 40px; }
+
+  /* ---------- Step cards ---------- */
+  .step {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 20px;
+    margin-top: 16px;
+    box-shadow: var(--shadow);
+  }
+  .step-head { display: flex; align-items: center; gap: 12px; }
+  .step-num {
+    flex-shrink: 0;
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700; font-size: 0.85rem;
+  }
+  .step-head h2 { font-size: 1.05rem; }
+  .step-body { margin-top: 12px; font-size: 0.92rem; color: var(--ink-soft); }
+  .step-body p { margin: 0 0 10px; }
+  .step-body ul, .step-body ol { margin: 0 0 10px; padding-left: 1.3em; }
+  .step-body li { margin-bottom: 6px; }
+  .step-body strong { color: var(--ink); }
+
+  .callout {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+  }
+  .callout.tip { background: rgba(79,134,247,0.08); color: var(--ink-soft); }
+  .callout.warn { background: rgba(255,145,66,0.12); color: var(--ink-soft); }
+
+  /* ---------- screenshots ---------- */
+  .shot-wrap { margin-top: 14px; }
+  .shot-caption { font-size: 0.78rem; color: var(--ink-faint); margin-top: 6px; text-align: center; }
+
+  .shot-phone {
+    max-width: 230px;
+    margin: 0 auto;
+    border-radius: 24px;
+    border: 6px solid var(--ink);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  :root:not([data-theme="light"]) .shot-phone { border-color: #3A3F66; }
+  :root[data-theme="dark"] .shot-phone { border-color: #3A3F66; }
+
+  .shot-wide {
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    overflow: auto;
+    box-shadow: var(--shadow);
+  }
+  .shot-wide img { min-width: 640px; }
+
+  /* ---------- FAQ ---------- */
+  .faq-item {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    margin-top: 10px;
+    overflow: hidden;
+  }
+  .faq-item summary {
+    padding: 14px 16px;
+    font-weight: 700;
+    font-size: 0.92rem;
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .faq-item summary::-webkit-details-marker { display: none; }
+  .faq-item summary::before { content: "Q"; color: var(--accent-1); font-family: "JetBrains Mono", monospace; font-weight: 700; }
+  .faq-item[open] summary { border-bottom: 1px solid var(--line); }
+  .faq-answer { padding: 12px 16px 16px; font-size: 0.88rem; color: var(--ink-soft); }
+
+  .section-title { margin-top: 36px; }
+  .section-title .eyebrow { display: block; margin-bottom: 6px; }
+  .section-title h2 { font-size: 1.2rem; }
+
+  footer { padding: 28px 0 48px; text-align: center; font-size: 0.78rem; color: var(--ink-faint); }
+
+  @media (max-width: 480px) {
+    .top-inner { flex-direction: column; align-items: stretch; gap: 10px; }
+    .role-tabs { justify-content: stretch; }
+    .role-tab { flex: 1; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap top-inner">
+    <div class="brand">奕成长课后平台<small>操作培训手册</small></div>
+    <div class="role-tabs" role="tablist" aria-label="选择你的角色">
+      <button type="button" class="role-tab" role="tab" id="tab-admin" aria-controls="panel-admin" aria-selected="true" onclick="showRole('admin')">我是机构管理员</button>
+      <button type="button" class="role-tab" role="tab" id="tab-teacher" aria-controls="panel-teacher" aria-selected="false" onclick="showRole('teacher')">我是教师</button>
+    </div>
+  </div>
+</header>
+
+<div class="hero wrap">
+  <div class="eyebrow">新手上手指南</div>
+  <h1>照着这份手册走一遍<br><span class="accent-word">15 分钟就能把系统用起来</span></h1>
+  <p class="lede">上面切换你的角色——机构管理员看"怎么把机构配起来"，教师看"每天怎么用看板和消课"。截图都是系统里的真实界面。</p>
+</div>
+
+<section id="panel-admin" class="role-content wrap" role="tabpanel" aria-labelledby="tab-admin">
+
+  <div class="step">
+    <div class="step-head"><span class="step-num">1</span><h2>第一次登录：改密码</h2></div>
+    <div class="step-body">
+      <p>平台方会给你一个手机号和一个初始密码。第一次登录系统会强制跳到"修改密码"页面，<strong>必须改完密码才能进系统</strong>，改之前看不到任何其他页面。</p>
+      <div class="callout tip">记不住密码也不用怕——找平台方帮你重置，或者等你自己建了其他管理员/教师账号后，可以在"教师列表"里帮他们重置密码。</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><span class="step-num">2</span><h2>把机构基础信息配好</h2></div>
+    <div class="step-body">
+      <p>登录后先去左侧「基础配置」，填机构名称、传 Logo。系统默认同时支持托管和课外课，不需要你额外开通。</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><span class="step-num">3</span><h2>建教师账号</h2></div>
+    <div class="step-body">
+      <p>左侧「教师列表」→「新增教师」，填手机号、姓名、初始密码，角色选「教师」（如果这个人也要帮你管后台，选「管理员」）。</p>
+      <p>创建成功后，初始密码会<strong>明文显示一次</strong>，记得马上截图或者口头告诉对方——系统不会再显示第二次。</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><span class="step-num">4</span><h2>建教学单元（托管班 / 课外课）</h2></div>
+    <div class="step-body">
+      <p>左侧「教学单元」，分两种：</p>
+      <ul>
+        <li><strong>托管班</strong>：填班级名字，指定一个负责的教师。</li>
+        <li><strong>课外课</strong>：填课程名字、单节课时长，必须指定一个负责教师；单价可以先空着，下一步在「定价中心」统一补。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><span class="step-num">5</span><h2>录入学生</h2></div>
+    <div class="step-body">
+      <p>左侧「学生总览」→「新建学生」，填姓名、学籍班（孩子在学校的班级，和托管班是两回事）：</p>
+      <ul>
+        <li>选一个托管班 → 这个学生是"托管学生"。</li>
+        <li>不选托管班，但勾了至少一门课外课 → 这个学生是"纯课外课学生"。</li>
+        <li>两者都选 → 这个学生既在托管班、又报了课外课（后面账单那块会再提一下这种情况）。</li>
+      </ul>
+      <div class="callout tip">学生一建好，系统就自动生成了这个孩子专属的家长分享链接，之后随时能在他的卡片上找到。</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><span class="step-num">6</span><h2>设置定价</h2></div>
+    <div class="step-body">
+      <p>左侧「定价中心」：</p>
+      <ul>
+        <li>托管学费 + 餐费：可以挨个班设置，也可以"批量设置"一次套到所有班级。</li>
+        <li>课外课单价：每门课单独设置。</li>
+      </ul>
+      <div class="callout warn">⚠️ 托管班如果没设学费，到月底生成账单时会报错提醒你先配置，账单生成不出来。</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><span class="step-num">7</span><h2>日常打开系统先看「机构总览」</h2></div>
+    <div class="step-body">
+      <p>这是登录后默认看到的页面，5 张卡片一眼看完今天的情况：</p>
+      <ul>
+        <li><strong>课时不足预警</strong>：哪些学生课外课余额快用完或者已经欠费了，点"去充值"直接处理。</li>
+        <li><strong>账单欠费提醒</strong>：全机构还没收到的钱，一共多少笔、多少钱。</li>
+        <li><strong>在读规模</strong>：现在一共多少学生，托管 / 纯课外课各多少，每个老师带了多少人。</li>
+        <li><strong>今日运营快照</strong>：今天多少学生到了、用餐了、请假了。</li>
+        <li><strong>收入快照</strong>：上个月托管费收了多少、还差多少，这个月课外课一共消了多少节课。</li>
+      </ul>
+      <div class="shot-wrap">
+        <div class="shot-wide"><img src="assets/05-admin-overview.png" alt="机构总览页截图"></div>
+        <p class="shot-caption">机构总览 · 5 张运营卡片</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><span class="step-num">8</span><h2>学生总览：管全机构学生的地方</h2></div>
+    <div class="step-body">
+      <p>全机构所有学生一张列表，能按姓名搜索、按身份筛选。<strong>只要报了课外课的学生</strong>（不管是不是同时在托管班）这一行都会有「对账单/充值」按钮，点开能看到这个学生每门课的充值、消课和余额明细，也能直接帮他充值。</p>
+      <div class="shot-wrap">
+        <div class="shot-wide"><img src="assets/06-admin-students.png" alt="学生总览页截图"></div>
+        <p class="shot-caption">学生总览 · 全机构学生列表</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><span class="step-num">9</span><h2>账单管理：怎么收钱</h2></div>
+    <div class="step-body">
+      <p>月底在「账单管理」生成账单，两种方式：</p>
+      <ul>
+        <li>选一个班级 + 月份，点「生成账单」，只算这个班的。</li>
+        <li>点「一键生成本月全机构账单」，一次性把全机构（包括纯课外课学生）当月的账单都算出来，已经生成过的会自动跳过。</li>
+      </ul>
+      <p>每个学生的账单金额 = 托管学费（如果有托管班）+ 餐费（按实际用餐天数）+ 课外课费用（如果有）。生成好之后点进明细能看到每一项是怎么算出来的，核对无误后标记「已付」。</p>
+      <div class="callout tip">
+        <strong>课外课这部分钱到底怎么算？</strong>很简单：这个学生如果给这门课充过值，先从充值余额里扣；充值不够或者压根没充值的部分，月底会自动算进账单里，不用你手动区分谁充过值谁没充值，系统都处理好了。
+      </div>
+      <div class="shot-wrap">
+        <div class="shot-wide"><img src="assets/07-admin-billing.png" alt="账单管理页截图"></div>
+        <p class="shot-caption">账单管理 · 按班级/月份查看</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">
+    <div class="eyebrow">常见问题</div>
+    <h2>机构管理员常见问题</h2>
+  </div>
+
+  <details class="faq-item">
+    <summary>忘记密码了怎么办？</summary>
+    <div class="faq-answer">找平台方帮你重置。如果你机构里还有别的管理员账号，也可以用那个账号登录后在「教师列表」里给你重置。</div>
+  </details>
+  <details class="faq-item">
+    <summary>一个学生既在托管班又报了课外课，算哪种？</summary>
+    <div class="faq-answer">两种身份都算，系统内部叫"双重身份学生"。他的月度账单里会同时有托管学费/餐费，和课外课费用（按上面第 9 步说的规则算）。</div>
+  </details>
+  <details class="faq-item">
+    <summary>关掉托管或课外课开关，原来的数据会被删掉吗？</summary>
+    <div class="faq-answer">不会。开关只是隐藏对应的菜单入口，已经建好的班级、学生、历史记录都还在，重新打开开关就能看到。</div>
+  </details>
+  <details class="faq-item">
+    <summary>纯课外课学生也要生成账单吗？</summary>
+    <div class="faq-answer">要。这类学生的账单学费/餐费是 0，只统计当月课外课里"没被充值余额覆盖"的部分，一样会出现在「一键生成本月全机构账单」里，不会被漏掉。</div>
+  </details>
+
+</section>
+
+<section id="panel-teacher" class="role-content wrap" role="tabpanel" aria-labelledby="tab-teacher" hidden>
+
+  <div class="step">
+    <div class="step-head"><span class="step-num">1</span><h2>第一次登录：改密码</h2></div>
+    <div class="step-body">
+      <p>管理员会给你一个手机号和初始密码，第一次登录会强制要求改密码，改完才能进系统。</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><span class="step-num">2</span><h2>托管看板：每天的主战场</h2></div>
+    <div class="step-body">
+      <p>如果你带托管班，登录后默认就在看板页。<strong>班级只能由管理员在后台创建</strong>——如果你还没有班，不是自己建，而是联系管理员帮你建班并指定给你。</p>
+      <ul>
+        <li><strong>布置任务</strong>：点「+ 添加任务」给单个学生，或者在上面"批量分配"从任务库选模板一次性发给全班。给一个学生加的任务会自动同步给同学籍班的其他学生，不用一个个重复录。</li>
+        <li><strong>打卡</strong>：学生到校点一下 🕐，记录到校时间。</li>
+        <li><strong>打勾完成</strong>：学生做完一项任务就勾一项，卡片颜色会跟着完成度变——全部完成会盖上"完成"印章。</li>
+        <li><strong>评分 + 点评</strong>：给今天的表现打 1-5 星，加一句话点评，几秒钟搞定，家长会在分享页看到。</li>
+        <li><strong>用餐 / 请假</strong>：点 🍚 标记今天用餐了，或者点 🌴 登记请假并填原因。</li>
+        <li><strong>放学确认</strong>：全班处理完点一下"放学"，还有没做完任务的学生会用红色提醒你。</li>
+      </ul>
+      <div class="shot-wrap">
+        <div class="shot-phone"><img src="assets/02-kanban-teacher.png" alt="托管看板截图"></div>
+        <p class="shot-caption">托管看板 · 学生卡片</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><span class="step-num">3</span><h2>课外课：点名消课</h2></div>
+    <div class="step-body">
+      <p>顶部点「消课」进入这个页面：</p>
+      <ol>
+        <li>选课程 Tab（如果你带好几门课外课，上面会有好几个 Tab 可以切）、选日期（默认今天，<strong>不能选未来的日期</strong>）。</li>
+        <li>花名册默认<strong>全部勾选</strong>（当天全到），没来的学生手动取消勾选就行——<strong>没勾的学生不会生成任何记录</strong>，相当于这节课没算他的。</li>
+        <li>如果学生余额已经用完或者快用完了，花名册上会标红/标黄提醒你，但<strong>不会阻止你继续消课</strong>——提醒管理员去帮忙催续费就行。</li>
+        <li>点「确认消课（N人）」，会先弹出一个二次确认框："请确认针对N个孩子进行消课处理吗，此操作不可更改？"——<strong>这一步不可撤销，点之前再确认一遍人数对不对</strong>。</li>
+      </ol>
+      <div class="shot-wrap">
+        <div class="shot-phone"><img src="assets/03-consumption.png" alt="消课花名册截图"></div>
+        <p class="shot-caption">消课花名册</p>
+      </div>
+      <div class="shot-wrap">
+        <div class="shot-phone"><img src="assets/04-consumption-confirm.png" alt="消课二次确认截图"></div>
+        <p class="shot-caption">确认消课前的二次确认提示</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><span class="step-num">4</span><h2>把分享链接/海报发给家长</h2></div>
+    <div class="step-body">
+      <p>每个学生卡片上都有 🔗「链接」和 🖼「海报」按钮，点开就能拿到这个孩子专属的分享内容，发到家长微信就行——<strong>家长不用注册、不用登录</strong>，点开链接直接看到孩子今天的情况和本月表现。</p>
+      <div class="shot-wrap">
+        <div class="shot-phone"><img src="assets/08-parent-share.png" alt="家长分享页截图"></div>
+        <p class="shot-caption">家长打开链接看到的样子</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">
+    <div class="eyebrow">常见问题</div>
+    <h2>教师常见问题</h2>
+  </div>
+
+  <details class="faq-item">
+    <summary>忘记密码 / 看板上没有班级怎么办？</summary>
+    <div class="faq-answer">找你们机构的管理员重置密码、建班或者分配课程——教学单元（托管班/课外课）现在都只能由管理员在后台创建和分配，教师这边没有自建入口。如果你确实还没有任何托管班和课外课，看板会提示你联系管理员。</div>
+  </details>
+  <details class="faq-item">
+    <summary>消课点错了，能撤销吗？</summary>
+    <div class="faq-answer">目前不能直接撤销，所以才会在确认消课前弹一次二次确认——点之前务必再看一眼人数和日期对不对。如果真的点错了，找管理员帮忙在后台处理。</div>
+  </details>
+  <details class="faq-item">
+    <summary>消课到底扣谁的钱、扣多少？</summary>
+    <div class="faq-answer">你不用操心这个——点名确认后系统会自动判断：这个学生如果充过值，先扣充值余额；没充值或者充值不够的部分，月底管理员生成账单时会自动算进去。你只要如实点名就行。</div>
+  </details>
+  <details class="faq-item">
+    <summary>同一个学生，是托管班学生还是课外课学生？</summary>
+    <div class="faq-answer">你不需要区分——花名册里直接按姓名排序显示全部学生，不用管谁是哪种身份，点名方式完全一样。</div>
+  </details>
+
+</section>
+
+<footer>奕成长课后平台 · 操作培训手册</footer>
+
+<script>
+  function showRole(role) {
+    var isAdmin = role === 'admin';
+    document.getElementById('panel-admin').hidden = !isAdmin;
+    document.getElementById('panel-teacher').hidden = isAdmin;
+    document.getElementById('tab-admin').setAttribute('aria-selected', String(isAdmin));
+    document.getElementById('tab-teacher').setAttribute('aria-selected', String(!isAdmin));
+    try { localStorage.setItem('tuoguan-training-role', role); } catch (e) {}
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+  (function () {
+    try {
+      var saved = localStorage.getItem('tuoguan-training-role');
+      if (saved === 'teacher') showRole('teacher');
+    } catch (e) {}
+  })();
+</script>
+
+</body>
+</html>
