@@ -123,11 +123,35 @@ describe('CourseConsumptionPage', () => {
     expect(screen.getByRole('checkbox', { name: /小红/ })).toBeChecked()
 
     fireEvent.click(screen.getByRole('button', { name: '确认消课（2人）' }))
+    fireEvent.click(await screen.findByRole('button', { name: '确认消课' }))
 
     // 花名册按姓名排序：小明 在 小红 前面。
     await waitFor(() =>
       expect(courseApi.recordBatchConsumption).toHaveBeenCalledWith(1, expect.any(String), [100, 200]),
     )
+  })
+
+  it('shows a confirmation prompt before submitting a roll call, since it deducts course hours', async () => {
+    setup()
+    await screen.findByText('小明')
+
+    fireEvent.click(screen.getByRole('button', { name: '确认消课（2人）' }))
+
+    const dialog = await screen.findByRole('dialog', { name: '确认消课' })
+    expect(within(dialog).getByText('请确认针对2个孩子进行消课处理吗，此操作不可更改？')).toBeInTheDocument()
+    expect(courseApi.recordBatchConsumption).not.toHaveBeenCalled()
+  })
+
+  it('cancels the roll call without submitting when the confirmation prompt is dismissed', async () => {
+    setup()
+    await screen.findByText('小明')
+
+    fireEvent.click(screen.getByRole('button', { name: '确认消课（2人）' }))
+    const dialog = await screen.findByRole('dialog', { name: '确认消课' })
+    fireEvent.click(within(dialog).getByRole('button', { name: '取消' }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(courseApi.recordBatchConsumption).not.toHaveBeenCalled()
   })
 
   it('shows a success result modal after confirming a roll call, dismissible via 知道了', async () => {
@@ -146,6 +170,7 @@ describe('CourseConsumptionPage', () => {
     await screen.findByText('小明')
 
     fireEvent.click(screen.getByRole('button', { name: '确认消课（2人）' }))
+    fireEvent.click(await screen.findByRole('button', { name: '确认消课' }))
 
     const dialog = await screen.findByRole('dialog', { name: '消课成功' })
     expect(within(dialog).getByText('已确认消课，新增 1 条记录')).toBeInTheDocument()
@@ -175,6 +200,9 @@ describe('CourseConsumptionPage', () => {
     expect(screen.getByRole('button', { name: '确认消课（1人）' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '确认消课（1人）' }))
+    const dialog = await screen.findByRole('dialog', { name: '确认消课' })
+    expect(within(dialog).getByText('请确认针对1个孩子进行消课处理吗，此操作不可更改？')).toBeInTheDocument()
+    fireEvent.click(within(dialog).getByRole('button', { name: '确认消课' }))
 
     await waitFor(() =>
       expect(courseApi.recordBatchConsumption).toHaveBeenCalledWith(1, expect.any(String), [100]),
@@ -187,6 +215,7 @@ describe('CourseConsumptionPage', () => {
     await screen.findByText('小明')
 
     fireEvent.click(screen.getByRole('button', { name: '确认消课（2人）' }))
+    fireEvent.click(await screen.findByRole('button', { name: '确认消课' }))
 
     const dialog = await screen.findByRole('dialog', { name: '消课提醒' })
     expect(within(dialog).getByText('该课程尚未配置单价，请联系管理员配置')).toBeInTheDocument()

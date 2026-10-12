@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import * as courseApi from '../api/course'
 import { ApiError } from '../api/client'
 import { BrandMark } from '../brand/BrandMark'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { RollCallResultModal } from '../components/RollCallResultModal'
 import { ShareLinkModal } from '../components/ShareLinkModal'
 import { Toast } from '../components/Toast'
@@ -30,6 +31,7 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
   const [rollCallDate, setRollCallDate] = useState(todayDateString())
   const [presentStudentIds, setPresentStudentIds] = useState<Set<number>>(new Set())
   const [rollCallSubmitting, setRollCallSubmitting] = useState(false)
+  const [confirmingRollCall, setConfirmingRollCall] = useState(false)
   const [rollCallResult, setRollCallResult] = useState<RollCallResult | null>(null)
   const [sharingLinkStudent, setSharingLinkStudent] = useState<courseApi.CourseRosterEntry | null>(null)
   const { toastMessage, showToast } = useToast()
@@ -93,13 +95,19 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
     })
   }
 
-  async function submitRollCall() {
+  function handleRollCallClick() {
     if (activeCourseId === null) return
     setRollCallResult(null)
     if (rollCallDate > todayDateString()) {
       setRollCallResult({ type: 'warning', message: '无法对未来日期进行消课处理！' })
       return
     }
+    setConfirmingRollCall(true)
+  }
+
+  async function submitRollCall() {
+    if (activeCourseId === null) return
+    setConfirmingRollCall(false)
     setRollCallSubmitting(true)
     try {
       const created = await courseApi.recordBatchConsumption(activeCourseId, rollCallDate, Array.from(presentStudentIds))
@@ -231,7 +239,7 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
                 <button
                   type="button"
                   className="submit"
-                  onClick={submitRollCall}
+                  onClick={handleRollCallClick}
                   disabled={unpriced || rollCallSubmitting || presentStudentIds.size === 0}
                 >
                   确认消课（{presentStudentIds.size}人）
@@ -241,6 +249,17 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
           </>
         )}
       </main>
+
+      {confirmingRollCall && (
+        <ConfirmDialog
+          title="确认消课"
+          message={`请确认针对${presentStudentIds.size}个孩子进行消课处理吗，此操作不可更改？`}
+          confirmLabel="确认消课"
+          confirming={rollCallSubmitting}
+          onConfirm={submitRollCall}
+          onCancel={() => setConfirmingRollCall(false)}
+        />
+      )}
 
       {rollCallResult && (
         <RollCallResultModal
