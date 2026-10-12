@@ -5,7 +5,9 @@ import { AdminCourseStatementModal } from './AdminCourseStatementModal'
 export function LowBalanceCard() {
   const [rows, setRows] = useState<LowBalanceRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [statementStudent, setStatementStudent] = useState<{ id: number; name: string } | null>(null)
+  const [statementStudent, setStatementStudent] = useState<{ id: number; name: string; courseId: number } | null>(
+    null,
+  )
 
   useEffect(() => {
     fetchLowBalance()
@@ -52,7 +54,9 @@ export function LowBalanceCard() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => setStatementStudent({ id: row.studentId, name: row.studentName })}
+                      onClick={() =>
+                        setStatementStudent({ id: row.studentId, name: row.studentName, courseId: row.courseId })
+                      }
                       className="rounded-full border border-[#ece7de] px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]"
                     >
                       去充值
@@ -69,6 +73,7 @@ export function LowBalanceCard() {
         <AdminCourseStatementModal
           studentId={statementStudent.id}
           studentName={statementStudent.name}
+          enrolledCourseIds={[statementStudent.courseId]}
           onClose={() => setStatementStudent(null)}
         />
       )}

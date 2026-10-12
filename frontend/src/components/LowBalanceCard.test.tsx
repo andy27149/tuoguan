@@ -81,4 +81,51 @@ describe('LowBalanceCard', () => {
 
     expect(screen.queryByText('课外账户对账单 - 小红')).not.toBeInTheDocument()
   })
+
+  it('allows recharging the row\'s own low-balance course', async () => {
+    vi.mocked(unitApi.fetchTeachingUnits).mockResolvedValue([
+      { id: 10, name: '数学课', billingMode: 'LESSON_COUNT', teacherId: 1, teacherName: '王老师', teacherPhone: '13800000000', lessonDurationMinutes: 60, pricePerLesson: 50, active: true },
+      { id: 11, name: '英语课', billingMode: 'LESSON_COUNT', teacherId: 1, teacherName: '王老师', teacherPhone: '13800000000', lessonDurationMinutes: 60, pricePerLesson: 50, active: true },
+    ])
+    vi.mocked(courseApi.rechargeStudentAccount).mockResolvedValue({
+      id: 1,
+      studentId: 1,
+      courseId: 10,
+      courseName: '数学课',
+      lessonCount: 5,
+      note: null,
+      createdAt: '2026-10-01T00:00:00Z',
+    })
+    render(<LowBalanceCard />)
+    await screen.findByText('小红')
+
+    fireEvent.click(screen.getAllByRole('button', { name: '去充值' })[0])
+    await screen.findByText('课外账户对账单 - 小红')
+
+    fireEvent.change(screen.getByLabelText('充值课程'), { target: { value: '10' } })
+    fireEvent.change(screen.getByLabelText('充值课时数'), { target: { value: '5' } })
+    fireEvent.click(screen.getByRole('button', { name: '充值' }))
+
+    await waitFor(() => expect(courseApi.rechargeStudentAccount).toHaveBeenCalledWith(1, 10, 5, null))
+  })
+
+  it('refuses to recharge a course the student was not flagged for in this card', async () => {
+    vi.mocked(unitApi.fetchTeachingUnits).mockResolvedValue([
+      { id: 10, name: '数学课', billingMode: 'LESSON_COUNT', teacherId: 1, teacherName: '王老师', teacherPhone: '13800000000', lessonDurationMinutes: 60, pricePerLesson: 50, active: true },
+      { id: 11, name: '英语课', billingMode: 'LESSON_COUNT', teacherId: 1, teacherName: '王老师', teacherPhone: '13800000000', lessonDurationMinutes: 60, pricePerLesson: 50, active: true },
+    ])
+    render(<LowBalanceCard />)
+    await screen.findByText('小红')
+
+    // 小红这一行是"数学课"（courseId 10）余额不足，这里故意选另一门课
+    fireEvent.click(screen.getAllByRole('button', { name: '去充值' })[0])
+    await screen.findByText('课外账户对账单 - 小红')
+
+    fireEvent.change(screen.getByLabelText('充值课程'), { target: { value: '11' } })
+    fireEvent.change(screen.getByLabelText('充值课时数'), { target: { value: '5' } })
+    fireEvent.click(screen.getByRole('button', { name: '充值' }))
+
+    expect(await screen.findByText('学生尚未报名该课程，请报名后再来充值！')).toBeInTheDocument()
+    expect(courseApi.rechargeStudentAccount).not.toHaveBeenCalled()
+  })
 })
