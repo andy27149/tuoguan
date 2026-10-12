@@ -38,6 +38,9 @@ class PlatformInstitutionControllerTest extends IntegrationTestBase {
     @Autowired
     private com.tuoguan.backend.roster.dao.StudentDao studentDao;
 
+    @Autowired
+    private com.tuoguan.backend.share.dao.StudentShareViewLogDao studentShareViewLogDao;
+
     @Test
     void platformAdminCreatesInstitutionAndNewAdminCanLogIn() throws Exception {
         teacherDao.insert(new Teacher(null, null, "13600003001",
@@ -104,6 +107,29 @@ class PlatformInstitutionControllerTest extends IntegrationTestBase {
                         .value(org.hamcrest.Matchers.contains(1)))
                 .andExpect(jsonPath("$[?(@.id == " + institutionId + ")].classCount")
                         .value(org.hamcrest.Matchers.contains(1)));
+    }
+
+    @Test
+    void listIncludesTodayDistinctStudentViewCount() throws Exception {
+        teacherDao.insert(new Teacher(null, null, "13600003040",
+                passwordEncoder.encode("platform-password"), Role.PLATFORM_ADMIN, false, null));
+        String platformToken = login("13600003040", "platform-password");
+        Long institutionId = institutionDao.insert("扫码统计列表测试机构");
+        Long studentAId = studentDao.insert(new com.tuoguan.backend.roster.domain.Student(
+                null, institutionId, null, "学生甲", null, true, null, null));
+        Long studentBId = studentDao.insert(new com.tuoguan.backend.roster.domain.Student(
+                null, institutionId, null, "学生乙", null, true, null, null));
+        java.time.LocalDate today = java.time.LocalDate.now();
+        studentShareViewLogDao.recordView(institutionId, studentAId, today);
+        studentShareViewLogDao.recordView(institutionId, studentAId, today);
+        studentShareViewLogDao.recordView(institutionId, studentBId, today);
+        studentShareViewLogDao.recordView(institutionId, studentBId, today.minusDays(1));
+
+        mockMvc.perform(get("/api/platform/institutions")
+                        .header("Authorization", "Bearer " + platformToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == " + institutionId + ")].todayViewCount")
+                        .value(org.hamcrest.Matchers.contains(2)));
     }
 
     @Test

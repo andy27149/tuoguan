@@ -14,6 +14,7 @@ import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
 import com.tuoguan.backend.kanban.domain.DailyTask;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
+import com.tuoguan.backend.share.dao.StudentShareViewLogDao;
 import com.tuoguan.backend.support.IntegrationTestBase;
 import com.tuoguan.backend.unit.dao.StudentUnitEnrollmentDao;
 import com.tuoguan.backend.unit.dao.TeachingUnitDao;
@@ -27,6 +28,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -65,6 +67,30 @@ class PublicShareControllerTest extends IntegrationTestBase {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private StudentShareViewLogDao studentShareViewLogDao;
+
+    @Test
+    void viewingTheShareLinkRecordsOneViewPerStudentPerDayEvenAcrossMultipleRequests() throws Exception {
+        Long institutionId = institutionDao.insert("扫码统计接口测试机构");
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900009010",
+                passwordEncoder.encode("password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小扫码", "三年级1班",
+                true, null, null));
+        String shareToken = studentDao.findShareToken(studentId);
+        LocalDate today = LocalDate.now();
+
+        // 模拟家长打开分享页后又切换了一次月份——同一个学生同一天产生了两次请求。
+        mockMvc.perform(get("/api/public/share/" + shareToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/public/share/" + shareToken + "?month=2026-09"))
+                .andExpect(status().isOk());
+
+        assertThat(studentShareViewLogDao.countDistinctStudentsOn(institutionId, today)).isEqualTo(1);
+    }
 
     @Test
     void anonymousVisitorCanViewShareByToken() throws Exception {

@@ -16,6 +16,7 @@ import com.tuoguan.backend.platform.web.RenewalRecordRow;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.roster.web.NotFoundException;
+import com.tuoguan.backend.share.dao.StudentShareViewLogDao;
 import com.tuoguan.backend.unit.dao.TeachingUnitDao;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -34,17 +35,20 @@ public class PlatformInstitutionService {
     private final InstitutionRenewalRecordDao renewalRecordDao;
     private final StudentDao studentDao;
     private final TeachingUnitDao teachingUnitDao;
+    private final StudentShareViewLogDao studentShareViewLogDao;
 
     public PlatformInstitutionService(InstitutionDao institutionDao, TeacherDao teacherDao,
                                        PasswordEncoder passwordEncoder,
                                        InstitutionRenewalRecordDao renewalRecordDao,
-                                       StudentDao studentDao, TeachingUnitDao teachingUnitDao) {
+                                       StudentDao studentDao, TeachingUnitDao teachingUnitDao,
+                                       StudentShareViewLogDao studentShareViewLogDao) {
         this.institutionDao = institutionDao;
         this.teacherDao = teacherDao;
         this.passwordEncoder = passwordEncoder;
         this.renewalRecordDao = renewalRecordDao;
         this.studentDao = studentDao;
         this.teachingUnitDao = teachingUnitDao;
+        this.studentShareViewLogDao = studentShareViewLogDao;
     }
 
     public PlatformInstitutionResponse createInstitution(String institutionName, String adminPhone,
@@ -108,10 +112,11 @@ public class PlatformInstitutionService {
         RenewalPlan currentPlan = renewalRecordDao.findLatestByInstitutionId(institution.id())
                 .map(InstitutionRenewalRecord::plan)
                 .orElse(null);
+        int todayViewCount = studentShareViewLogDao.countDistinctStudentsOn(institution.id(), LocalDate.now());
         return new PlatformInstitutionSummary(institution.id(), institution.name(), institution.createdAt(),
                 teacherCount, studentCount, classCount, institution.contactName(), institution.contactPhone(),
                 institution.address(), institution.validUntil(), currentPlan,
-                deriveStatus(institution.validUntil()));
+                deriveStatus(institution.validUntil()), todayViewCount);
     }
 
     private InstitutionStatus deriveStatus(LocalDate validUntil) {

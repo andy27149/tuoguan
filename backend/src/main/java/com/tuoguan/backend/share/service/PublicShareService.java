@@ -7,9 +7,11 @@ import com.tuoguan.backend.kanban.service.MonthlyStatsService;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.roster.web.NotFoundException;
+import com.tuoguan.backend.share.dao.StudentShareViewLogDao;
 import com.tuoguan.backend.storage.StorageService;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 
@@ -20,18 +22,22 @@ public class PublicShareService {
     private final StorageService storageService;
     private final MonthlyStatsService monthlyStatsService;
     private final CourseAccountService courseAccountService;
+    private final StudentShareViewLogDao studentShareViewLogDao;
 
     public PublicShareService(StudentDao studentDao, StorageService storageService,
-                               MonthlyStatsService monthlyStatsService, CourseAccountService courseAccountService) {
+                               MonthlyStatsService monthlyStatsService, CourseAccountService courseAccountService,
+                               StudentShareViewLogDao studentShareViewLogDao) {
         this.studentDao = studentDao;
         this.storageService = storageService;
         this.monthlyStatsService = monthlyStatsService;
         this.courseAccountService = courseAccountService;
+        this.studentShareViewLogDao = studentShareViewLogDao;
     }
 
     public PublicShareResult getShare(String token, YearMonth month) {
         Student student = studentDao.findByShareToken(token)
                 .orElseThrow(() -> new NotFoundException("Share link not found: " + token));
+        studentShareViewLogDao.recordView(student.institutionId(), student.id(), LocalDate.now());
         String avatarUrl = storageService.avatarUrl(student.avatarObjectKey());
 
         if (student.teachingUnitId() == null) {

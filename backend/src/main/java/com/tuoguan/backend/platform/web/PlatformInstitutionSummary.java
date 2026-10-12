@@ -9,5 +9,5 @@ import java.time.LocalDate;
 public record PlatformInstitutionSummary(
         Long id, String name, Instant createdAt, int teacherCount, int studentCount, int classCount,
         String contactName, String contactPhone, String address, LocalDate validUntil,
-        RenewalPlan currentPlan, InstitutionStatus status) {
+        RenewalPlan currentPlan, InstitutionStatus status, int todayViewCount) {
 }
