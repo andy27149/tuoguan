@@ -1,11 +1,15 @@
 package com.tuoguan.backend.kanban.service;
 
+import com.tuoguan.backend.billing.dao.StudentLeaveRecordDao;
+import com.tuoguan.backend.billing.domain.StudentLeaveRecord;
 import com.tuoguan.backend.kanban.dao.DailyTaskDao;
 import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
 import com.tuoguan.backend.kanban.dao.StudentDailyNoteDao;
+import com.tuoguan.backend.kanban.dao.StudentMealRecordDao;
 import com.tuoguan.backend.kanban.domain.DailyTask;
 import com.tuoguan.backend.kanban.domain.StudentArrivalCheckin;
 import com.tuoguan.backend.kanban.domain.StudentDailyNote;
+import com.tuoguan.backend.kanban.domain.StudentMealRecord;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.roster.service.ClassRoomService;
@@ -30,15 +34,21 @@ public class MonthlyStatsService {
     private final DailyTaskDao dailyTaskDao;
     private final StudentDailyNoteDao studentDailyNoteDao;
     private final StudentArrivalCheckinDao studentArrivalCheckinDao;
+    private final StudentMealRecordDao studentMealRecordDao;
+    private final StudentLeaveRecordDao studentLeaveRecordDao;
     private final StudentDao studentDao;
     private final ClassRoomService classRoomService;
 
     public MonthlyStatsService(DailyTaskDao dailyTaskDao, StudentDailyNoteDao studentDailyNoteDao,
-                                StudentArrivalCheckinDao studentArrivalCheckinDao, StudentDao studentDao,
+                                StudentArrivalCheckinDao studentArrivalCheckinDao,
+                                StudentMealRecordDao studentMealRecordDao,
+                                StudentLeaveRecordDao studentLeaveRecordDao, StudentDao studentDao,
                                 ClassRoomService classRoomService) {
         this.dailyTaskDao = dailyTaskDao;
         this.studentDailyNoteDao = studentDailyNoteDao;
         this.studentArrivalCheckinDao = studentArrivalCheckinDao;
+        this.studentMealRecordDao = studentMealRecordDao;
+        this.studentLeaveRecordDao = studentLeaveRecordDao;
         this.studentDao = studentDao;
         this.classRoomService = classRoomService;
     }
@@ -94,6 +104,14 @@ public class MonthlyStatsService {
         Map<LocalDate, StudentArrivalCheckin> arrivalByDate = arrivals.stream()
                 .collect(Collectors.toMap(StudentArrivalCheckin::checkinDate, a -> a, (a, b) -> a, TreeMap::new));
 
+        Set<LocalDate> mealDates = studentMealRecordDao.findAllByStudentIdAndDateRange(studentId, start, end).stream()
+                .map(StudentMealRecord::mealDate)
+                .collect(Collectors.toSet());
+
+        List<StudentLeaveRecord> leaveRecords = studentLeaveRecordDao.findAllByStudentIdAndDateRange(studentId, start, end);
+        Map<LocalDate, StudentLeaveRecord> leaveByDate = leaveRecords.stream()
+                .collect(Collectors.toMap(StudentLeaveRecord::leaveDate, l -> l, (a, b) -> a, TreeMap::new));
+
         List<StudentDailyNote> ratedNotes = notes.stream().filter(n -> n.rating() > 0).toList();
         double averageRating = ratedNotes.isEmpty()
                 ? 0.0
@@ -107,6 +125,8 @@ public class MonthlyStatsService {
         Set<LocalDate> allDates = new TreeSet<>(byDate.keySet());
         allDates.addAll(noteByDate.keySet());
         allDates.addAll(arrivalByDate.keySet());
+        allDates.addAll(mealDates);
+        allDates.addAll(leaveByDate.keySet());
         List<DayDetail> days = new ArrayList<>();
         for (LocalDate date : allDates) {
             List<DayTask> dayTasks = byDate.getOrDefault(date, List.of()).stream()
@@ -117,7 +137,10 @@ public class MonthlyStatsService {
             String comment = note != null ? note.comment() : "";
             StudentArrivalCheckin arrival = arrivalByDate.get(date);
             String arrivedAt = arrival != null && !arrival.arrivedAt().isBlank() ? arrival.arrivedAt() : null;
-            days.add(new DayDetail(date.format(isoDate), dayTasks, rating, comment, arrivedAt));
+            boolean hadMeal = mealDates.contains(date);
+            StudentLeaveRecord leave = leaveByDate.get(date);
+            String leaveReason = leave != null ? leave.reason() : null;
+            days.add(new DayDetail(date.format(isoDate), dayTasks, rating, comment, arrivedAt, hadMeal, leaveReason));
         }
 
         return new MonthlyStatsResult(completedDays, incompleteDays, dailyRates, averageRating, dailyRatings, days);
@@ -132,7 +155,8 @@ public class MonthlyStatsService {
     public record DayTask(Long id, String subject, String name, boolean completed) {
     }
 
-    public record DayDetail(String date, List<DayTask> tasks, int rating, String comment, String arrivedAt) {
+    public record DayDetail(String date, List<DayTask> tasks, int rating, String comment, String arrivedAt,
+                             boolean hadMeal, String leaveReason) {
     }
 
     public record MonthlyStatsResult(int completedDays, int incompleteDays, List<DailyRate> dailyRates,

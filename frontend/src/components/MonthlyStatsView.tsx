@@ -11,49 +11,6 @@ function dayStatus(detail: DayDetail | undefined): 'none' | 'done' | 'incomplete
   return detail.tasks.every((t) => t.completed) ? 'done' : 'incomplete'
 }
 
-function RatingTrend({ dailyRatings }: { dailyRatings: MonthlyStats['dailyRatings'] }) {
-  if (dailyRatings.length === 0) {
-    return <p className="stats-chart__empty">本月暂无评星数据</p>
-  }
-
-  const width = 280
-  const height = 90
-  const padding = 10
-  const usableWidth = width - padding * 2
-  const usableHeight = height - padding * 2
-
-  const points = dailyRatings.map((d, i) => {
-    const x =
-      dailyRatings.length === 1
-        ? padding + usableWidth / 2
-        : padding + (usableWidth * i) / (dailyRatings.length - 1)
-    const y = padding + usableHeight * (1 - d.rating / 5)
-    return { x, y }
-  })
-
-  const polylinePoints = points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
-
-  return (
-    <svg className="stats-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="每日获星趋势">
-      {[1, 2, 3, 4, 5].map((v) => {
-        const y = padding + usableHeight * (1 - v / 5)
-        return <line key={v} x1={padding} x2={width - padding} y1={y} y2={y} className="stats-chart__gridline" />
-      })}
-      <polyline
-        points={polylinePoints}
-        fill="none"
-        stroke="var(--accent-2, #9b6bff)"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {points.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r="2.5" fill="var(--accent-2, #9b6bff)" />
-      ))}
-    </svg>
-  )
-}
-
 function CompletionPie({ completedDays, incompleteDays }: { completedDays: number; incompleteDays: number }) {
   const total = completedDays + incompleteDays
   if (total === 0) {
@@ -129,6 +86,8 @@ function DayDetailPanel({ date, detail }: { date: string; detail: DayDetail | un
       </ul>
       {comment && <p className="stats-day-detail__comment">{comment}</p>}
       {detail?.arrivedAt && <p className="stats-day-detail__arrival">到达托管班：{detail.arrivedAt}</p>}
+      {detail?.hadMeal && <p className="stats-day-detail__meal">今日已用餐</p>}
+      {detail?.leaveReason && <p className="stats-day-detail__leave">请假：{detail.leaveReason}</p>}
     </div>
   )
 }
@@ -221,10 +180,6 @@ export function MonthlyStatsView({ stats, month, onMonthChange, selectedDate, on
       )}
 
       <div className="stats-charts">
-        <div className="stats-chart-block">
-          <span className="stats-chart-block__title">每日获星趋势</span>
-          <RatingTrend dailyRatings={stats.dailyRatings} />
-        </div>
         <div className="stats-chart-block">
           <span className="stats-chart-block__title">每日任务完成占比</span>
           <CompletionPie completedDays={stats.completedDays} incompleteDays={stats.incompleteDays} />

@@ -6,9 +6,11 @@ import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.auth.web.LoginResponse;
+import com.tuoguan.backend.billing.dao.StudentLeaveRecordDao;
 import com.tuoguan.backend.kanban.dao.DailyTaskDao;
 import com.tuoguan.backend.kanban.dao.StudentDailyNoteDao;
 import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
+import com.tuoguan.backend.kanban.dao.StudentMealRecordDao;
 import com.tuoguan.backend.kanban.domain.DailyTask;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
@@ -56,6 +58,12 @@ class MonthlyStatsControllerTest extends IntegrationTestBase {
     private StudentArrivalCheckinDao studentArrivalCheckinDao;
 
     @Autowired
+    private StudentMealRecordDao studentMealRecordDao;
+
+    @Autowired
+    private StudentLeaveRecordDao studentLeaveRecordDao;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Autowired
@@ -90,6 +98,8 @@ class MonthlyStatsControllerTest extends IntegrationTestBase {
         studentDailyNoteDao.upsertRating(institutionId, classRoomId, studentId, day1, 4);
         studentDailyNoteDao.upsertRating(institutionId, classRoomId, studentId, day2, 5);
         studentArrivalCheckinDao.upsert(institutionId, classRoomId, studentId, day1, "17:30");
+        studentMealRecordDao.upsert(institutionId, classRoomId, studentId, day1);
+        studentLeaveRecordDao.upsert(institutionId, studentId, classRoomId, day2, "生病");
 
         String token = login("13900008001", "password");
 
@@ -114,9 +124,44 @@ class MonthlyStatsControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.days[0].tasks.length()").value(2))
                 .andExpect(jsonPath("$.days[0].rating").value(4))
                 .andExpect(jsonPath("$.days[0].arrivedAt").value("17:30"))
+                .andExpect(jsonPath("$.days[0].hadMeal").value(true))
+                .andExpect(jsonPath("$.days[0].leaveReason").value(nullValue()))
                 .andExpect(jsonPath("$.days[1].arrivedAt").value(nullValue()))
+                .andExpect(jsonPath("$.days[1].hadMeal").value(false))
+                .andExpect(jsonPath("$.days[1].leaveReason").value("生病"))
                 .andExpect(jsonPath("$.days[1].tasks[0].completed").value(true))
                 .andExpect(jsonPath("$.days[1].tasks[1].completed").value(false));
+    }
+
+    @Test
+    void includesADayThatHasOnlyAMealOrLeaveRecordWithNoTasksArrivalOrNote() throws Exception {
+        Long institutionId = institutionDao.insert("月度统计控制器测试机构C");
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900008004",
+                passwordEncoder.encode("password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小红", "三年级3班",
+                true, null, null));
+
+        YearMonth statsMonth = YearMonth.from(LocalDate.now()).minusMonths(1);
+        LocalDate mealOnlyDay = statsMonth.atDay(3);
+        LocalDate leaveOnlyDay = statsMonth.atDay(4);
+
+        studentMealRecordDao.upsert(institutionId, classRoomId, studentId, mealOnlyDay);
+        studentLeaveRecordDao.upsert(institutionId, studentId, classRoomId, leaveOnlyDay, "事假");
+
+        String token = login("13900008004", "password");
+
+        mockMvc.perform(get("/api/students/" + studentId + "/monthly-stats")
+                        .param("month", statsMonth.toString())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.days.length()").value(2))
+                .andExpect(jsonPath("$.days[0].date").value(mealOnlyDay.toString()))
+                .andExpect(jsonPath("$.days[0].hadMeal").value(true))
+                .andExpect(jsonPath("$.days[0].tasks.length()").value(0))
+                .andExpect(jsonPath("$.days[1].date").value(leaveOnlyDay.toString()))
+                .andExpect(jsonPath("$.days[1].leaveReason").value("事假"));
     }
 
     @Test

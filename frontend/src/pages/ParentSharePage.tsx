@@ -81,7 +81,9 @@ export function ParentSharePage({ token }: ParentSharePageProps) {
 
             {share.courseStatement && <CourseStatementView statement={share.courseStatement} />}
 
-            {share.courseActivity.length > 0 && <CourseActivityView rows={share.courseActivity} />}
+            {share.courseActivity.length > 0 && (
+              <CourseActivityView rows={share.courseActivity} selectedDate={selectedDate} />
+            )}
 
             <p className="parent-share-page__brand">
               <BrandMark size={14} />

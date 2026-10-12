@@ -52,7 +52,7 @@ public class PublicShareService {
         MonthlyStatsService.MonthlyStatsResult stats =
                 monthlyStatsService.getMonthlyStatsForStudent(student.id(), month);
         List<CourseActivityRow> courseActivity =
-                courseAccountService.getCourseActivity(student.institutionId(), student.id());
+                courseAccountService.getCourseActivity(student.institutionId(), student.id(), month);
         return new PublicShareResult(student.name(), student.schoolClassName(), avatarUrl, stats, null,
                 courseActivity);
     }

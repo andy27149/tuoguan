@@ -23,6 +23,8 @@ export interface DayDetail {
   rating: number
   comment: string
   arrivedAt: string | null
+  hadMeal: boolean
+  leaveReason: string | null
 }
 
 export interface MonthlyStats {

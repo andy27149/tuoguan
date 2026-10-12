@@ -28,6 +28,8 @@ const STATS: MonthlyStats = {
       rating: 4,
       comment: '',
       arrivedAt: null,
+      hadMeal: false,
+      leaveReason: null,
     },
     {
       date: TODAY,
@@ -38,6 +40,8 @@ const STATS: MonthlyStats = {
       rating: 5,
       comment: '今天状态不错',
       arrivedAt: '17:30',
+      hadMeal: false,
+      leaveReason: null,
     },
   ],
 }
@@ -141,8 +145,7 @@ describe('MonthlyStatsModal', () => {
     vi.mocked(monthlyStatsApi.fetchMonthlyStats).mockResolvedValue(EMPTY_STATS)
     render(<MonthlyStatsModal studentId={10} studentName="小明" onClose={vi.fn()} />)
 
-    expect(await screen.findByText('本月暂无评星数据')).toBeInTheDocument()
-    expect(screen.getByText('本月暂无任务数据')).toBeInTheDocument()
+    expect(await screen.findByText('本月暂无任务数据')).toBeInTheDocument()
     expect(screen.getByText('当天没有任务记录')).toBeInTheDocument()
   })
 })

@@ -155,11 +155,14 @@ public class CourseAccountService {
                 .count();
     }
 
-    // 供托管班学生（同时报名课外课）的家长分享页使用：只给课程名+最近消课日期，不带
-    // 充值/余额——这类学生的课外课费用走托管月度账单附加费，从不预充值，余额概念不成立。
-    public List<CourseActivityRow> getCourseActivity(Long institutionId, Long studentId) {
+    // 供托管班学生（同时报名课外课）的家长分享页使用：按当前查看的月份返回当月全部消课
+    // 记录，不带充值/余额——这类学生的课外课费用走托管月度账单附加费，从不预充值，余额
+    // 概念不成立；按月份作用域是为了让家长切换日历日期时课外课情况能跟着变化。
+    public List<CourseActivityRow> getCourseActivity(Long institutionId, Long studentId, YearMonth month) {
         requireStudentInInstitution(institutionId, studentId);
-        List<CourseConsumptionRecord> consumptions = consumptionRecordDao.findAllByStudentId(studentId);
+        List<CourseConsumptionRecord> consumptions = consumptionRecordDao.findAllByStudentId(studentId).stream()
+                .filter(record -> YearMonth.from(record.consumptionDate()).equals(month))
+                .toList();
 
         Map<Long, List<LocalDate>> datesByCourse = new LinkedHashMap<>();
         for (CourseConsumptionRecord record : consumptions) {
@@ -170,12 +173,11 @@ public class CourseAccountService {
         Map<Long, String> courseNames = new HashMap<>();
         List<CourseActivityRow> rows = new ArrayList<>();
         for (Map.Entry<Long, List<LocalDate>> entry : datesByCourse.entrySet()) {
-            List<LocalDate> recentDates = entry.getValue().stream()
+            List<LocalDate> dates = entry.getValue().stream()
                     .sorted(Comparator.reverseOrder())
-                    .limit(5)
                     .toList();
             rows.add(new CourseActivityRow(entry.getKey(), resolveCourseName(courseNames, entry.getKey()),
-                    recentDates));
+                    dates));
         }
         return rows;
     }

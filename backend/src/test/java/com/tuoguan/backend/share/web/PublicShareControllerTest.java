@@ -146,8 +146,14 @@ class PublicShareControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.courseStatement").doesNotExist())
                 .andExpect(jsonPath("$.courseActivity.length()").value(1))
                 .andExpect(jsonPath("$.courseActivity[0].courseName").value("书法课"))
-                .andExpect(jsonPath("$.courseActivity[0].recentConsumptionDates.length()").value(2))
+                .andExpect(jsonPath("$.courseActivity[0].recentConsumptionDates.length()").value(1))
                 .andExpect(jsonPath("$.courseActivity[0].recentConsumptionDates[0]").value("2026-10-01"));
+
+        mockMvc.perform(get("/api/public/share/" + shareToken).param("month", "2026-09"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.courseActivity.length()").value(1))
+                .andExpect(jsonPath("$.courseActivity[0].recentConsumptionDates.length()").value(1))
+                .andExpect(jsonPath("$.courseActivity[0].recentConsumptionDates[0]").value("2026-09-28"));
     }
 
     @Test

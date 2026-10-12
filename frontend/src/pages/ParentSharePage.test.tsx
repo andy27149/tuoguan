@@ -26,6 +26,8 @@ const SHARE: PublicShare = {
         rating: 5,
         comment: '今天状态不错',
         arrivedAt: '17:45',
+        hadMeal: true,
+        leaveReason: null,
       },
     ],
   },
@@ -53,9 +55,7 @@ const PURE_OFF_CAMPUS_SHARE: PublicShare = {
 const DUAL_IDENTITY_SHARE: PublicShare = {
   ...SHARE,
   studentName: '小双',
-  courseActivity: [
-    { courseId: 2, courseName: '围棋课', recentConsumptionDates: ['2026-10-01', '2026-09-28'] },
-  ],
+  courseActivity: [{ courseId: 2, courseName: '围棋课', recentConsumptionDates: [TODAY] }],
 }
 
 describe('ParentSharePage', () => {
@@ -101,6 +101,22 @@ describe('ParentSharePage', () => {
     await screen.findByText('小美')
 
     expect(screen.getByText('到达托管班：17:45')).toBeInTheDocument()
+    expect(screen.getByText('今日已用餐')).toBeInTheDocument()
+  })
+
+  it('shows the leave reason recorded by the teacher', async () => {
+    vi.mocked(publicShareApi.fetchPublicShare).mockResolvedValue({
+      ...SHARE,
+      stats: {
+        ...SHARE.stats!,
+        days: [{ ...SHARE.stats!.days[0], hadMeal: false, leaveReason: '生病' }],
+      },
+    })
+    render(<ParentSharePage token="abc123" />)
+    await screen.findByText('小美')
+
+    expect(screen.getByText('请假：生病')).toBeInTheDocument()
+    expect(screen.queryByText('今日已用餐')).not.toBeInTheDocument()
   })
 
   it('renders no edit controls', async () => {
@@ -132,8 +148,20 @@ describe('ParentSharePage', () => {
     expect(screen.getByText(/未完成 1 天/, { selector: '.stats-summary__muted' })).toBeInTheDocument()
     expect(screen.getByText('课外课情况')).toBeInTheDocument()
     expect(screen.getByText('围棋课')).toBeInTheDocument()
-    expect(screen.getByText('2026-10-01、2026-09-28')).toBeInTheDocument()
     // 双身份学生的课外课费用走托管账单，不应该出现「余额」字样
     expect(screen.queryByText(/剩 .* 课时/)).not.toBeInTheDocument()
+  })
+
+  it('shows no course activity when the selected day has no consumption record, even though the student has records on other days', async () => {
+    vi.mocked(publicShareApi.fetchPublicShare).mockResolvedValue({
+      ...DUAL_IDENTITY_SHARE,
+      courseActivity: [{ courseId: 2, courseName: '围棋课', recentConsumptionDates: ['2026-01-01'] }],
+    })
+    render(<ParentSharePage token="dual-token" />)
+
+    expect(await screen.findByText('小双')).toBeInTheDocument()
+    expect(screen.getByText('课外课情况')).toBeInTheDocument()
+    expect(screen.getByText('当天没有课外课记录')).toBeInTheDocument()
+    expect(screen.queryByText('围棋课')).not.toBeInTheDocument()
   })
 })
