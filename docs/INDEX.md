@@ -8,7 +8,7 @@
 |---|---|---|
 | [business/业务架构.md](./business/业务架构.md) | 角色体系、核心业务对象关系、按角色的功能模块清单、课外课计费与结算规则、机构生命周期 | 需要整体理解系统、或判断某个改动涉及哪些角色/模块时，**优先看这篇** |
 | [business/业务流程.md](./business/业务流程.md) | 8 条端到端业务流程的具体步骤（机构开通/机构搭建/托管日常运营/课外课消课/账单生成/家长触达/平台监控/账号权限） | 需要知道"某个场景具体怎么走"时 |
-| [功能全景与产品诊断.md](./功能全景与产品诊断.md) | 2026-10-03 核实的功能点清单 + 9 项设计问题诊断（含代码行号） | 想了解某功能的已知问题、历史决策权衡时；**已早于机构总览/平台管理续费/家长分享页改版/消课二次确认等功能，角色速览以业务架构.md为准** |
+| [功能全景与产品诊断.md](./功能全景与产品诊断.md) | 9 项设计问题诊断（含代码行号），2026-10-12 全面复核过；角色功能全景已整体移除，完全让位给 business/业务架构.md | 想了解某功能的已知问题、历史决策权衡时 |
 | [pages/INDEX.md](./pages/INDEX.md) | 按页面文件的功能点清单（按钮/弹窗/依赖的 api 文件），比业务架构.md 更细颗粒度，全部 15 个页面已覆盖 | 要改某个具体页面之前，先查这个页面还有什么别的功能，避免改坏 |
 | [training/操作培训手册.html](./training/操作培训手册.html) | 按角色（机构管理员/教师）分 tab 的上手操作指南，配真实截图，本地静态文件不发布 Artifact | 给新机构的管理员/教师做培训时用 |
 | [training/招商讲稿.pptx](./training/招商讲稿.pptx) | 面向机构老板/渠道伙伴的销售讲稿 | 招商/渠道推广场景 |
@@ -18,14 +18,15 @@
 | 文档 | 一句话摘要 | 适用场景 |
 |---|---|---|
 | [architecture/技术架构.md](./architecture/技术架构.md) | 技术栈、代码目录结构、鉴权模型、数据库 migration 速查、本地开发环境、测试基建坑、部署拓扑 | 需要整体理解技术实现、或新人上手开发环境时 |
+| [architecture/代码架构.md](./architecture/代码架构.md) | 叙事性说明：后端分层约定、跨业务域调用方向、前端无状态库设计的原因 | 新加功能前判断"这段逻辑该放哪个包/调用方向对不对"时 |
 | [DEPLOY.md](../DEPLOY.md) | 生产部署完整操作手册（Nginx/certbot/备份恢复/安全检查清单） | 实际执行部署/排查生产问题时 |
 
-仓库已跑过 `codebase-memory-mcp` 的 `index_repository`（project 名 `Users-ruixyang-Documents-ruixyang-tuoguan`），不需要再手写一份会过时的静态类清单——直接用这几个工具实时查询：
+仓库已跑过 `codebase-memory-mcp` 的 `index_repository`（project 名 `Users-ruixyang-Documents-ruixyang-tuoguan`），索引产物 `.codebase-memory/graph.db.zst` 已提交到 git，不需要再手写一份会过时的静态类清单——直接用这几个工具实时查询：
 - `search_graph` / `search_code`：按名字/关键词找函数、类、路由
 - `trace_path`：查调用链、调用方/被调方
 - `get_architecture`：整体架构、模块聚类
 - `get_code_snippet`：按 `qualified_name` 取精确源码
-- 如果仓库有大改动（新增文件/重构），重新跑一次 `index_repository` 刷新索引即可，产物已持久化在 `.codebase-memory/graph.db.zst`（目前未提交到 git）
+- 如果仓库有大改动（新增文件/重构），重新跑一次 `index_repository` 刷新索引并重新提交 `.codebase-memory/` 即可
 
 ## 设计规格与实施记录（面向"某个功能当初为什么这么设计"）
 
@@ -36,9 +37,9 @@
 | [superpowers/handoffs/](./superpowers/handoffs/) | 历史会话交接记录 |
 | [mockups/](./mockups/) | 若干功能的 HTML 原型/视觉稿 |
 
-## 规划中（尚未产出）
+## 文档体系建设历史
 
-见 [roadmap/文档体系待办.md](./roadmap/文档体系待办.md)——剩余待办：刷新/全面复核产品诊断文档、代码架构叙事性说明（可选）。
+2026-10-12 完整建设过一轮，见 [roadmap/文档体系待办.md](./roadmap/文档体系待办.md) 的完整记录和决策过程；全部待办已完成，目前没有已知的遗留缺口。
 
 ## 给未来做改动的我自己的提示
 
