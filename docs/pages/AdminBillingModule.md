@@ -1,0 +1,30 @@
+# AdminBillingModule
+
+**文件**：`frontend/src/pages/AdminBillingModule.tsx`
+**角色**：`ADMIN`（托管功能关闭时模块入口隐藏，但纯课外课学生的账单仍然可以通过"只看纯课外课学生"筛选查看）
+
+## 一句话
+
+月度账单的生成、核对、收款标记——机构每月回款的核心工作台。
+
+## 功能点
+
+- **筛选**：按班级（含"全部班级"和"只看纯课外课学生"两个特殊选项）、按月份（留空查看全部月份）、按学生姓名搜索、是否已缴费
+- **学生账单列表**：每行显示学生姓名、班级、月份、账单金额、已缴费/未缴费状态
+- **生成账单**：
+  - 单个：针对某个学生/班级+月份生成
+  - 「一键生成本月账单」：对全机构（含纯课外课学生）当月所有在读学生批量生成，已生成过的会被重新计算覆盖；因班级未配置单价而失败的学生会被跳过并在结果弹窗（`RollCallResultModal.tsx`）里列出原因，不影响其他学生
+- **标记已缴费 / 未缴费**：点击切换，均有二次确认（`ConfirmDialog`）
+- **账单详情**（`components/BillDetailModal.tsx`）：展开看学费/餐费/请假扣减/课外课附加费各项明细
+- **费用管理**（`components/FeeManagementModal.tsx`）：手动调整/录入某笔费用（和定价中心的"默认单价"是两回事，这里是具体某个学生某个月的实际生效金额）
+
+## 依赖
+
+- `api/admin.ts`、`api/billing.ts`
+- `kanban/date.ts`（`currentMonthString`）
+- 组件：`FeeManagementModal.tsx`、`BillDetailModal.tsx`、`ConfirmDialog.tsx`、`RollCallResultModal.tsx`、`Toast.tsx`
+
+## 关联文档
+
+- [业务流程 · 流程五：账单生成与收款](../business/业务流程.md#流程五账单生成与收款)
+- [业务架构 · 五、课外课计费与结算](../business/业务架构.md#五课外课计费与结算充值覆盖--月度账单兜底)（账单里"课外课附加费"这一行是怎么算出来的）
