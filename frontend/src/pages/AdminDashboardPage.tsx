@@ -10,6 +10,7 @@ import { AdminBillingModule } from './AdminBillingModule'
 import { AdminSettingsModule } from './AdminSettingsModule'
 import { AdminOverviewModule } from './AdminOverviewModule'
 import { UpdatesButton } from '../components/UpdatesButton'
+import { HelpModal } from '../components/HelpModal'
 import * as institutionApi from '../api/institution'
 
 interface AdminDashboardPageProps {
@@ -21,6 +22,7 @@ export function AdminDashboardPage({ onBack, onOpenClassKanban }: AdminDashboard
   const { logout } = useAuth()
   const [activeModule, setActiveModule] = useState<AdminModule>('overview')
   const [institution, setInstitution] = useState<institutionApi.InstitutionSettings | null>(null)
+  const [showHelp, setShowHelp] = useState(false)
   const custodyEnabled = institution?.custodyEnabled ?? true
   const offCampusEnabled = institution?.offCampusEnabled ?? true
 
@@ -51,6 +53,9 @@ export function AdminDashboardPage({ onBack, onOpenClassKanban }: AdminDashboard
           <div className="flex items-center gap-2">
             <button type="button" onClick={onBack} className="logout-btn">
               查看托管看板
+            </button>
+            <button type="button" onClick={() => setShowHelp(true)} className="logout-btn">
+              帮助
             </button>
             <UpdatesButton />
             <button type="button" onClick={logout} className="logout-btn logout-btn--subtle">
@@ -92,6 +97,7 @@ export function AdminDashboardPage({ onBack, onOpenClassKanban }: AdminDashboard
           </div>
         </div>
       </div>
+      {showHelp && <HelpModal role="admin" onClose={() => setShowHelp(false)} />}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { AdminDashboardPage } from './AdminDashboardPage'
 import * as institutionApi from '../api/institution'
@@ -168,5 +168,18 @@ describe('AdminDashboardPage', () => {
 
     await screen.findByText('阳光托管班')
     expect(screen.queryByRole('button', { name: '教学单元' })).not.toBeInTheDocument()
+  })
+
+  it('opens and closes the admin help modal', async () => {
+    render(<AdminDashboardPage onBack={vi.fn()} />)
+    await screen.findByText('阳光托管班')
+
+    fireEvent.click(screen.getByRole('button', { name: '帮助' }))
+
+    const dialog = await screen.findByRole('dialog', { name: '帮助' })
+    expect(within(dialog).getByText('机构管理员帮助')).toBeInTheDocument()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: '关闭' }))
+    expect(screen.queryByRole('dialog', { name: '帮助' })).not.toBeInTheDocument()
   })
 })

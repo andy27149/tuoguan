@@ -22,6 +22,7 @@ import { Toast } from '../components/Toast'
 import { EmptyState } from '../components/EmptyState'
 import { useToast } from '../hooks/useToast'
 import { UpdatesButton } from '../components/UpdatesButton'
+import { HelpModal } from '../components/HelpModal'
 import { useAuth } from '../auth/AuthContext'
 import { BrandMark } from '../brand/BrandMark'
 
@@ -66,6 +67,7 @@ export function KanbanPage({
   const [dismissed, setDismissed] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showHelp, setShowHelp] = useState(false)
   const { toastMessage, showToast } = useToast()
 
   useEffect(() => {
@@ -469,6 +471,11 @@ export function KanbanPage({
                 机构管理
               </button>
             )}
+            {!isAdmin && (
+              <button type="button" onClick={() => setShowHelp(true)} className="logout-btn">
+                帮助
+              </button>
+            )}
             <UpdatesButton />
             <button type="button" onClick={logout} className="logout-btn logout-btn--subtle">
               退出登录
@@ -548,6 +555,7 @@ export function KanbanPage({
       </main>
 
       <Toast message={toastMessage} />
+      {showHelp && <HelpModal role="teacher" onClose={() => setShowHelp(false)} />}
     </div>
   )
 }

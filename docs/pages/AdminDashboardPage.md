@@ -13,6 +13,7 @@
 - `activeModule` 状态决定右侧渲染哪个子模块，默认落地「机构总览」
 - 顶部「退出登录」
 - 「查看托管看板」：跳回教师视角的只读看板（走 `onOpenClassKanban`，对应 [KanbanPage.md](./KanbanPage.md) 的管理员只读分支）
+- 「帮助」：打开 `components/HelpModal.tsx`（`role="admin"`），弹窗展示机构管理员的上手步骤+常见问题（文字版，不带截图）——**这份内容是从 `docs/training/操作培训手册.html` 的机构管理员部分摘录+改写的，两处独立维护，改任何一处涉及的功能流程都要检查并同步另一处**，见 [docs/INDEX.md](../INDEX.md) 的维护提示
 
 ## 子模块一览
 
@@ -29,7 +30,7 @@
 
 ## 依赖
 
-- `components/AdminSidebar.tsx`、`components/UpdatesButton.tsx`
+- `components/AdminSidebar.tsx`、`components/UpdatesButton.tsx`、`components/HelpModal.tsx`
 - `api/institution.ts`（读取机构基础信息，决定侧边栏显隐）
 - `auth/AuthContext.tsx`
 
