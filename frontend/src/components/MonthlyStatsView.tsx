@@ -85,9 +85,17 @@ function DayDetailPanel({ date, detail }: { date: string; detail: DayDetail | un
         )}
       </ul>
       {comment && <p className="stats-day-detail__comment">{comment}</p>}
-      {detail?.arrivedAt && <p className="stats-day-detail__arrival">到达托管班：{detail.arrivedAt}</p>}
-      {detail?.hadMeal && <p className="stats-day-detail__meal">今日已用餐</p>}
-      {detail?.leaveReason && <p className="stats-day-detail__leave">请假：{detail.leaveReason}</p>}
+      {(detail?.arrivedAt || detail?.hadMeal || detail?.leaveReason) && (
+        <div className="stats-day-detail__info-row">
+          {detail?.arrivedAt && (
+            <span className="stats-day-detail__info-chip">{`🕐 到达托管班：${detail.arrivedAt}`}</span>
+          )}
+          {detail?.hadMeal && <span className="stats-day-detail__info-chip">🍚 今日已用餐</span>}
+          {detail?.leaveReason && (
+            <span className="stats-day-detail__info-chip stats-day-detail__info-chip--leave">{`🌴 请假：${detail.leaveReason}`}</span>
+          )}
+        </div>
+      )}
     </div>
   )
 }

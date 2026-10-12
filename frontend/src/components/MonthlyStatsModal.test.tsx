@@ -128,7 +128,7 @@ describe('MonthlyStatsModal', () => {
     render(<MonthlyStatsModal studentId={10} studentName="小明" onClose={vi.fn()} />)
     await screen.findByText(/已完成/)
 
-    expect(screen.getByText('到达托管班：17:30')).toBeInTheDocument()
+    expect(screen.getByText('🕐 到达托管班：17:30')).toBeInTheDocument()
   })
 
   it('does not show an arrival line for a day with no arrival recorded', async () => {

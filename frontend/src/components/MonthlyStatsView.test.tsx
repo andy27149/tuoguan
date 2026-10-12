@@ -42,7 +42,7 @@ describe('MonthlyStatsView day detail', () => {
       />,
     )
 
-    expect(screen.getByText('今日已用餐')).toBeInTheDocument()
+    expect(screen.getByText('🍚 今日已用餐')).toBeInTheDocument()
   })
 
   it('does not show meal info when the student did not have a meal', () => {
@@ -57,7 +57,7 @@ describe('MonthlyStatsView day detail', () => {
       />,
     )
 
-    expect(screen.queryByText('今日已用餐')).not.toBeInTheDocument()
+    expect(screen.queryByText('🍚 今日已用餐')).not.toBeInTheDocument()
   })
 
   it('shows the leave reason on the selected day', () => {
@@ -72,7 +72,7 @@ describe('MonthlyStatsView day detail', () => {
       />,
     )
 
-    expect(screen.getByText('请假：生病')).toBeInTheDocument()
+    expect(screen.getByText('🌴 请假：生病')).toBeInTheDocument()
   })
 
   it('no longer renders the daily star-rating trend chart', () => {

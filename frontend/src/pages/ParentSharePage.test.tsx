@@ -100,8 +100,8 @@ describe('ParentSharePage', () => {
     render(<ParentSharePage token="abc123" />)
     await screen.findByText('小美')
 
-    expect(screen.getByText('到达托管班：17:45')).toBeInTheDocument()
-    expect(screen.getByText('今日已用餐')).toBeInTheDocument()
+    expect(screen.getByText('🕐 到达托管班：17:45')).toBeInTheDocument()
+    expect(screen.getByText('🍚 今日已用餐')).toBeInTheDocument()
   })
 
   it('shows the leave reason recorded by the teacher', async () => {
@@ -115,8 +115,8 @@ describe('ParentSharePage', () => {
     render(<ParentSharePage token="abc123" />)
     await screen.findByText('小美')
 
-    expect(screen.getByText('请假：生病')).toBeInTheDocument()
-    expect(screen.queryByText('今日已用餐')).not.toBeInTheDocument()
+    expect(screen.getByText('🌴 请假：生病')).toBeInTheDocument()
+    expect(screen.queryByText('🍚 今日已用餐')).not.toBeInTheDocument()
   })
 
   it('renders no edit controls', async () => {
