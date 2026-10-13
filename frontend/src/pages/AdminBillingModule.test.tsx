@@ -386,33 +386,4 @@ describe('AdminBillingModule', () => {
     expect(studentOrder()).toEqual(['甲', '乙'])
   })
 
-  it('batch-marks selected bills as paid after choosing a payment method', async () => {
-    vi.mocked(billingApi.batchSetBillPaid).mockResolvedValue({ successCount: 1, failures: [] })
-    render(<AdminBillingModule />)
-    await screen.findByText('小明')
-
-    expect(screen.queryByText(/已选/)).not.toBeInTheDocument()
-    fireEvent.click(screen.getByLabelText('选择小明的账单'))
-    expect(await screen.findByText('已选 1 条账单')).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: '批量标记已缴费（1）' }))
-    const confirmButton = await screen.findByRole('button', { name: '确认' })
-    expect(confirmButton).toBeDisabled()
-
-    fireEvent.change(screen.getByLabelText('收款方式'), { target: { value: 'ALIPAY' } })
-    fireEvent.click(confirmButton)
-
-    await waitFor(() => expect(billingApi.batchSetBillPaid).toHaveBeenCalledWith([500], true, 'ALIPAY'))
-    expect(await screen.findByRole('dialog', { name: '批量标记完成' })).toBeInTheDocument()
-    expect(screen.getByText('已标记 1 条账单为已缴费')).toBeInTheDocument()
-  })
-
-  it('selects every selectable bill via the header checkbox, skipping rows without a bill', async () => {
-    render(<AdminBillingModule />)
-    await screen.findByText('小明')
-
-    fireEvent.click(screen.getByLabelText('全选'))
-
-    expect(await screen.findByText('已选 1 条账单')).toBeInTheDocument()
-  })
 })

@@ -76,12 +76,6 @@ export function AdminBillingModule() {
   const [bulkGenerating, setBulkGenerating] = useState(false)
   const [bulkGenerateResult, setBulkGenerateResult] = useState<billingApi.BulkBillGenerationResult | null>(null)
 
-  const [selectedBillIds, setSelectedBillIds] = useState<Set<number>>(new Set())
-  const [confirmingBatchPaid, setConfirmingBatchPaid] = useState(false)
-  const [batchPaymentMethod, setBatchPaymentMethod] = useState<PaymentMethod | ''>('')
-  const [batchSubmitting, setBatchSubmitting] = useState(false)
-  const [batchResult, setBatchResult] = useState<billingApi.BatchSetPaidResult | null>(null)
-
   const { toastMessage, showToast } = useToast()
 
   useEffect(() => {
@@ -94,7 +88,6 @@ export function AdminBillingModule() {
   function loadRows() {
     setLoadingRows(true)
     setRowsError(null)
-    setSelectedBillIds(new Set())
     billingApi
       .fetchBillOverview(month || undefined, selectedClassId, studentName.trim() || undefined, offCampusOnly)
       .then(setRows)
@@ -149,39 +142,6 @@ export function AdminBillingModule() {
       setRows((prev) =>
         prev.map((r) => (r.billId === row.billId ? { ...r, isPaid: row.isPaid, paymentMethod: row.paymentMethod } : r)),
       )
-    }
-  }
-
-  function toggleSelected(billId: number) {
-    setSelectedBillIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(billId)) {
-        next.delete(billId)
-      } else {
-        next.add(billId)
-      }
-      return next
-    })
-  }
-
-  const selectableBillIds = sortedRows.filter((r) => r.billId !== null).map((r) => r.billId as number)
-  const allSelected = selectableBillIds.length > 0 && selectableBillIds.every((id) => selectedBillIds.has(id))
-
-  function toggleSelectAll() {
-    setSelectedBillIds(allSelected ? new Set() : new Set(selectableBillIds))
-  }
-
-  async function applyBatchPaid() {
-    if (selectedBillIds.size === 0 || !batchPaymentMethod) return
-    setBatchSubmitting(true)
-    try {
-      const result = await billingApi.batchSetBillPaid([...selectedBillIds], true, batchPaymentMethod)
-      setBatchResult(result)
-      setSelectedBillIds(new Set())
-      loadRows()
-    } finally {
-      setBatchSubmitting(false)
-      setConfirmingBatchPaid(false)
     }
   }
 
@@ -269,22 +229,6 @@ export function AdminBillingModule() {
         </div>
       </div>
 
-      {selectedBillIds.size > 0 && (
-        <div className="flex items-center gap-3 rounded-2xl border border-panel-border bg-white p-3 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
-          <span className="text-sm text-[#5d5480]">已选 {selectedBillIds.size} 条账单</span>
-          <button
-            type="button"
-            onClick={() => {
-              setBatchPaymentMethod('')
-              setConfirmingBatchPaid(true)
-            }}
-            className="rounded-full bg-panel-primary px-4 py-1 text-sm font-medium text-white"
-          >
-            批量标记已缴费（{selectedBillIds.size}）
-          </button>
-        </div>
-      )}
-
       <div className="rounded-2xl border border-panel-border bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
         <h2 className="font-['Sora'] text-base font-semibold text-panel-ink">学生账单（{rows.length}）</h2>
         {rowsError && <p className="mt-2 text-sm text-panel-warn">{rowsError}</p>}
@@ -294,15 +238,6 @@ export function AdminBillingModule() {
           <table className="mt-3 w-full text-left text-sm">
             <thead>
               <tr className="text-xs text-panel-muted">
-                <th className="border-b border-panel-border bg-[#faf7ff] px-4 py-3">
-                  <input
-                    type="checkbox"
-                    aria-label="全选"
-                    checked={allSelected}
-                    disabled={selectableBillIds.length === 0}
-                    onChange={toggleSelectAll}
-                  />
-                </th>
                 <th className="border-b border-panel-border bg-[#faf7ff] px-4 py-3">学生姓名</th>
                 <th className="border-b border-panel-border bg-[#faf7ff] px-4 py-3">托管班级</th>
                 <th className="border-b border-panel-border bg-[#faf7ff] px-4 py-3">托管教师</th>
@@ -316,16 +251,6 @@ export function AdminBillingModule() {
             <tbody>
               {sortedRows.map((row) => (
                 <tr key={`${row.studentId}-${row.yearMonth}`} className="border-b border-panel-border hover:bg-[#faf7ff]">
-                  <td className="px-4 py-3">
-                    {row.billId !== null && (
-                      <input
-                        type="checkbox"
-                        aria-label={`选择${row.studentName}的账单`}
-                        checked={selectedBillIds.has(row.billId)}
-                        onChange={() => toggleSelected(row.billId as number)}
-                      />
-                    )}
-                  </td>
                   <td className="px-4 py-3 font-medium text-panel-ink">{row.studentName}</td>
                   <td className="px-4 py-3 text-panel-ink">{row.className}</td>
                   <td className="px-4 py-3 text-panel-ink">{row.teacherName}</td>
@@ -388,7 +313,7 @@ export function AdminBillingModule() {
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={month ? 8 : 9} className="px-4 py-3 text-xs text-panel-muted">
+                  <td colSpan={month ? 7 : 8} className="px-4 py-3 text-xs text-panel-muted">
                     暂无学生
                   </td>
                 </tr>
@@ -456,38 +381,6 @@ export function AdminBillingModule() {
         </ConfirmDialog>
       )}
 
-      {confirmingBatchPaid && (
-        <ConfirmDialog
-          title="批量标记已缴费"
-          message={`确认将选中的 ${selectedBillIds.size} 条账单标记为已缴费吗？`}
-          confirmLabel="确认"
-          danger={false}
-          confirmClassName={PANEL_CONFIRM_BUTTON_CLASSNAME}
-          confirming={batchSubmitting}
-          confirmDisabled={!batchPaymentMethod}
-          onConfirm={applyBatchPaid}
-          onCancel={() => setConfirmingBatchPaid(false)}
-        >
-          <div className="mt-3 text-left">
-            <label className="block text-xs font-semibold text-[#5d5480]">
-              收款方式
-              <select
-                value={batchPaymentMethod}
-                onChange={(e) => setBatchPaymentMethod(e.target.value as PaymentMethod)}
-                className="mt-1 w-full rounded-lg border border-panel-border px-2.5 py-2 text-sm text-panel-ink"
-              >
-                <option value="">请选择</option>
-                {PAYMENT_METHODS.map((m) => (
-                  <option key={m} value={m}>
-                    {PAYMENT_METHOD_LABEL[m]}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        </ConfirmDialog>
-      )}
-
       {confirmingBulkGenerate && (
         <ConfirmDialog
           title="一键生成本月账单"
@@ -512,19 +405,6 @@ export function AdminBillingModule() {
                 bulkGenerateResult.failures.map((f) => f.studentName).join('、')
           }
           onClose={() => setBulkGenerateResult(null)}
-        />
-      )}
-
-      {batchResult && (
-        <RollCallResultModal
-          type={batchResult.failures.length === 0 ? 'success' : 'warning'}
-          title={batchResult.failures.length === 0 ? '批量标记完成' : '批量标记提醒'}
-          message={
-            batchResult.failures.length === 0
-              ? `已标记 ${batchResult.successCount} 条账单为已缴费`
-              : `已标记 ${batchResult.successCount} 条账单为已缴费，${batchResult.failures.length} 条失败`
-          }
-          onClose={() => setBatchResult(null)}
         />
       )}
 
