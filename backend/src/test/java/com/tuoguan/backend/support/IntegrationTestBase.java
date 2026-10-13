@@ -12,6 +12,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.MinIOContainer;
 import org.testcontainers.containers.MySQLContainer;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
 @ActiveProfiles("integration")
@@ -40,4 +42,16 @@ public abstract class IntegrationTestBase {
 
     @Autowired
     protected JdbcTemplate jdbcTemplate;
+
+    // 诊断 #45/#53：Testcontainers 的 MySQL 实例是整个测试进程里所有测试类共享的单例
+    // （见上面 static 字段），历史上多个测试类各自手写硬编码手机号段，只要两个类凑巧
+    // 用了同一个号，全量跑测试时就会撞上 teacher.uq_teacher_phone 唯一键报错——这正是
+    // 之前反复出现的 flaky 测试根因。新建号的测试统一调用这个方法拿号，"199"前缀在全仓库
+    // 现有硬编码号段（138/139 开头）之外，天然不会撞号；多线程并行跑测试时 AtomicLong
+    // 也保证不会发出重复号。
+    private static final AtomicLong PHONE_SEQUENCE = new AtomicLong(1);
+
+    protected static String uniquePhone() {
+        return "199" + String.format("%08d", PHONE_SEQUENCE.getAndIncrement());
+    }
 }

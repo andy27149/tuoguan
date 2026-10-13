@@ -80,10 +80,11 @@ class AdminOverviewControllerTest extends IntegrationTestBase {
 
     @Test
     void lowBalanceIncludesStudentBelowThresholdAndExcludesStudentAtOrAboveIt() throws Exception {
+        String adminPhone = uniquePhone();
         Long institutionId = institutionDao.insert("总览课时预警测试机构A");
-        teacherDao.insert(new Teacher(null, institutionId, "13900015001",
+        teacherDao.insert(new Teacher(null, institutionId, adminPhone,
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
-        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900015002",
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, uniquePhone(),
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
         Long courseId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "数学课",
                 BillingMode.LESSON_COUNT, 60, null, true, null));
@@ -97,7 +98,7 @@ class AdminOverviewControllerTest extends IntegrationTestBase {
         // 余额充足学生：充值 5，消课 0，余额 5（>= 3，不应该出现）。
         courseRechargeRecordDao.insert(new CourseRechargeRecord(null, institutionId, healthyStudentId, courseId,
                 5, null, teacherId, null));
-        String adminToken = login("13900015001", "admin-password");
+        String adminToken = login(adminPhone, "admin-password");
 
         mockMvc.perform(get("/api/admin/overview/low-balance")
                         .header("Authorization", "Bearer " + adminToken))
@@ -382,10 +383,11 @@ class AdminOverviewControllerTest extends IntegrationTestBase {
 
     @Test
     void todaySnapshotCountsArrivalMealLeaveForOneCustodyClass() throws Exception {
+        String adminPhone = uniquePhone();
         Long institutionId = institutionDao.insert("今日快照测试机构A");
-        teacherDao.insert(new Teacher(null, institutionId, "13900016001",
+        teacherDao.insert(new Teacher(null, institutionId, adminPhone,
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
-        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900016002",
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, uniquePhone(),
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
         Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "快照一班",
                 BillingMode.MONTHLY, null, null, true, null));
@@ -396,7 +398,7 @@ class AdminOverviewControllerTest extends IntegrationTestBase {
         studentArrivalCheckinDao.upsert(institutionId, classRoomId, student1Id, today, "08:00");
         studentMealRecordDao.upsert(institutionId, classRoomId, student1Id, today);
 
-        String adminToken = login("13900016001", "admin-password");
+        String adminToken = login(adminPhone, "admin-password");
 
         mockMvc.perform(get("/api/admin/overview/today")
                         .header("Authorization", "Bearer " + adminToken))

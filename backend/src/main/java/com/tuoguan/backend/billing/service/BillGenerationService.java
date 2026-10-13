@@ -35,6 +35,7 @@ import com.tuoguan.backend.unit.dao.StudentUnitEnrollmentDao;
 import com.tuoguan.backend.unit.dao.TeachingUnitDao;
 import com.tuoguan.backend.unit.domain.BillingMode;
 import com.tuoguan.backend.unit.domain.TeachingUnit;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -65,6 +66,14 @@ public class BillGenerationService {
     private final TeachingUnitDao teachingUnitDao;
     private final TeacherDao teacherDao;
     private final StudentUnitEnrollmentDao enrollmentDao;
+    // 诊断 #33：批量生成（generateBillsForClass/generateBillsForInstitution）内部要调用
+    // 本类自己的 generateBill，如果直接用 this.generateBill(...)，是类内自调用，Spring AOP
+    // 代理拦截不到，@Transactional 对那次调用形同虚设——上一个学生账单写到一半失败，已经
+    // 落库的部分不会回滚。注入一个指向自己的代理（必须 @Lazy，否则构造时自己还没创建完,
+    // 会循环依赖），批量场景改成调用 self.generateBill(...)，让每个学生的账单生成重新
+    // 经过代理、各自成为独立的事务边界，和单学生生成（Controller 调用，天然走代理）行为
+    // 一致。
+    private final BillGenerationService self;
 
     public BillGenerationService(ClassBillingRateDao classBillingRateDao,
                                   CourseAccountService courseAccountService,
@@ -75,7 +84,7 @@ public class BillGenerationService {
                                   MonthlyBillLeaveLineDao monthlyBillLeaveLineDao,
                                   StudentMealRecordDao studentMealRecordDao, StudentDao studentDao,
                                   TeachingUnitDao teachingUnitDao, TeacherDao teacherDao,
-                                  StudentUnitEnrollmentDao enrollmentDao) {
+                                  StudentUnitEnrollmentDao enrollmentDao, @Lazy BillGenerationService self) {
         this.classBillingRateDao = classBillingRateDao;
         this.courseAccountService = courseAccountService;
         this.studentLeaveRecordDao = studentLeaveRecordDao;
@@ -89,6 +98,7 @@ public class BillGenerationService {
         this.teachingUnitDao = teachingUnitDao;
         this.teacherDao = teacherDao;
         this.enrollmentDao = enrollmentDao;
+        this.self = self;
     }
 
     public Optional<ClassBillingRate> getBillingRate(Long institutionId, Long classRoomId) {
@@ -195,7 +205,8 @@ public class BillGenerationService {
     }
 
     public MonthlyBill generateBill(Long institutionId, Long studentId, YearMonth month) {
-        return generateBill(institutionId, studentId, month, null);
+        // self 而不是 this：同样是为了不让这次调用绕开 @Transactional 代理（诊断 #33）。
+        return self.generateBill(institutionId, studentId, month, null);
     }
 
     @Transactional
@@ -259,7 +270,7 @@ public class BillGenerationService {
         TeachingUnit unit = requireTeachingUnitInInstitution(institutionId, classRoomId);
         return studentDao.findAllByTeachingUnitId(unit.id()).stream()
                 .filter(Student::enrolled)
-                .map(s -> generateBill(institutionId, s.id(), month))
+                .map(s -> self.generateBill(institutionId, s.id(), month))
                 .toList();
     }
 
@@ -278,7 +289,7 @@ public class BillGenerationService {
         int generatedCount = 0;
         for (BillOverviewRow row : getBillOverview(institutionId, month, classRoomId, studentName, offCampusOnly)) {
             try {
-                generateBill(institutionId, row.studentId(), month);
+                self.generateBill(institutionId, row.studentId(), month);
                 generatedCount++;
             } catch (BillingRateNotConfiguredException e) {
                 failures.add(new BulkBillGenerationFailure(row.studentId(), row.studentName(), e.getMessage()));

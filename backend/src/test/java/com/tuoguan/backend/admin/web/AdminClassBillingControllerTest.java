@@ -176,16 +176,18 @@ class AdminClassBillingControllerTest extends IntegrationTestBase {
         // 改成按老师实际标记的用餐记录天数算。这里只记 3 天用餐、不请假，如果账单金额
         // 还是按旧的出勤公式算，mealAmount 会是接近 20 天的量级而不是 3 天。
         Long institutionId = institutionDao.insert("用餐账单测试机构A");
-        teacherDao.insert(new Teacher(null, institutionId, "13900015001",
+        String adminPhone = uniquePhone();
+        String teacherPhone = uniquePhone();
+        teacherDao.insert(new Teacher(null, institutionId, adminPhone,
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
-        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900015002",
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, teacherPhone,
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
         Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "用餐一班",
                 BillingMode.MONTHLY, null, null, true, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小明", "一班",
                 true, null, null));
-        String adminToken = login("13900015001", "admin-password");
-        String teacherToken = login("13900015002", "teacher-password");
+        String adminToken = login(adminPhone, "admin-password");
+        String teacherToken = login(teacherPhone, "teacher-password");
 
         mockMvc.perform(put("/api/admin/classes/" + classRoomId + "/billing-rate")
                         .header("Authorization", "Bearer " + adminToken)
@@ -294,16 +296,18 @@ class AdminClassBillingControllerTest extends IntegrationTestBase {
         // 验证核心设计变更：请假天数不再走机构后台的区间登记接口（已删除），改成
         // 读老师在看板上逐日登记的请假记录；账单上还要能看到具体哪天、什么原因。
         Long institutionId = institutionDao.insert("请假账单测试机构A");
-        teacherDao.insert(new Teacher(null, institutionId, "13900016001",
+        String adminPhone = uniquePhone();
+        String teacherPhone = uniquePhone();
+        teacherDao.insert(new Teacher(null, institutionId, adminPhone,
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
-        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900016002",
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, teacherPhone,
                 passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
         Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "请假一班",
                 BillingMode.MONTHLY, null, null, true, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小刚", "一班",
                 true, null, null));
-        String adminToken = login("13900016001", "admin-password");
-        String teacherToken = login("13900016002", "teacher-password");
+        String adminToken = login(adminPhone, "admin-password");
+        String teacherToken = login(teacherPhone, "teacher-password");
 
         mockMvc.perform(put("/api/admin/classes/" + classRoomId + "/billing-rate")
                         .header("Authorization", "Bearer " + adminToken)
