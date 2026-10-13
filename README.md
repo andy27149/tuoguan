@@ -1,6 +1,19 @@
 # 托管班学生学习管理系统
 
-个人/小团队副业项目。技术栈：React + Vite + TS + Tailwind（前端），Spring Boot + MySQL + MinIO（后端），Docker Compose 编排。
+个人/小团队副业项目。技术栈：React + Vite + TS + Tailwind（前端），Spring Boot + MySQL + MinIO（后端），Docker Compose 编排。首个试用机构已于 2026-09-02 上线并产生真实数据，目前处于业务验证/反馈迭代阶段。
+
+## 文档导航
+
+这份 README 只覆盖本地开发命令和项目最早期（阶段1-4）的开发日志——**要了解当前功能现状、已知问题、业务规则或代码架构，请从下面这些文档进去，不要依赖本文件下方的"阶段N"记录**（那部分从阶段4之后就没再按这个粒度继续写，是历史存档，不是最新状态）：
+
+| 想知道什么 | 看哪份文档 |
+|---|---|
+| 整个文档体系怎么组织、该先看哪篇 | [docs/INDEX.md](./docs/INDEX.md) |
+| 系统目前有哪些已知问题/设计缺口，哪些已修复 | [docs/功能全景与产品诊断.md](./docs/功能全景与产品诊断.md) |
+| 业务规则、角色权限、计费逻辑 | [docs/business/业务架构.md](./docs/business/业务架构.md)、[docs/business/业务流程.md](./docs/business/业务流程.md) |
+| 技术栈、目录结构、数据库迁移、测试基建 | [docs/architecture/技术架构.md](./docs/architecture/技术架构.md)、[docs/architecture/代码架构.md](./docs/architecture/代码架构.md) |
+| 某个具体页面有哪些功能点/依赖哪些接口 | [docs/pages/INDEX.md](./docs/pages/INDEX.md) |
+| 生产部署步骤 | [DEPLOY.md](./DEPLOY.md) |
 
 ## 本地开发
 
@@ -36,6 +49,10 @@ export JAVA_TOOL_OPTIONS="-Dapi.version=1.44"
 ```
 
 之后直接 `mvn test` 即可。四个变量缺一不可：`DOCKER_API_VERSION` 环境变量本身不够，docker-java 实际读取的是 `api.version` JVM 系统属性，因此需要通过 `JAVA_TOOL_OPTIONS` 传给 Maven fork 出的测试子进程；`TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE` 用于修正 Testcontainers 清理容器（Ryuk）挂载 socket 路径的问题（colima 的 socket 在宿主机和虚拟机内部路径不同）。Docker Desktop 用户通常不需要这些配置。
+
+---
+
+> **以下是项目早期（阶段1-4）的开发日志，已停更，仅作历史存档**。记录的接口/行为在当时准确，但后续有大量未在此补记的迭代（账号体系演进、托管班/课外课合并为统一教学单元、计费与账单、平台管理、家长分享等），这些都已经在上面"文档导航"列出的 `docs/` 体系里持续维护。判断当前某个功能到底是什么样，请去查 `docs/`，不要以下面的阶段记录为准。
 
 ## 阶段1：账号体系与数据隔离
 
