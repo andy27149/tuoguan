@@ -17,7 +17,8 @@
   - 头像上传
   - 今日任务打勾/取消、+ 添加任务（自动同步给同学籍班其他学生）
   - 1-5 星评价 + 一句话点评
-  - 到校打卡（🕐）、用餐登记（🍚）、请假登记+原因（🌴）
+  - 到校打卡（🕐）、用餐登记（🍚）、请假登记+原因（🌴）——每次操作成功/取消都会弹 Toast 确认（"已打卡到校"/"已记录用餐"/"已登记请假"等，2026-10-13 补齐，产品诊断 #70，此前这几个操作点击后无任何反馈）
+  - 当天最后一个任务被勾完时，卡片顶部弹出"今天又完成啦！"庆祝横幅（品牌吉祥物"小奕"+文案，3.2 秒后自动消失，见 `brand/Mascot.tsx`，2026-10-13 新增），配合进度环右上角原有的金牌徽标
   - 🖼 海报（`SharePosterModal.tsx`）/ 📊 月度统计（`MonthlyStatsModal.tsx`）/ 🔗 分享链接（`ShareLinkModal.tsx`）
 - **放学确认**：`DismissButton.tsx`，标记班级当天已放学，影响任务卡片颜色规则（全部完成=绿色印章 &gt; 已放学仍有未完成=红色 &gt; 默认色）
 - **帮助**（仅非管理员显示）：打开 `components/HelpModal.tsx`（`role="teacher"`），弹窗展示教师的上手步骤+常见问题（文字版，不带截图）——**这份内容是从 `docs/training/操作培训手册.html` 的教师部分摘录+改写的，两处独立维护，改任何一处涉及的功能流程都要检查并同步另一处**，见 [docs/INDEX.md](../INDEX.md) 的维护提示
@@ -27,7 +28,7 @@
 ## 依赖
 
 - API：`api/classes.ts`（班级列表，只读）、`api/students.ts`、`api/taskTemplates.ts`、`api/dailyTasks.ts`、`api/dismissal.ts`、`api/studentNotes.ts`、`api/arrival.ts`、`api/meal.ts`、`api/leave.ts`、`api/admin.ts`、`api/adminKanban.ts`（管理员只读分支）
-- 组件：`StudentCard.tsx`（内部再用到 `SharePosterModal.tsx`、`MonthlyStatsModal.tsx`、`ShareLinkModal.tsx`）、`AssignTaskBar.tsx`、`CompleteAllTasksButton.tsx`、`DismissButton.tsx`、`TaskTemplateManager.tsx`、`Toast.tsx`、`EmptyState.tsx`、`UpdatesButton.tsx`、`HelpModal.tsx`
+- 组件：`StudentCard.tsx`（内部再用到 `SharePosterModal.tsx`、`MonthlyStatsModal.tsx`、`ShareLinkModal.tsx`、`brand/Mascot.tsx`）、`AssignTaskBar.tsx`、`CompleteAllTasksButton.tsx`、`DismissButton.tsx`、`TaskTemplateManager.tsx`、`Toast.tsx`、`EmptyState.tsx`、`UpdatesButton.tsx`、`HelpModal.tsx`
 - 工具：`kanban/date.ts`（`todayDateString`）、`kanban/schoolClass.ts`（`groupBySchoolClass`）、`kanban/cardStatus.ts`（卡片颜色计算，纯函数，独立单测）
 - `auth/AuthContext.tsx`：判断当前是否 `isAdmin`，决定走只读分支
 

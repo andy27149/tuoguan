@@ -9,6 +9,7 @@
 
 ## 功能点
 
+- 页面顶部问候语：品牌吉祥物"小奕"（招手姿势）+ "你好呀！"文案，加载/报错/成功任何状态下都会显示（2026-10-13 新增，见 `brand/Mascot.tsx`，此前这块是空白，加载中只有纯文字）
 - 头像 + 姓名 + 学籍班（无头像时显示姓名首字）
 - **有托管班**（`components/MonthlyStatsView.tsx`）：
   - 月份切换（上月/下月）、日历按天查看
@@ -23,7 +24,7 @@
 
 - `api/publicShare.ts`（`fetchPublicShare`，唯一的数据来源，无需 token 鉴权之外的任何身份校验）
 - `kanban/date.ts`：`currentMonthString`、`todayDateString`
-- 组件：`MonthlyStatsView.tsx`（内部含 `CourseActivityView.tsx`）、`CourseStatementView.tsx`
+- 组件：`MonthlyStatsView.tsx`（内部含 `CourseActivityView.tsx`）、`CourseStatementView.tsx`、`brand/Mascot.tsx`
 
 ## 关联文档
 

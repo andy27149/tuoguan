@@ -39,7 +39,7 @@
 
 ## 文档体系建设历史
 
-2026-10-12 完整建设过一轮，见 [roadmap/文档体系待办.md](./roadmap/文档体系待办.md) 的完整记录和决策过程；全部待办已完成，目前没有已知的遗留缺口。
+2026-10-12 完整建设过一轮，见 [roadmap/文档体系待办.md](./roadmap/文档体系待办.md) 的完整记录和决策过程；全部待办已完成，目前没有已知的遗留缺口。2026-10-13 又同步了一批：[功能全景与产品诊断.md](./功能全景与产品诊断.md) 的 #11/#14/#46/#47/#68-74 标记修复状态，[pages/AdminBillingModule.md](./pages/AdminBillingModule.md)/[pages/KanbanPage.md](./pages/KanbanPage.md)/[pages/ParentSharePage.md](./pages/ParentSharePage.md)、[architecture/代码架构.md](./architecture/代码架构.md)/[architecture/技术架构.md](./architecture/技术架构.md)、[business/业务架构.md](./business/业务架构.md)/[business/业务流程.md](./business/业务流程.md) 跟进了收款方式/逾期排序/Playwright E2E/颜色 token 统一/品牌吉祥物等改动。
 
 ## 给未来做改动的我自己的提示
 
