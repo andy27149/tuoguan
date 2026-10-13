@@ -24,6 +24,9 @@ export interface MonthlyBillExtraFeeLine {
   lessonCount: number
   amount: number
   consumptionDates: string[]
+  // true：这些消课发生时没被充值覆盖，但生成账单这一刻后续补的充值已经把欠费补上了
+  // （或部分补上），amount 不再等于 lessonCount × pricePerLesson，需要换一种说法展示。
+  settledByRecharge: boolean
 }
 
 export interface MonthlyBillLeaveLine {

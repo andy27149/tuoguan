@@ -9,7 +9,8 @@ public interface MonthlyBillExtraFeeLineDao {
 
     List<MonthlyBillExtraFeeLine> findAllByBillId(Long monthlyBillId);
 
-    Long insert(Long monthlyBillId, String name, BigDecimal pricePerLesson, int lessonCount, BigDecimal amount);
+    Long insert(Long monthlyBillId, String name, BigDecimal pricePerLesson, int lessonCount, BigDecimal amount,
+                boolean settledByRecharge);
 
     void deleteAllByBillId(Long monthlyBillId);
 }

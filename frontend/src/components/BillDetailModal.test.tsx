@@ -29,6 +29,7 @@ const BILL: MonthlyBill = {
     lessonCount: 4,
     amount: 200,
     consumptionDates: ['2026-09-10', '2026-09-17', '2026-09-24', '2026-09-30'],
+    settledByRecharge: false,
   }],
   mealRecordDates: ['2026-09-03', '2026-09-01', '2026-09-02'],
   leaveLines: [

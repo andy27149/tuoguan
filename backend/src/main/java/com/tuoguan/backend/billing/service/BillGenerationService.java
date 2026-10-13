@@ -125,14 +125,32 @@ public class BillGenerationService {
     public List<CourseConsumptionSummaryRow> listCourseConsumptionForMonth(Long institutionId, Long studentId,
                                                                             YearMonth month) {
         requireStudentInInstitution(institutionId, studentId);
-        return computeCourseConsumptionRows(studentId, month);
+        return computeCourseConsumptionRows(studentId, month, !isMonthAlreadyPaid(studentId, month));
+    }
+
+    // 这个月的账单是否已经标记"已缴费"（产品诊断 #54）：已缴费说明机构已经收过这笔钱，
+    // 补充值抵扣兜底逻辑不应该再对它生效，否则会出现"已经收了现金，账单却被后续充值
+    // 倒着免单"的双重优待。还没生成过账单（空）按"未缴费"处理，允许兜底逻辑生效。
+    private boolean isMonthAlreadyPaid(Long studentId, YearMonth month) {
+        return monthlyBillDao.findByStudentIdAndYearMonth(studentId, month).map(MonthlyBill::isPaid).orElse(false);
     }
 
     // 产品诊断 #02 统一方案：消课是否计费取决于当时是否被预充值余额覆盖，不再是
     // "只要发生过消课就全额计入账单"。覆盖判定的唯一权威来源是
     // CourseAccountService.classifyConsumptions——它对任何学生都适用，有托管班的学生
     // 从不充值所以天然恒为未覆盖，和改造前的行为完全一致，这里不需要再区分学生类型。
-    private List<CourseConsumptionSummaryRow> computeCourseConsumptionRows(Long studentId, YearMonth month) {
+    //
+    // applyCatchUp（产品诊断 #54）：消课当时没被覆盖，不代表生成账单这一刻还欠着——
+    // 管理员完全可能在消课之后、生成账单之前又给学生补了充值。classifyConsumptions
+    // 按"事件发生的时间顺序"回放，充值没法倒着覆盖它日期之前已经发生的消课，所以这种
+    // "先欠费、后补值"的场景下，哪怕现在净余额已经转正，严格按时间顺序算出来的覆盖
+    // 结果依然是"未覆盖"。这里再做一层兜底：对判定为"未覆盖"的消课，检查这门课
+    // "全部历史净余额"（不分时间先后，充值合计-消课合计）是否已经补平——补平了就按 0
+    // 计费，没补平就只收差额部分，消课次数和日期始终如实展示。只在这个月账单还没标记
+    // 已缴费时生效（见 isMonthAlreadyPaid），避免已经收过现金的旧账单被重新生成时又被
+    // 倒着免单。
+    private List<CourseConsumptionSummaryRow> computeCourseConsumptionRows(Long studentId, YearMonth month,
+                                                                            boolean applyCatchUp) {
         LocalDate start = month.atDay(1);
         LocalDate end = month.atEndOfMonth();
         List<ConsumptionCoverage> coverageThisMonth = courseAccountService.classifyConsumptions(studentId).stream()
@@ -145,17 +163,26 @@ public class BillGenerationService {
         for (Map.Entry<Long, List<ConsumptionCoverage>> entry : byCourse.entrySet()) {
             List<ConsumptionCoverage> courseCoverage = entry.getValue();
             TeachingUnit unit = teachingUnitDao.findById(entry.getKey()).orElse(null);
-            List<ConsumptionCoverage> billable = courseCoverage.stream().filter(c -> !c.coveredByBalance()).toList();
-            int coveredByBalanceCount = courseCoverage.size() - billable.size();
-            BigDecimal amount = billable.stream().map(c -> c.record().priceSnapshot())
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-            List<LocalDate> billableDates = billable.stream()
-                    .map(c -> c.record().consumptionDate())
-                    .sorted()
+            List<ConsumptionCoverage> billable = courseCoverage.stream()
+                    .filter(c -> !c.coveredByBalance())
+                    .sorted(Comparator.comparing(c -> c.record().consumptionDate()))
                     .toList();
+            int coveredByBalanceCount = courseCoverage.size() - billable.size();
+            List<LocalDate> billableDates = billable.stream().map(c -> c.record().consumptionDate()).toList();
+
+            List<ConsumptionCoverage> stillOwed = billable;
+            boolean settledByRecharge = false;
+            if (applyCatchUp && !billable.isEmpty()) {
+                int netBalance = courseAccountService.getNetBalance(studentId, entry.getKey());
+                int stillOwedCount = Math.min(billable.size(), Math.max(0, -netBalance));
+                settledByRecharge = stillOwedCount < billable.size();
+                stillOwed = billable.subList(billable.size() - stillOwedCount, billable.size());
+            }
+            BigDecimal amount = stillOwed.stream().map(c -> c.record().priceSnapshot())
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
             rows.add(new CourseConsumptionSummaryRow(entry.getKey(), unit != null ? unit.name() : "-",
                     unit != null ? unit.pricePerLesson() : null, billable.size(), amount, coveredByBalanceCount,
-                    billableDates));
+                    billableDates, settledByRecharge));
         }
         return rows;
     }
@@ -200,7 +227,8 @@ public class BillGenerationService {
                     .toList();
             mealAmount = rate.mealRatePerDay().multiply(BigDecimal.valueOf(mealDates.size()));
         }
-        List<CourseConsumptionSummaryRow> extraFeeRows = computeCourseConsumptionRows(studentId, month);
+        List<CourseConsumptionSummaryRow> extraFeeRows =
+                computeCourseConsumptionRows(studentId, month, !isMonthAlreadyPaid(studentId, month));
         BigDecimal extraFeeTotal = extraFeeRows.stream().map(CourseConsumptionSummaryRow::amount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalAmount = tuitionAmount.add(mealAmount).add(extraFeeTotal);
@@ -214,7 +242,7 @@ public class BillGenerationService {
                 .filter(row -> row.lessonCount() > 0)
                 .forEach(row -> {
                     Long lineId = monthlyBillExtraFeeLineDao.insert(billId, row.courseName(), row.pricePerLesson(),
-                            row.lessonCount(), row.amount());
+                            row.lessonCount(), row.amount(), row.settledByRecharge());
                     row.billableDates().forEach(date -> monthlyBillExtraFeeLineDateDao.insert(lineId, date));
                 });
         monthlyBillMealLineDao.deleteAllByBillId(billId);

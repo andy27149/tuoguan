@@ -370,6 +370,198 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void lateRechargeFullySettlesPreviouslyUnbilledConsumptionOnRegeneration() throws Exception {
+        Long institutionId = institutionDao.insert("账单测试机构M");
+        teacherDao.insert(new Teacher(null, institutionId, "13900013023",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900013024",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, null, "孙三", null, true, null, null));
+        String adminToken = login("13900013023", "admin-password");
+        String teacherToken = login("13900013024", "teacher-password");
+
+        MvcResult courseResult = mockMvc.perform(post("/api/admin/teaching-units")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"billingMode\":\"LESSON_COUNT\",\"name\":\"语文\",\"lessonDurationMinutes\":60,\"teacherId\":" + teacherId + "}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        Long courseId = objectMapper.readTree(courseResult.getResponse().getContentAsString()).get("id").asLong();
+        mockMvc.perform(patch("/api/admin/teaching-units/" + courseId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"pricePerLesson\":80.00}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(patch("/api/admin/students/" + studentId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"孙三\",\"enrolled\":true,\"courseIds\":[" + courseId + "]}"))
+                .andExpect(status().isOk());
+
+        // 消课日期用固定的过去日期（2020-01），保证一定早于"现在"生成的充值记录——
+        // 这样才能复现产品反馈 #54 的场景：先欠费、后补值。
+        for (String date : List.of("2020-01-02", "2020-01-03", "2020-01-04", "2020-01-05", "2020-01-06",
+                "2020-01-07", "2020-01-08")) {
+            mockMvc.perform(post("/api/courses/" + courseId + "/consumption")
+                            .header("Authorization", "Bearer " + teacherToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"studentId\":" + studentId + ",\"date\":\"" + date + "\",\"confirm\":false}"))
+                    .andExpect(status().isCreated());
+        }
+
+        mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=2020-01")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.extraFeeTotal").value(560.00))
+                .andExpect(jsonPath("$.extraFeeLines[0].lessonCount").value(7))
+                .andExpect(jsonPath("$.extraFeeLines[0].amount").value(560.00))
+                .andExpect(jsonPath("$.extraFeeLines[0].settledByRecharge").value(false));
+
+        // 补充值 10 次，created_at 是"现在"，晚于上面 7 次消课的日期。
+        mockMvc.perform(post("/api/admin/students/" + studentId + "/recharges")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"courseId\":" + courseId + ",\"lessonCount\":10}"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=2020-01")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.extraFeeTotal").value(0.00))
+                .andExpect(jsonPath("$.totalAmount").value(0.00))
+                .andExpect(jsonPath("$.extraFeeLines[0].lessonCount").value(7))
+                .andExpect(jsonPath("$.extraFeeLines[0].amount").value(0.00))
+                .andExpect(jsonPath("$.extraFeeLines[0].settledByRecharge").value(true))
+                .andExpect(jsonPath("$.extraFeeLines[0].consumptionDates.length()").value(7));
+    }
+
+    @Test
+    void lateRechargePartiallySettlesWhenNotEnoughToCoverAllUnbilledConsumption() throws Exception {
+        Long institutionId = institutionDao.insert("账单测试机构N");
+        teacherDao.insert(new Teacher(null, institutionId, "13900013025",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900013026",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, null, "孙三", null, true, null, null));
+        String adminToken = login("13900013025", "admin-password");
+        String teacherToken = login("13900013026", "teacher-password");
+
+        MvcResult courseResult = mockMvc.perform(post("/api/admin/teaching-units")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"billingMode\":\"LESSON_COUNT\",\"name\":\"语文\",\"lessonDurationMinutes\":60,\"teacherId\":" + teacherId + "}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        Long courseId = objectMapper.readTree(courseResult.getResponse().getContentAsString()).get("id").asLong();
+        mockMvc.perform(patch("/api/admin/teaching-units/" + courseId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"pricePerLesson\":80.00}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(patch("/api/admin/students/" + studentId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"孙三\",\"enrolled\":true,\"courseIds\":[" + courseId + "]}"))
+                .andExpect(status().isOk());
+
+        for (String date : List.of("2020-02-02", "2020-02-03", "2020-02-04", "2020-02-05", "2020-02-06",
+                "2020-02-07", "2020-02-08")) {
+            mockMvc.perform(post("/api/courses/" + courseId + "/consumption")
+                            .header("Authorization", "Bearer " + teacherToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"studentId\":" + studentId + ",\"date\":\"" + date + "\",\"confirm\":false}"))
+                    .andExpect(status().isCreated());
+        }
+        mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=2020-02")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.extraFeeTotal").value(560.00));
+
+        // 只补 3 次，不够覆盖全部 7 次欠费，剩下 4 次仍然要收费。
+        mockMvc.perform(post("/api/admin/students/" + studentId + "/recharges")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"courseId\":" + courseId + ",\"lessonCount\":3}"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=2020-02")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.extraFeeTotal").value(320.00))
+                .andExpect(jsonPath("$.extraFeeLines[0].lessonCount").value(7))
+                .andExpect(jsonPath("$.extraFeeLines[0].amount").value(320.00))
+                .andExpect(jsonPath("$.extraFeeLines[0].settledByRecharge").value(true))
+                .andExpect(jsonPath("$.extraFeeLines[0].consumptionDates.length()").value(7));
+    }
+
+    @Test
+    void alreadyPaidBillIsNotRetroactivelySettledByLaterRecharge() throws Exception {
+        Long institutionId = institutionDao.insert("账单测试机构O");
+        teacherDao.insert(new Teacher(null, institutionId, "13900013027",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900013028",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, null, "孙三", null, true, null, null));
+        String adminToken = login("13900013027", "admin-password");
+        String teacherToken = login("13900013028", "teacher-password");
+
+        MvcResult courseResult = mockMvc.perform(post("/api/admin/teaching-units")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"billingMode\":\"LESSON_COUNT\",\"name\":\"语文\",\"lessonDurationMinutes\":60,\"teacherId\":" + teacherId + "}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        Long courseId = objectMapper.readTree(courseResult.getResponse().getContentAsString()).get("id").asLong();
+        mockMvc.perform(patch("/api/admin/teaching-units/" + courseId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"pricePerLesson\":80.00}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(patch("/api/admin/students/" + studentId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"孙三\",\"enrolled\":true,\"courseIds\":[" + courseId + "]}"))
+                .andExpect(status().isOk());
+
+        for (String date : List.of("2020-03-02", "2020-03-03", "2020-03-04", "2020-03-05", "2020-03-06",
+                "2020-03-07", "2020-03-08")) {
+            mockMvc.perform(post("/api/courses/" + courseId + "/consumption")
+                            .header("Authorization", "Bearer " + teacherToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"studentId\":" + studentId + ",\"date\":\"" + date + "\",\"confirm\":false}"))
+                    .andExpect(status().isCreated());
+        }
+
+        MvcResult billResult = mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=2020-03")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.extraFeeTotal").value(560.00))
+                .andReturn();
+        Long billId = objectMapper.readTree(billResult.getResponse().getContentAsString()).get("id").asLong();
+
+        mockMvc.perform(patch("/api/admin/bills/" + billId + "/paid")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"isPaid\":true}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/admin/students/" + studentId + "/recharges")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"courseId\":" + courseId + ",\"lessonCount\":10}"))
+                .andExpect(status().isCreated());
+
+        // 这个月的账单已经标记已缴费（机构已经收了560元现金），即使之后补值也不应该
+        // 把这笔已经收过的钱倒着免掉——重新生成时金额应该维持原样。
+        mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=2020-03")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.extraFeeTotal").value(560.00))
+                .andExpect(jsonPath("$.extraFeeLines[0].amount").value(560.00))
+                .andExpect(jsonPath("$.extraFeeLines[0].settledByRecharge").value(false));
+    }
+
+    @Test
     void regeneratingSameMonthUpsertsInsteadOfDuplicating() throws Exception {
         Long institutionId = institutionDao.insert("账单测试机构E");
         teacherDao.insert(new Teacher(null, institutionId, "13900013009",

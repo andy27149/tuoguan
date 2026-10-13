@@ -74,6 +74,9 @@ export interface CourseConsumptionSummaryRow {
   amount: number
   // 同月里已经被预充值余额覆盖、不需要再收费的消课次数（仅展示用，不计入 amount）。
   coveredByBalanceCount: number
+  // true：lessonCount 这些消课发生时没被充值覆盖，但生成账单这一刻后续补的充值已经
+  // 把欠费补上（或部分补上）了，amount 不再等于 lessonCount × pricePerLesson。
+  settledByRecharge: boolean
 }
 
 // 教师端

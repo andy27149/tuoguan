@@ -25,6 +25,7 @@ const COURSE_CONSUMPTION: courseApi.CourseConsumptionSummaryRow[] = [
     lessonCount: 4,
     amount: 200,
     coveredByBalanceCount: 0,
+    settledByRecharge: false,
   },
 ]
 
@@ -70,7 +71,15 @@ describe('FeeManagementModal', () => {
 
   it('shows an unconfigured-price placeholder when a course has no price set', async () => {
     vi.mocked(courseApi.fetchStudentCourseConsumption).mockResolvedValue([
-      { courseId: 2, courseName: '未定价课', pricePerLesson: null, lessonCount: 2, amount: 0, coveredByBalanceCount: 0 },
+      {
+        courseId: 2,
+        courseName: '未定价课',
+        pricePerLesson: null,
+        lessonCount: 2,
+        amount: 0,
+        coveredByBalanceCount: 0,
+        settledByRecharge: false,
+      },
     ])
     setup()
 
@@ -80,7 +89,15 @@ describe('FeeManagementModal', () => {
 
   it('shows the coverage breakdown when some consumption was covered by prepaid balance', async () => {
     vi.mocked(courseApi.fetchStudentCourseConsumption).mockResolvedValue([
-      { courseId: 1, courseName: '围棋课', pricePerLesson: 50, lessonCount: 1, amount: 50, coveredByBalanceCount: 2 },
+      {
+        courseId: 1,
+        courseName: '围棋课',
+        pricePerLesson: 50,
+        lessonCount: 1,
+        amount: 50,
+        coveredByBalanceCount: 2,
+        settledByRecharge: false,
+      },
     ])
     setup(null)
 
@@ -89,6 +106,24 @@ describe('FeeManagementModal', () => {
     expect(screen.getByText('（其中 2 次已用预充值抵扣）')).toBeInTheDocument()
     // 单价和应收金额在这组测试数据里恰好都是 ¥50.00（1 次未覆盖 × 单价 50），两格都应渲染。
     expect(screen.getAllByText('¥50.00')).toHaveLength(2)
+  })
+
+  it('shows a settled-by-recharge note next to the amount when a later recharge paid off the debt', async () => {
+    vi.mocked(courseApi.fetchStudentCourseConsumption).mockResolvedValue([
+      {
+        courseId: 1,
+        courseName: '语文',
+        pricePerLesson: 80,
+        lessonCount: 7,
+        amount: 0,
+        coveredByBalanceCount: 0,
+        settledByRecharge: true,
+      },
+    ])
+    setup(null)
+
+    expect(await screen.findByText('语文')).toBeInTheDocument()
+    expect(screen.getByText((_, el) => el?.textContent === '¥0.00（已通过后续充值补齐）')).toBeInTheDocument()
   })
 
   it('does not show the tuition section or query the class billing rate for a pure off-campus student', async () => {

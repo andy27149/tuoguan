@@ -38,8 +38,35 @@ const PURE_OFF_CAMPUS_BILL: MonthlyBill = {
     lessonCount: 4,
     amount: 200,
     consumptionDates: ['2026-09-03', '2026-09-01', '2026-09-08', '2026-09-15'],
+    settledByRecharge: false,
   }],
   leaveLines: [],
+}
+
+const FULLY_SETTLED_BILL: MonthlyBill = {
+  ...PURE_OFF_CAMPUS_BILL,
+  totalAmount: 0,
+  extraFeeTotal: 0,
+  extraFeeLines: [{
+    id: 2,
+    monthlyBillId: 500,
+    name: '语文',
+    pricePerLesson: 80,
+    lessonCount: 7,
+    amount: 0,
+    consumptionDates: ['2020-01-02', '2020-01-03', '2020-01-04', '2020-01-05', '2020-01-06', '2020-01-07', '2020-01-08'],
+    settledByRecharge: true,
+  }],
+}
+
+const PARTIALLY_SETTLED_BILL: MonthlyBill = {
+  ...FULLY_SETTLED_BILL,
+  totalAmount: 320,
+  extraFeeTotal: 320,
+  extraFeeLines: [{
+    ...FULLY_SETTLED_BILL.extraFeeLines[0],
+    amount: 320,
+  }],
 }
 
 describe('BillCard', () => {
@@ -85,5 +112,19 @@ describe('BillCard', () => {
 
     const dateEls = screen.getAllByText(/^2026-09-(01|03|08|15)$/)
     expect(dateEls.map((el) => el.textContent)).toEqual(['2026-09-01', '2026-09-03', '2026-09-08', '2026-09-15'])
+  })
+
+  it('shows a settled note instead of the per-lesson math when a course fee was fully settled by a later recharge', () => {
+    render(<BillCard bill={FULLY_SETTLED_BILL} studentName="孙三" className="—" />)
+
+    expect(screen.getByText('共7次消课（已通过后续充值补齐，本次账单不收费）')).toBeInTheDocument()
+    expect(screen.queryByText('7次 × ¥80.00 = ¥0.00')).not.toBeInTheDocument()
+  })
+
+  it('shows a partial-settlement note with the reduced amount when a course fee was only partly settled by a later recharge', () => {
+    render(<BillCard bill={PARTIALLY_SETTLED_BILL} studentName="孙三" className="—" />)
+
+    expect(screen.getByText('共7次消课，按¥320.00计费（部分已通过后续充值补齐）')).toBeInTheDocument()
+    expect(screen.queryByText('7次 × ¥80.00 = ¥320.00')).not.toBeInTheDocument()
   })
 })

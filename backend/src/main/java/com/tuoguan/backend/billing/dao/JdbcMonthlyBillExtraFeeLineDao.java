@@ -32,31 +32,34 @@ public class JdbcMonthlyBillExtraFeeLineDao implements MonthlyBillExtraFeeLineDa
                 rs.getBigDecimal("price_per_lesson"),
                 (Integer) rs.getObject("lesson_count"),
                 rs.getBigDecimal("amount"),
-                extraFeeLineDateDao.findAllByLineId(rs.getLong("id")));
+                extraFeeLineDateDao.findAllByLineId(rs.getLong("id")),
+                rs.getBoolean("settled_by_recharge"));
     }
 
     @Override
     public List<MonthlyBillExtraFeeLine> findAllByBillId(Long monthlyBillId) {
         return jdbcTemplate.query(
-                "SELECT id, monthly_bill_id, name, price_per_lesson, lesson_count, amount "
+                "SELECT id, monthly_bill_id, name, price_per_lesson, lesson_count, amount, settled_by_recharge "
                         + "FROM monthly_bill_extra_fee_line WHERE monthly_bill_id = ? ORDER BY id",
                 rowMapper(), monthlyBillId);
     }
 
     @Override
     public Long insert(Long monthlyBillId, String name, BigDecimal pricePerLesson, int lessonCount,
-                        BigDecimal amount) {
+                        BigDecimal amount, boolean settledByRecharge) {
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(connection -> {
             PreparedStatement ps = connection.prepareStatement(
                     "INSERT INTO monthly_bill_extra_fee_line "
-                            + "(monthly_bill_id, name, price_per_lesson, lesson_count, amount) VALUES (?, ?, ?, ?, ?)",
+                            + "(monthly_bill_id, name, price_per_lesson, lesson_count, amount, settled_by_recharge) "
+                            + "VALUES (?, ?, ?, ?, ?, ?)",
                     Statement.RETURN_GENERATED_KEYS);
             ps.setLong(1, monthlyBillId);
             ps.setString(2, name);
             ps.setBigDecimal(3, pricePerLesson);
             ps.setInt(4, lessonCount);
             ps.setBigDecimal(5, amount);
+            ps.setBoolean(6, settledByRecharge);
             return ps;
         }, keyHolder);
         return keyHolder.getKey().longValue();

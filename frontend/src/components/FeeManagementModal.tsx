@@ -142,7 +142,10 @@ export function FeeManagementModal({
                           <span className="text-[#7c7391]">（其中 {row.coveredByBalanceCount} 次已用预充值抵扣）</span>
                         )}
                       </td>
-                      <td className="py-1.5">¥{row.amount.toFixed(2)}</td>
+                      <td className="py-1.5">
+                        ¥{row.amount.toFixed(2)}
+                        {row.settledByRecharge && <span className="text-[#7c7391]">（已通过后续充值补齐）</span>}
+                      </td>
                     </tr>
                   ))}
                   {courseConsumption.length === 0 && (

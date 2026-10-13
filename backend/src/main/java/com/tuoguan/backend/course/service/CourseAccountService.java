@@ -158,6 +158,21 @@ public class CourseAccountService {
                 .toList();
     }
 
+    // 账单生成"补充值追溯抵扣"用到的历史净余额（产品诊断 #54）：不分时间先后，直接拿
+    // 该学生在这门课上的充值课时总数减消课总次数。跟 classifyConsumptions 的"按时间
+    // 顺序覆盖"不是一回事——后者决定某次消课发生当时算不算被覆盖，这里只是一个简单的
+    // "现在总共还欠不欠"快照，专门给 BillGenerationService 的补充值兜底逻辑用。
+    public int getNetBalance(Long studentId, Long teachingUnitId) {
+        int recharged = rechargeRecordDao.findAllByStudentId(studentId).stream()
+                .filter(r -> r.teachingUnitId().equals(teachingUnitId))
+                .mapToInt(CourseRechargeRecord::lessonCount)
+                .sum();
+        int consumed = (int) consumptionRecordDao.findAllByStudentId(studentId).stream()
+                .filter(c -> c.teachingUnitId().equals(teachingUnitId))
+                .count();
+        return recharged - consumed;
+    }
+
     public int countConsumptionsInMonth(Long institutionId, YearMonth month) {
         return (int) consumptionRecordDao.findAllByInstitutionId(institutionId).stream()
                 .filter(c -> YearMonth.from(c.consumptionDate()).equals(month))

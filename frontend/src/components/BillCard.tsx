@@ -101,9 +101,18 @@ export const BillCard = forwardRef<HTMLDivElement, BillCardProps>(function BillC
               <span>{line.name}</span>
               <span>¥{formatAmount(line.amount)}</span>
             </div>
-            <p className="pl-2 text-[11px] text-[#7c7391]">
-              {line.lessonCount}次 × ¥{formatAmount(line.pricePerLesson)} = ¥{formatAmount(line.amount)}
-            </p>
+            {line.settledByRecharge ? (
+              <p className="pl-2 text-[11px] text-[#7c7391]">
+                共{line.lessonCount}次消课
+                {line.amount === 0
+                  ? '（已通过后续充值补齐，本次账单不收费）'
+                  : `，按¥${formatAmount(line.amount)}计费（部分已通过后续充值补齐）`}
+              </p>
+            ) : (
+              <p className="pl-2 text-[11px] text-[#7c7391]">
+                {line.lessonCount}次 × ¥{formatAmount(line.pricePerLesson)} = ¥{formatAmount(line.amount)}
+              </p>
+            )}
             {line.consumptionDates.length > 0 && (
               <div className="pl-2">
                 <DateChips dates={line.consumptionDates} />
