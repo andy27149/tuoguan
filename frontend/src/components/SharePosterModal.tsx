@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { DailyTask } from '../api/dailyTasks'
 import { computeCardStatus } from '../kanban/cardStatus'
 import { subjectColor, subjectIconMarkup } from '../kanban/subjectIcons'
 import { StarRating } from './StarRating'
 import { BrandMark } from '../brand/BrandMark'
+import { useEscapeToClose } from '../hooks/useEscapeToClose'
 
 interface SharePosterStudent {
   id: number
@@ -62,14 +63,7 @@ export function SharePosterModal({
     onClose()
   }
 
-  useEffect(() => {
-    const onKeydown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') commitAndClose()
-    }
-    document.addEventListener('keydown', onKeydown)
-    return () => document.removeEventListener('keydown', onKeydown)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [localComment])
+  useEscapeToClose(commitAndClose)
 
   const handleCopyCaption = () => {
     const taskLines =

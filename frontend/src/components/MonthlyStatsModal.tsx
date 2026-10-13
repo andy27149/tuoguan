@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom'
 import { fetchMonthlyStats, type MonthlyStats } from '../api/monthlyStats'
 import { currentMonthString, todayDateString } from '../kanban/date'
 import { MonthlyStatsView } from './MonthlyStatsView'
+import { LOAD_FAILURE_MESSAGE } from '../constants'
+import { useEscapeToClose } from '../hooks/useEscapeToClose'
 
 interface MonthlyStatsModalProps {
   studentId: number
@@ -36,7 +38,7 @@ export function MonthlyStatsModal({ studentId, studentName, onClose, fetchFn = f
         }
       })
       .catch(() => {
-        if (!cancelled) setError('加载失败，请重试')
+        if (!cancelled) setError(LOAD_FAILURE_MESSAGE)
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -46,13 +48,7 @@ export function MonthlyStatsModal({ studentId, studentName, onClose, fetchFn = f
     }
   }, [studentId, month, fetchFn])
 
-  useEffect(() => {
-    const onKeydown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKeydown)
-    return () => document.removeEventListener('keydown', onKeydown)
-  }, [onClose])
+  useEscapeToClose(onClose)
 
   return createPortal(
     <div

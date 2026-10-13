@@ -7,6 +7,7 @@ import { RollCallResultModal } from '../components/RollCallResultModal'
 import { ShareLinkModal } from '../components/ShareLinkModal'
 import { Toast } from '../components/Toast'
 import { useToast } from '../hooks/useToast'
+import { LOAD_FAILURE_MESSAGE } from '../constants'
 
 interface CourseConsumptionPageProps {
   onBack: () => void
@@ -52,7 +53,7 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
         if (list.length === 0) setLoading(false)
       })
       .catch(() => {
-        setLoadError('加载失败，请刷新重试')
+        setLoadError(LOAD_FAILURE_MESSAGE)
         setLoading(false)
       })
   }
@@ -152,7 +153,7 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
                 onClick={() => setActiveCourseId(c.id)}
               >
                 {c.name}
-                {!c.active && <span className="ml-1 text-xs text-gray-400">（已停用）</span>}
+                {!c.active && <span className="ml-1 text-xs text-panel-muted">（已停用）</span>}
               </button>
             ))}
           </div>
@@ -160,11 +161,11 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
       </header>
 
       <main className="mx-auto max-w-2xl space-y-4 px-4 pt-4">
-        {loadError && <p className="text-sm text-red-600">{loadError}</p>}
-        {loading && <p className="text-sm text-gray-400">加载中...</p>}
+        {loadError && <p className="text-sm text-panel-danger">{loadError}</p>}
+        {loading && <p className="text-sm text-panel-muted">加载中...</p>}
 
         {!loading && courses.length === 0 && (
-          <p className="text-sm text-gray-400">暂无课外课，请联系管理员分配</p>
+          <p className="text-sm text-panel-muted">暂无课外课，请联系管理员分配</p>
         )}
 
         {!loading && activeCourseId !== null && courses.length > 0 && (

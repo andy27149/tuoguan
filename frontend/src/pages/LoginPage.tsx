@@ -27,12 +27,12 @@ export function LoginPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
       <div className="flex items-center gap-2 mb-6">
         <BrandMark size={40} />
-        <span className="text-lg font-semibold text-gray-800">奕成长课后平台</span>
+        <span className="text-lg font-semibold text-panel-ink">奕成长课后平台</span>
       </div>
       <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 bg-white p-6 rounded-lg shadow">
         <h1 className="text-xl font-semibold text-center">托管班看板登录</h1>
         <div>
-          <label htmlFor="phone" className="block text-sm text-gray-600 mb-1">
+          <label htmlFor="phone" className="block text-sm text-panel-muted mb-1">
             手机号
           </label>
           <input
@@ -45,7 +45,7 @@ export function LoginPage() {
           />
         </div>
         <div>
-          <label htmlFor="password" className="block text-sm text-gray-600 mb-1">
+          <label htmlFor="password" className="block text-sm text-panel-muted mb-1">
             密码
           </label>
           <input
@@ -58,14 +58,14 @@ export function LoginPage() {
           />
         </div>
         {error && (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-sm text-panel-danger">
             {error}
           </p>
         )}
         <button
           type="submit"
           disabled={submitting}
-          className="w-full bg-blue-600 text-white rounded py-2 font-medium disabled:opacity-50"
+          className="w-full bg-panel-primary text-white rounded py-2 font-medium disabled:opacity-50"
         >
           {submitting ? '登录中...' : '登录'}
         </button>

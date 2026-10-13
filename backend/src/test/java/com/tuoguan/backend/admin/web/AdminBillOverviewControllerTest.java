@@ -215,14 +215,127 @@ class AdminBillOverviewControllerTest extends IntegrationTestBase {
         mockMvc.perform(patch("/api/admin/bills/" + billId + "/paid")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"isPaid\":true}"))
+                        .content("{\"isPaid\":true,\"paymentMethod\":\"WECHAT\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.isPaid").value(true));
+                .andExpect(jsonPath("$.isPaid").value(true))
+                .andExpect(jsonPath("$.paymentMethod").value("WECHAT"));
 
         Integer auditCount = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM audit_log WHERE action = 'BILL_SET_PAID' AND target_id = ?",
                 Integer.class, billId);
         assertThat(auditCount).isEqualTo(1);
+
+        // 取消缴费要清空收款方式（#14），不留下"未缴费却有收款渠道"的脏数据。
+        mockMvc.perform(patch("/api/admin/bills/" + billId + "/paid")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"isPaid\":false}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isPaid").value(false))
+                .andExpect(jsonPath("$.paymentMethod").doesNotExist());
+    }
+
+    @Test
+    void batchSetPaidMarksAllGivenBillsAndRecordsOneAuditLogEntry() throws Exception {
+        Long institutionId = institutionDao.insert("批量缴费测试机构");
+        String adminPhone = uniquePhone();
+        teacherDao.insert(new Teacher(null, institutionId, adminPhone,
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        String adminToken = login(adminPhone, "admin-password");
+
+        Long studentAId = studentDao.insert(new Student(null, institutionId, null, "批量学生甲", null, true, null, null));
+        Long studentBId = studentDao.insert(new Student(null, institutionId, null, "批量学生乙", null, true, null, null));
+        Long billAId = generateBillAndGetId(adminToken, studentAId, "2024-04");
+        Long billBId = generateBillAndGetId(adminToken, studentBId, "2024-04");
+
+        mockMvc.perform(patch("/api/admin/bills/batch-paid")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"billIds\":[" + billAId + "," + billBId + "],\"isPaid\":true,\"paymentMethod\":\"CASH\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.successCount").value(2))
+                .andExpect(jsonPath("$.failures").isEmpty());
+
+        mockMvc.perform(get("/api/admin/bills/" + billAId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(jsonPath("$.isPaid").value(true))
+                .andExpect(jsonPath("$.paymentMethod").value("CASH"));
+
+        Integer auditCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM audit_log WHERE action = 'BILL_SET_PAID' AND institution_id = ?",
+                Integer.class, institutionId);
+        assertThat(auditCount).isEqualTo(1);
+    }
+
+    @Test
+    void batchSetPaidReportsAnotherInstitutionsBillAsAFailureWithoutFailingTheWholeBatch() throws Exception {
+        Long institutionAId = institutionDao.insert("批量缴费隔离机构A");
+        String adminAPhone = uniquePhone();
+        teacherDao.insert(new Teacher(null, institutionAId, adminAPhone,
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        String adminAToken = login(adminAPhone, "admin-password");
+        Long studentAId = studentDao.insert(new Student(null, institutionAId, null, "机构A学生", null, true, null, null));
+        Long ownBillId = generateBillAndGetId(adminAToken, studentAId, "2024-04");
+
+        Long institutionBId = institutionDao.insert("批量缴费隔离机构B");
+        String adminBPhone = uniquePhone();
+        teacherDao.insert(new Teacher(null, institutionBId, adminBPhone,
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        String adminBToken = login(adminBPhone, "admin-password");
+        Long studentBId = studentDao.insert(new Student(null, institutionBId, null, "机构B学生", null, true, null, null));
+        Long otherInstitutionBillId = generateBillAndGetId(adminBToken, studentBId, "2024-04");
+
+        mockMvc.perform(patch("/api/admin/bills/batch-paid")
+                        .header("Authorization", "Bearer " + adminAToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"billIds\":[" + ownBillId + "," + otherInstitutionBillId
+                                + "],\"isPaid\":true,\"paymentMethod\":\"ALIPAY\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.successCount").value(1))
+                .andExpect(jsonPath("$.failures[0].billId").value(otherInstitutionBillId));
+    }
+
+    @Test
+    void overdueDaysCountsFromEndOfBillMonthAndIsZeroWhenPaidOrNotYetDue() throws Exception {
+        Long institutionId = institutionDao.insert("逾期天数测试机构");
+        String adminPhone = uniquePhone();
+        teacherDao.insert(new Teacher(null, institutionId, adminPhone,
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        String adminToken = login(adminPhone, "admin-password");
+
+        // 早已过去的月份，未缴费：必须有正的逾期天数。
+        Long overdueStudentId = studentDao.insert(new Student(null, institutionId, null, "逾期学生", null, true, null, null));
+        generateBillAndGetId(adminToken, overdueStudentId, "2024-01");
+
+        // 同一个月份，但标记已缴费：逾期天数必须是 0。
+        Long paidStudentId = studentDao.insert(new Student(null, institutionId, null, "已缴费学生", null, true, null, null));
+        Long paidBillId = generateBillAndGetId(adminToken, paidStudentId, "2024-01");
+        mockMvc.perform(patch("/api/admin/bills/" + paidBillId + "/paid")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"isPaid\":true,\"paymentMethod\":\"CASH\"}"))
+                .andExpect(status().isOk());
+
+        MvcResult result = mockMvc.perform(get("/api/admin/bills?month=2024-01")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn();
+        var rows = objectMapper.readTree(result.getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+        for (var row : rows) {
+            if (row.get("studentName").asText().equals("逾期学生")) {
+                assertThat(row.get("overdueDays").asInt()).isGreaterThan(0);
+            } else if (row.get("studentName").asText().equals("已缴费学生")) {
+                assertThat(row.get("overdueDays").asInt()).isEqualTo(0);
+            }
+        }
+    }
+
+    private Long generateBillAndGetId(String adminToken, Long studentId, String month) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=" + month)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn();
+        return objectMapper.readTree(result.getResponse().getContentAsString()).get("id").asLong();
     }
 
     @Test

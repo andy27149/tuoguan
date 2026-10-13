@@ -38,7 +38,7 @@ describe('TodaySnapshotCard', () => {
 
     const leaveBar = screen.getByTestId('today-bar-leave')
     expect(leaveBar).toHaveClass('bg-[#b7a9f0]')
-    expect(leaveBar).not.toHaveClass('bg-[#b7591f]')
+    expect(leaveBar).not.toHaveClass('bg-panel-warn')
     expect(leaveBar).not.toHaveClass('bg-red-500')
     expect(leaveBar).not.toHaveClass('bg-amber-500')
   })

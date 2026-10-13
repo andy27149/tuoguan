@@ -164,8 +164,8 @@ export function AdminPricingModule({ custodyEnabled, offCampusEnabled }: AdminPr
   return (
     <div className="space-y-4 p-4">
       {custodyEnabled && (
-        <div className="rounded-2xl border border-[#ece7de] bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
-          <h2 className="font-['Sora'] text-base font-semibold text-[#241f3d]">托管班级定价</h2>
+        <div className="rounded-2xl border border-panel-border bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
+          <h2 className="font-['Sora'] text-base font-semibold text-panel-ink">托管班级定价</h2>
           <p className="mt-1 text-xs text-[#a79fc2]">
             "未配置"只代表该班级还没有默认单价，用于以后自动生成账单；不代表这个班级没有历史账单——账单也可能是通过"费用管理"手动录入的。
           </p>
@@ -175,7 +175,7 @@ export function AdminPricingModule({ custodyEnabled, offCampusEnabled }: AdminPr
               <input
                 value={bulkTuitionInput}
                 onChange={(e) => setBulkTuitionInput(e.target.value)}
-                className="ml-2 w-20 rounded-lg border border-[#ece7de] px-2 py-1 text-sm"
+                className="ml-2 w-20 rounded-lg border border-panel-border px-2 py-1 text-sm"
               />
             </label>
             <label className="text-sm text-[#5d5480]">
@@ -183,62 +183,62 @@ export function AdminPricingModule({ custodyEnabled, offCampusEnabled }: AdminPr
               <input
                 value={bulkMealInput}
                 onChange={(e) => setBulkMealInput(e.target.value)}
-                className="ml-2 w-20 rounded-lg border border-[#ece7de] px-2 py-1 text-sm"
+                className="ml-2 w-20 rounded-lg border border-panel-border px-2 py-1 text-sm"
               />
             </label>
             <button
               type="submit"
               disabled={bulkSubmitting || !bulkTuitionInput.trim() || !bulkMealInput.trim()}
-              className="rounded-full bg-[#6d5bd0] px-4 py-1 text-sm font-medium text-white disabled:opacity-50"
+              className="rounded-full bg-panel-primary px-4 py-1 text-sm font-medium text-white disabled:opacity-50"
             >
               一键设置所有班级
             </button>
           </form>
-          {bulkError && <p className="mt-1 text-sm text-[#b7591f]">{bulkError}</p>}
+          {bulkError && <p className="mt-1 text-sm text-panel-warn">{bulkError}</p>}
 
-          {ratesError && <p className="mt-3 text-sm text-[#b7591f]">{ratesError}</p>}
-          {rowError && <p className="mt-3 text-sm text-[#b7591f]">{rowError}</p>}
-          {loadingRates && <p className="mt-3 text-sm text-[#7c7391]">加载中...</p>}
+          {ratesError && <p className="mt-3 text-sm text-panel-warn">{ratesError}</p>}
+          {rowError && <p className="mt-3 text-sm text-panel-warn">{rowError}</p>}
+          {loadingRates && <p className="mt-3 text-sm text-panel-muted">加载中...</p>}
           {!loadingRates && (
             <table className="mt-3 w-full text-left text-sm">
               <thead>
-                <tr className="text-xs text-[#7c7391]">
-                  <th className="border-b border-[#ece7de] bg-[#faf7ff] px-4 py-3">班级</th>
-                  <th className="border-b border-[#ece7de] bg-[#faf7ff] px-4 py-3">托管费（元/月）</th>
-                  <th className="border-b border-[#ece7de] bg-[#faf7ff] px-4 py-3">餐费（元/天）</th>
-                  <th className="border-b border-[#ece7de] bg-[#faf7ff] px-4 py-3">操作</th>
+                <tr className="text-xs text-panel-muted">
+                  <th className="border-b border-panel-border bg-[#faf7ff] px-4 py-3">班级</th>
+                  <th className="border-b border-panel-border bg-[#faf7ff] px-4 py-3">托管费（元/月）</th>
+                  <th className="border-b border-panel-border bg-[#faf7ff] px-4 py-3">餐费（元/天）</th>
+                  <th className="border-b border-panel-border bg-[#faf7ff] px-4 py-3">操作</th>
                 </tr>
               </thead>
               <tbody>
                 {rates.map((row) => {
                   const isEditing = editingClassId === row.classRoomId
                   return (
-                    <tr key={row.classRoomId} className="border-b border-[#ece7de] hover:bg-[#faf7ff]">
-                      <td className="px-4 py-3 font-medium text-[#241f3d]">{row.className}</td>
-                      <td className="px-4 py-3 text-[#241f3d]">
+                    <tr key={row.classRoomId} className="border-b border-panel-border hover:bg-[#faf7ff]">
+                      <td className="px-4 py-3 font-medium text-panel-ink">{row.className}</td>
+                      <td className="px-4 py-3 text-panel-ink">
                         {isEditing ? (
                           <input
                             aria-label={`${row.className}托管费`}
                             value={editTuitionInput}
                             onChange={(e) => setEditTuitionInput(e.target.value)}
-                            className="w-20 rounded-lg border border-[#ece7de] px-2 py-1 text-sm"
+                            className="w-20 rounded-lg border border-panel-border px-2 py-1 text-sm"
                           />
                         ) : row.tuitionRatePerMonth === null ? (
-                          <span className="text-xs text-[#b7591f]">未配置</span>
+                          <span className="text-xs text-panel-warn">未配置</span>
                         ) : (
                           `¥${row.tuitionRatePerMonth.toFixed(2)}`
                         )}
                       </td>
-                      <td className="px-4 py-3 text-[#241f3d]">
+                      <td className="px-4 py-3 text-panel-ink">
                         {isEditing ? (
                           <input
                             aria-label={`${row.className}餐费`}
                             value={editMealInput}
                             onChange={(e) => setEditMealInput(e.target.value)}
-                            className="w-20 rounded-lg border border-[#ece7de] px-2 py-1 text-sm"
+                            className="w-20 rounded-lg border border-panel-border px-2 py-1 text-sm"
                           />
                         ) : row.mealRatePerDay === null ? (
-                          <span className="text-xs text-[#b7591f]">未配置</span>
+                          <span className="text-xs text-panel-warn">未配置</span>
                         ) : (
                           `¥${row.mealRatePerDay.toFixed(2)}`
                         )}
@@ -250,7 +250,7 @@ export function AdminPricingModule({ custodyEnabled, offCampusEnabled }: AdminPr
                               type="button"
                               onClick={() => handleSaveRate(row.classRoomId)}
                               disabled={rowSubmitting}
-                              className="shrink-0 rounded-full bg-[#6d5bd0] px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
+                              className="shrink-0 rounded-full bg-panel-primary px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
                             >
                               保存
                             </button>
@@ -258,7 +258,7 @@ export function AdminPricingModule({ custodyEnabled, offCampusEnabled }: AdminPr
                               type="button"
                               onClick={handleCancelEditRate}
                               disabled={rowSubmitting}
-                              className="shrink-0 rounded-full border border-[#ece7de] px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]"
+                              className="shrink-0 rounded-full border border-panel-border px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]"
                             >
                               取消
                             </button>
@@ -267,7 +267,7 @@ export function AdminPricingModule({ custodyEnabled, offCampusEnabled }: AdminPr
                           <button
                             type="button"
                             onClick={() => handleStartEditRate(row)}
-                            className="rounded-full border border-[#ece7de] px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]"
+                            className="rounded-full border border-panel-border px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]"
                           >
                             单独设置
                           </button>
@@ -278,7 +278,7 @@ export function AdminPricingModule({ custodyEnabled, offCampusEnabled }: AdminPr
                 })}
                 {rates.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-4 py-3 text-xs text-[#7c7391]">
+                    <td colSpan={4} className="px-4 py-3 text-xs text-panel-muted">
                       暂无班级
                     </td>
                   </tr>
@@ -290,41 +290,41 @@ export function AdminPricingModule({ custodyEnabled, offCampusEnabled }: AdminPr
       )}
 
       {offCampusEnabled && (
-        <div className="rounded-2xl border border-[#ece7de] bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
-          <h2 className="font-['Sora'] text-base font-semibold text-[#241f3d]">课外课定价</h2>
+        <div className="rounded-2xl border border-panel-border bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
+          <h2 className="font-['Sora'] text-base font-semibold text-panel-ink">课外课定价</h2>
           <p className="mt-1 text-xs text-[#a79fc2]">
             "未配置"只代表该课程还没有默认单价，用于以后自动生成账单；不代表这门课没有历史账单——账单也可能是通过"费用管理"手动录入的。
           </p>
-          {coursesError && <p className="mt-3 text-sm text-[#b7591f]">{coursesError}</p>}
-          {coursePriceError && <p className="mt-3 text-sm text-[#b7591f]">{coursePriceError}</p>}
-          {loadingCourses && <p className="mt-3 text-sm text-[#7c7391]">加载中...</p>}
+          {coursesError && <p className="mt-3 text-sm text-panel-warn">{coursesError}</p>}
+          {coursePriceError && <p className="mt-3 text-sm text-panel-warn">{coursePriceError}</p>}
+          {loadingCourses && <p className="mt-3 text-sm text-panel-muted">加载中...</p>}
           {!loadingCourses && (
             <table className="mt-3 w-full text-left text-sm">
               <thead>
-                <tr className="text-xs text-[#7c7391]">
-                  <th className="border-b border-[#ece7de] bg-[#faf7ff] px-4 py-3">课程</th>
-                  <th className="border-b border-[#ece7de] bg-[#faf7ff] px-4 py-3">负责教师</th>
-                  <th className="border-b border-[#ece7de] bg-[#faf7ff] px-4 py-3">单价（元/课时）</th>
-                  <th className="border-b border-[#ece7de] bg-[#faf7ff] px-4 py-3">操作</th>
+                <tr className="text-xs text-panel-muted">
+                  <th className="border-b border-panel-border bg-[#faf7ff] px-4 py-3">课程</th>
+                  <th className="border-b border-panel-border bg-[#faf7ff] px-4 py-3">负责教师</th>
+                  <th className="border-b border-panel-border bg-[#faf7ff] px-4 py-3">单价（元/课时）</th>
+                  <th className="border-b border-panel-border bg-[#faf7ff] px-4 py-3">操作</th>
                 </tr>
               </thead>
               <tbody>
                 {courses.map((course) => {
                   const isEditing = editingCourseId === course.id
                   return (
-                    <tr key={course.id} className="border-b border-[#ece7de] hover:bg-[#faf7ff]">
-                      <td className="px-4 py-3 font-medium text-[#241f3d]">{course.name}</td>
-                      <td className="px-4 py-3 text-[#7c7391]">{course.teacherName}</td>
-                      <td className="px-4 py-3 text-[#241f3d]">
+                    <tr key={course.id} className="border-b border-panel-border hover:bg-[#faf7ff]">
+                      <td className="px-4 py-3 font-medium text-panel-ink">{course.name}</td>
+                      <td className="px-4 py-3 text-panel-muted">{course.teacherName}</td>
+                      <td className="px-4 py-3 text-panel-ink">
                         {isEditing ? (
                           <input
                             aria-label={`${course.name}单价`}
                             value={editCoursePriceInput}
                             onChange={(e) => setEditCoursePriceInput(e.target.value)}
-                            className="w-20 rounded-lg border border-[#ece7de] px-2 py-1 text-sm"
+                            className="w-20 rounded-lg border border-panel-border px-2 py-1 text-sm"
                           />
                         ) : course.pricePerLesson === null ? (
-                          <span className="text-xs text-[#b7591f]">未配置</span>
+                          <span className="text-xs text-panel-warn">未配置</span>
                         ) : (
                           `¥${course.pricePerLesson.toFixed(2)}`
                         )}
@@ -336,7 +336,7 @@ export function AdminPricingModule({ custodyEnabled, offCampusEnabled }: AdminPr
                               type="button"
                               onClick={() => handleSaveCoursePrice(course.id)}
                               disabled={coursePriceSubmitting}
-                              className="shrink-0 rounded-full bg-[#6d5bd0] px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
+                              className="shrink-0 rounded-full bg-panel-primary px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
                             >
                               保存
                             </button>
@@ -344,7 +344,7 @@ export function AdminPricingModule({ custodyEnabled, offCampusEnabled }: AdminPr
                               type="button"
                               onClick={handleCancelEditCoursePrice}
                               disabled={coursePriceSubmitting}
-                              className="shrink-0 rounded-full border border-[#ece7de] px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]"
+                              className="shrink-0 rounded-full border border-panel-border px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]"
                             >
                               取消
                             </button>
@@ -353,7 +353,7 @@ export function AdminPricingModule({ custodyEnabled, offCampusEnabled }: AdminPr
                           <button
                             type="button"
                             onClick={() => handleStartEditCoursePrice(course)}
-                            className="rounded-full border border-[#ece7de] px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]"
+                            className="rounded-full border border-panel-border px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]"
                           >
                             设置单价
                           </button>
@@ -364,7 +364,7 @@ export function AdminPricingModule({ custodyEnabled, offCampusEnabled }: AdminPr
                 })}
                 {courses.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-4 py-3 text-xs text-[#7c7391]">
+                    <td colSpan={4} className="px-4 py-3 text-xs text-panel-muted">
                       暂无课外课
                     </td>
                   </tr>

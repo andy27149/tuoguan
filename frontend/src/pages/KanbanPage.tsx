@@ -25,6 +25,7 @@ import { UpdatesButton } from '../components/UpdatesButton'
 import { HelpModal } from '../components/HelpModal'
 import { useAuth } from '../auth/AuthContext'
 import { BrandMark } from '../brand/BrandMark'
+import { LOAD_FAILURE_MESSAGE } from '../constants'
 
 const date = todayDateString()
 
@@ -87,7 +88,7 @@ export function KanbanPage({
         }
       })
       .catch(() => {
-        setError('加载失败，请刷新重试')
+        setError(LOAD_FAILURE_MESSAGE)
         setLoading(false)
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -249,6 +250,7 @@ export function KanbanPage({
     setLeaveByStudent((prev) => new Map(prev).set(studentId, EMPTY_LEAVE))
     try {
       await arrivalApi.setArrival(studentId, date, arrivedAt)
+      showToast('已打卡到校')
     } catch {
       setArrivalByStudent((prev) => new Map(prev).set(studentId, previousArrival))
       setLeaveByStudent((prev) => new Map(prev).set(studentId, previousLeave))
@@ -267,6 +269,7 @@ export function KanbanPage({
     })
     try {
       await arrivalApi.clearArrival(studentId, date)
+      showToast('已取消打卡')
     } catch {
       setArrivalByStudent((prev) => new Map(prev).set(studentId, previousArrival))
       setMealByStudent((prev) => {
@@ -282,6 +285,7 @@ export function KanbanPage({
     setMealByStudent((prev) => new Set(prev).add(studentId))
     try {
       await mealApi.setMeal(studentId, date)
+      showToast('已记录用餐')
     } catch {
       setMealByStudent((prev) => {
         const next = new Set(prev)
@@ -299,6 +303,7 @@ export function KanbanPage({
     })
     try {
       await mealApi.clearMeal(studentId, date)
+      showToast('已取消用餐记录')
     } catch {
       setMealByStudent((prev) => new Set(prev).add(studentId))
     }
@@ -309,6 +314,7 @@ export function KanbanPage({
     setLeaveByStudent((prev) => new Map(prev).set(studentId, reason))
     try {
       await leaveApi.setLeave(studentId, date, reason)
+      showToast('已登记请假')
     } catch {
       setLeaveByStudent((prev) => new Map(prev).set(studentId, previous))
     }
@@ -319,6 +325,7 @@ export function KanbanPage({
     setLeaveByStudent((prev) => new Map(prev).set(studentId, EMPTY_LEAVE))
     try {
       await leaveApi.clearLeave(studentId, date)
+      showToast('已取消请假')
     } catch {
       setLeaveByStudent((prev) => new Map(prev).set(studentId, previous))
     }
@@ -499,8 +506,8 @@ export function KanbanPage({
       </header>
 
       <main>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        {loading && <p className="text-sm text-gray-400">加载中...</p>}
+        {error && <p className="text-sm text-panel-danger">{error}</p>}
+        {loading && <p className="text-sm text-panel-muted">加载中...</p>}
 
         {!loading && activeClassId !== null && (
           <>
@@ -549,7 +556,7 @@ export function KanbanPage({
             ) : (
               <div className="student-grid">{students.map(renderStudentCard)}</div>
             )}
-            {students.length === 0 && <p className="text-sm text-gray-400">该班级暂无在读学生</p>}
+            {students.length === 0 && <p className="text-sm text-panel-muted">该班级暂无在读学生</p>}
           </>
         )}
       </main>

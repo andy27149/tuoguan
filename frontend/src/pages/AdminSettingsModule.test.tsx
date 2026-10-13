@@ -50,10 +50,11 @@ describe('AdminSettingsModule', () => {
     expect(await screen.findByAltText('托管班 Logo')).toHaveAttribute('src', 'https://example.com/logo.png')
   })
 
-  // 业务功能开关入口已临时隐藏（SHOW_BUSINESS_FEATURE_TOGGLES = false），以下用例随之跳过；
-  // 恢复显示时把 it.skip 改回 it 即可。
-  it.skip('asks for confirmation before disabling the custody feature flag, and does nothing on cancel', async () => {
-    render(<AdminSettingsModule />)
+  // 业务功能开关入口在生产环境临时隐藏（AdminSettingsModule 内部 SHOW_BUSINESS_FEATURE_TOGGLES
+  // = false），这里显式传 showBusinessFeatureToggles 打开 UI，让隐藏但仍然存活的开关逻辑
+  // 继续被回归测试覆盖（产品诊断 #54）；生产环境不传该 prop，行为不受影响。
+  it('asks for confirmation before disabling the custody feature flag, and does nothing on cancel', async () => {
+    render(<AdminSettingsModule showBusinessFeatureToggles />)
     await screen.findByDisplayValue('阳光托管班')
 
     fireEvent.click(screen.getByRole('checkbox', { name: '启用托管功能' }))
@@ -64,11 +65,11 @@ describe('AdminSettingsModule', () => {
     expect(institutionApi.updateFeatureFlags).not.toHaveBeenCalled()
   })
 
-  it.skip('disables the custody feature flag after confirming', async () => {
+  it('disables the custody feature flag after confirming', async () => {
     const updated = { ...INSTITUTION, custodyEnabled: false }
     vi.mocked(institutionApi.updateFeatureFlags).mockResolvedValue(updated)
     const onInstitutionUpdated = vi.fn()
-    render(<AdminSettingsModule onInstitutionUpdated={onInstitutionUpdated} />)
+    render(<AdminSettingsModule showBusinessFeatureToggles onInstitutionUpdated={onInstitutionUpdated} />)
     await screen.findByDisplayValue('阳光托管班')
 
     fireEvent.click(screen.getByRole('checkbox', { name: '启用托管功能' }))
@@ -78,12 +79,12 @@ describe('AdminSettingsModule', () => {
     await waitFor(() => expect(onInstitutionUpdated).toHaveBeenCalledWith(updated))
   })
 
-  it.skip('re-enables a feature flag immediately without a confirmation dialog', async () => {
+  it('re-enables a feature flag immediately without a confirmation dialog', async () => {
     const disabled = { ...INSTITUTION, custodyEnabled: false }
     const reEnabled = { ...INSTITUTION, custodyEnabled: true }
     vi.mocked(institutionApi.fetchInstitutionSettings).mockResolvedValue(disabled)
     vi.mocked(institutionApi.updateFeatureFlags).mockResolvedValue(reEnabled)
-    render(<AdminSettingsModule />)
+    render(<AdminSettingsModule showBusinessFeatureToggles />)
     await screen.findByDisplayValue('阳光托管班')
 
     fireEvent.click(screen.getByRole('checkbox', { name: '启用托管功能' }))
@@ -92,9 +93,9 @@ describe('AdminSettingsModule', () => {
     expect(screen.queryByText(/关闭后，托管功能相关入口/)).not.toBeInTheDocument()
   })
 
-  it.skip('shows an error when disabling both feature flags is rejected', async () => {
+  it('shows an error when disabling both feature flags is rejected', async () => {
     vi.mocked(institutionApi.updateFeatureFlags).mockRejectedValue(new Error('bad request'))
-    render(<AdminSettingsModule />)
+    render(<AdminSettingsModule showBusinessFeatureToggles />)
     await screen.findByDisplayValue('阳光托管班')
 
     fireEvent.click(screen.getByRole('checkbox', { name: '启用托管功能' }))

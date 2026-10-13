@@ -272,8 +272,18 @@ class AdminOverviewControllerTest extends IntegrationTestBase {
                 passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
         String adminToken = login("13900015060", "admin-password");
 
-        // 学生甲：两个月都没缴费，必须出现两行，各自标对月份。
-        Long studentAId = studentDao.insert(new Student(null, institutionId, null, "学生甲", null, true, null, null));
+        // 学生甲：两个月都没缴费，必须出现两行，各自标对月份。托管班配了非零单价（产品
+        // 诊断 #11 之后，¥0.00 账单不计入这个提醒口径），账单金额必须 >0 才会出现在这里。
+        Long teacherAId = teacherDao.insert(new Teacher(null, institutionId, uniquePhone(),
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherAId, "欠费测试班",
+                BillingMode.MONTHLY, null, null, true, null));
+        mockMvc.perform(put("/api/admin/classes/" + classRoomId + "/billing-rate")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tuitionRatePerMonth\":500.00,\"mealRatePerDay\":10.00}"))
+                .andExpect(status().isOk());
+        Long studentAId = studentDao.insert(new Student(null, institutionId, classRoomId, "学生甲", null, true, null, null));
         mockMvc.perform(post("/api/admin/students/" + studentAId + "/bills/generate?month=2024-01")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk());
@@ -282,7 +292,7 @@ class AdminOverviewControllerTest extends IntegrationTestBase {
                 .andExpect(status().isOk());
 
         // 学生乙：账单已缴费，不该出现。
-        Long studentBId = studentDao.insert(new Student(null, institutionId, null, "学生乙", null, true, null, null));
+        Long studentBId = studentDao.insert(new Student(null, institutionId, classRoomId, "学生乙", null, true, null, null));
         MvcResult generateResult = mockMvc.perform(post("/api/admin/students/" + studentBId + "/bills/generate?month=2024-01")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
@@ -309,6 +319,49 @@ class AdminOverviewControllerTest extends IntegrationTestBase {
         assertThat(body).contains("\"yearMonth\":\"2024-02\"");
         assertThat(body).doesNotContain("学生乙");
         assertThat(body).doesNotContain("学生丙");
+    }
+
+    // 产品诊断 #11：¥0.00 的账单（纯课外课学生当月没有任何课外课消课、也没有托管班，
+    // 账单各分项天然都是 0）本质上不欠钱，不应该混进"未缴费"提醒，否则会淹没真正该
+    // 催收的大额欠费。
+    @Test
+    void unpaidBillsSummaryExcludesZeroAmountBillsButKeepsPositiveOnes() throws Exception {
+        Long institutionId = institutionDao.insert("零元账单过滤测试机构");
+        String adminPhone = uniquePhone();
+        teacherDao.insert(new Teacher(null, institutionId, adminPhone,
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        String adminToken = login(adminPhone, "admin-password");
+
+        // 纯课外课学生，没有任何消课记录：账单学费/餐费/课外课附加费都是 0。
+        Long zeroStudentId = studentDao.insert(new Student(null, institutionId, null, "零元学生", null, true, null, null));
+        mockMvc.perform(post("/api/admin/students/" + zeroStudentId + "/bills/generate?month=2024-03")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk());
+
+        // 托管班学生，账单金额 >0：必须继续出现在提醒里。
+        Long teacherAId = teacherDao.insert(new Teacher(null, institutionId, uniquePhone(),
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherAId, "零元对照班",
+                BillingMode.MONTHLY, null, null, true, null));
+        mockMvc.perform(put("/api/admin/classes/" + classRoomId + "/billing-rate")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tuitionRatePerMonth\":300.00,\"mealRatePerDay\":10.00}"))
+                .andExpect(status().isOk());
+        Long positiveStudentId = studentDao.insert(new Student(null, institutionId, classRoomId, "正常欠费学生", null, true, null, null));
+        mockMvc.perform(post("/api/admin/students/" + positiveStudentId + "/bills/generate?month=2024-03")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk());
+
+        MvcResult result = mockMvc.perform(get("/api/admin/overview/unpaid-bills")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn();
+        String body = result.getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+
+        assertThat(objectMapper.readTree(body).get("count").asInt()).isEqualTo(1);
+        assertThat(body).contains("正常欠费学生");
+        assertThat(body).doesNotContain("零元学生");
     }
 
     @Test

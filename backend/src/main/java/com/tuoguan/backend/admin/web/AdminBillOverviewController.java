@@ -68,9 +68,21 @@ public class AdminBillOverviewController {
     @PatchMapping("/{billId}/paid")
     public MonthlyBill setPaid(@AuthenticationPrincipal TeacherPrincipal principal, @PathVariable Long billId,
                                 @Valid @RequestBody SetBillPaidRequest request) {
-        MonthlyBill bill = billGenerationService.setBillPaid(principal.institutionId(), billId, request.isPaid());
+        MonthlyBill bill = billGenerationService.setBillPaid(principal.institutionId(), billId, request.isPaid(),
+                request.paymentMethod());
         auditLogService.record(principal.institutionId(), principal.teacherId(), "BILL_SET_PAID", "MONTHLY_BILL",
                 billId, "isPaid=" + request.isPaid());
         return bill;
+    }
+
+    @PatchMapping("/batch-paid")
+    public BatchSetPaidResult batchSetPaid(@AuthenticationPrincipal TeacherPrincipal principal,
+                                            @Valid @RequestBody BatchSetBillPaidRequest request) {
+        BatchSetPaidResult result = billGenerationService.batchSetBillPaid(principal.institutionId(),
+                request.billIds(), request.isPaid(), request.paymentMethod());
+        auditLogService.record(principal.institutionId(), principal.teacherId(), "BILL_SET_PAID", "INSTITUTION",
+                principal.institutionId(), "batch isPaid=" + request.isPaid() + ", success=" + result.successCount()
+                        + ", failed=" + result.failures().size());
+        return result;
     }
 }

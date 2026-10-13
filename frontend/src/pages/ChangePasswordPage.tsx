@@ -32,12 +32,12 @@ export function ChangePasswordPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
       <div className="flex items-center gap-2 mb-6">
         <BrandMark size={40} />
-        <span className="text-lg font-semibold text-gray-800">奕成长课后平台</span>
+        <span className="text-lg font-semibold text-panel-ink">奕成长课后平台</span>
       </div>
       <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 bg-white p-6 rounded-lg shadow">
         <h1 className="text-xl font-semibold text-center">首次登录需修改密码</h1>
         <div>
-          <label htmlFor="oldPassword" className="block text-sm text-gray-600 mb-1">
+          <label htmlFor="oldPassword" className="block text-sm text-panel-muted mb-1">
             原密码
           </label>
           <input
@@ -50,7 +50,7 @@ export function ChangePasswordPage() {
           />
         </div>
         <div>
-          <label htmlFor="newPassword" className="block text-sm text-gray-600 mb-1">
+          <label htmlFor="newPassword" className="block text-sm text-panel-muted mb-1">
             新密码
           </label>
           <input
@@ -63,7 +63,7 @@ export function ChangePasswordPage() {
           />
         </div>
         <div>
-          <label htmlFor="confirmPassword" className="block text-sm text-gray-600 mb-1">
+          <label htmlFor="confirmPassword" className="block text-sm text-panel-muted mb-1">
             确认新密码
           </label>
           <input
@@ -76,14 +76,14 @@ export function ChangePasswordPage() {
           />
         </div>
         {error && (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-sm text-panel-danger">
             {error}
           </p>
         )}
         <button
           type="submit"
           disabled={submitting}
-          className="w-full bg-blue-600 text-white rounded py-2 font-medium disabled:opacity-50"
+          className="w-full bg-panel-primary text-white rounded py-2 font-medium disabled:opacity-50"
         >
           {submitting ? '提交中...' : '确认修改'}
         </button>

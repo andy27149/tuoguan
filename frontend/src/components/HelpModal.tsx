@@ -1,4 +1,5 @@
 import { createPortal } from 'react-dom'
+import { useEscapeToClose } from '../hooks/useEscapeToClose'
 
 interface HelpModalProps {
   role: 'admin' | 'teacher'
@@ -9,6 +10,8 @@ interface HelpModalProps {
 // 界面，没必要在帮助弹窗里再看一遍自己的截图）。这是刻意的重复维护：改了任何一处涉及
 // 的功能流程，都要同时检查并更新另一处，见该 html 文件顶部的维护提示注释。
 export function HelpModal({ role, onClose }: HelpModalProps) {
+  useEscapeToClose(onClose)
+
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -17,27 +20,37 @@ export function HelpModal({ role, onClose }: HelpModalProps) {
       }}
     >
       <div
-        className="flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-[#ece7de] bg-white shadow-xl"
+        className="flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-panel-border bg-white shadow-xl"
         role="dialog"
         aria-modal="true"
         aria-label="帮助"
       >
-        <div className="flex items-center gap-2 border-b border-[#ece7de] bg-gradient-to-r from-[#4F86F7]/10 to-[#9B6BFF]/10 p-4">
-          <span className="text-xl" aria-hidden="true">
-            💡
-          </span>
-          <h2 className="font-['Sora'] text-base font-semibold text-[#241f3d]">
-            {role === 'admin' ? '机构管理员帮助' : '教师帮助'}
-          </h2>
+        <div className="flex items-center justify-between gap-2 border-b border-panel-border bg-gradient-to-r from-[#4F86F7]/10 to-[#9B6BFF]/10 p-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xl" aria-hidden="true">
+              💡
+            </span>
+            <h2 className="font-['Sora'] text-base font-semibold text-panel-ink">
+              {role === 'admin' ? '机构管理员帮助' : '教师帮助'}
+            </h2>
+          </div>
+          <button
+            type="button"
+            aria-label="关闭弹窗"
+            onClick={onClose}
+            className="rounded-lg px-1.5 py-0.5 text-xl leading-none text-panel-muted hover:bg-white/60 hover:text-panel-ink"
+          >
+            ×
+          </button>
         </div>
         <div className="space-y-3 overflow-y-auto bg-[#f7f8fc] p-4 text-sm text-[#565b7a]">
           {role === 'admin' ? <AdminHelpContent /> : <TeacherHelpContent />}
         </div>
-        <div className="flex justify-end border-t border-[#ece7de] p-3">
+        <div className="flex justify-end border-t border-panel-border p-3">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-[#ece7de] px-3 py-1 text-sm text-[#5d5480] hover:bg-[#faf7ff]"
+            className="rounded-full border border-panel-border px-3 py-1 text-sm text-[#5d5480] hover:bg-[#faf7ff]"
           >
             关闭
           </button>
@@ -50,7 +63,7 @@ export function HelpModal({ role, onClose }: HelpModalProps) {
 
 function HelpStep({ icon, title, children }: { icon: string; title: string; children: React.ReactNode }) {
   return (
-    <section className="flex gap-3 rounded-xl border border-[#ece7de] bg-white p-3 shadow-sm">
+    <section className="flex gap-3 rounded-xl border border-panel-border bg-white p-3 shadow-sm">
       <span
         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#4F86F7] to-[#9B6BFF] text-base"
         aria-hidden="true"
@@ -58,7 +71,7 @@ function HelpStep({ icon, title, children }: { icon: string; title: string; chil
         {icon}
       </span>
       <div className="min-w-0 flex-1 space-y-1">
-        <h3 className="font-semibold text-[#241f3d]">{title}</h3>
+        <h3 className="font-semibold text-panel-ink">{title}</h3>
         <div className="space-y-1">{children}</div>
       </div>
     </section>
@@ -67,7 +80,7 @@ function HelpStep({ icon, title, children }: { icon: string; title: string; chil
 
 function HelpSectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="flex items-center gap-1.5 pt-2 font-semibold text-[#241f3d]">
+    <h3 className="flex items-center gap-1.5 pt-2 font-semibold text-panel-ink">
       <span aria-hidden="true">❓</span>
       {children}
     </h3>
@@ -76,8 +89,8 @@ function HelpSectionTitle({ children }: { children: React.ReactNode }) {
 
 function HelpFaq({ question, children }: { question: string; children: React.ReactNode }) {
   return (
-    <details className="group rounded-xl border border-[#ece7de] bg-white p-3 shadow-sm open:border-[#9B6BFF]/40">
-      <summary className="flex cursor-pointer list-none items-start gap-2 font-medium text-[#241f3d] marker:content-none">
+    <details className="group rounded-xl border border-panel-border bg-white p-3 shadow-sm open:border-[#9B6BFF]/40">
+      <summary className="flex cursor-pointer list-none items-start gap-2 font-medium text-panel-ink marker:content-none">
         <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#4F86F7]/15 text-xs font-bold text-[#4F86F7]">
           Q
         </span>

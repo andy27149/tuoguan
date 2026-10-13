@@ -71,7 +71,7 @@ export function isModuleHidden(
 
 export function AdminSidebar({ active, onSelect, custodyEnabled, offCampusEnabled }: AdminSidebarProps) {
   return (
-    <nav className="w-48 shrink-0 overflow-y-auto space-y-4 border-r border-[#ece7de] bg-[#f3f0ff] p-3">
+    <nav className="w-48 shrink-0 overflow-y-auto space-y-4 border-r border-panel-border bg-[#f3f0ff] p-3">
       {NAV_GROUPS.map((group) => {
         const visibleItems = group.items.filter(
           (item) => !isModuleHidden(item.key, custodyEnabled, offCampusEnabled),
@@ -88,7 +88,7 @@ export function AdminSidebar({ active, onSelect, custodyEnabled, offCampusEnable
                 aria-current={active === item.key ? 'page' : undefined}
                 className={
                   active === item.key
-                    ? 'block w-full rounded-xl bg-white px-4 py-2.5 text-left text-sm font-semibold text-[#6d5bd0] shadow-[0_1px_2px_rgba(109,91,208,0.18)]'
+                    ? 'block w-full rounded-xl bg-white px-4 py-2.5 text-left text-sm font-semibold text-panel-primary shadow-[0_1px_2px_rgba(109,91,208,0.18)]'
                     : 'block w-full rounded-xl px-4 py-2.5 text-left text-sm text-[#5d5480] hover:bg-white/60'
                 }
               >

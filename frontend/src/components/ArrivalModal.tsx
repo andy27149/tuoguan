@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useEscapeToClose } from '../hooks/useEscapeToClose'
 
 interface ArrivalModalProps {
   studentName: string
@@ -19,14 +20,7 @@ export function ArrivalModal({ studentName, arrivedAt, onSave, onClear, onClose 
     onClose()
   }
 
-  useEffect(() => {
-    const onKeydown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') commitAndClose()
-    }
-    document.addEventListener('keydown', onKeydown)
-    return () => document.removeEventListener('keydown', onKeydown)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [localArrivedAt])
+  useEscapeToClose(commitAndClose)
 
   return createPortal(
     <div

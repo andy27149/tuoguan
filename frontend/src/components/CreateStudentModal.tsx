@@ -52,15 +52,15 @@ export function CreateStudentModal({ classRooms, offCampusCourses, onCreate, onC
         role="dialog"
         aria-modal="true"
         aria-label="新建学生"
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-[#ece7de] bg-white shadow-[0_20px_50px_rgba(36,31,61,0.25)]"
+        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-panel-border bg-white shadow-[0_20px_50px_rgba(36,31,61,0.25)]"
       >
-        <div className="flex items-center justify-between border-b border-[#ece7de] px-5 py-4">
-          <h2 className="font-['Sora'] text-base font-bold text-[#241f3d]">新建学生</h2>
+        <div className="flex items-center justify-between border-b border-panel-border px-5 py-4">
+          <h2 className="font-['Sora'] text-base font-bold text-panel-ink">新建学生</h2>
           <button
             type="button"
             aria-label="关闭"
             onClick={onClose}
-            className="rounded-lg px-1.5 py-0.5 text-xl leading-none text-[#7c7391] hover:bg-[#faf7ff] hover:text-[#241f3d]"
+            className="rounded-lg px-1.5 py-0.5 text-xl leading-none text-panel-muted hover:bg-[#faf7ff] hover:text-panel-ink"
           >
             ×
           </button>
@@ -74,7 +74,7 @@ export function CreateStudentModal({ classRooms, offCampusCourses, onCreate, onC
                 placeholder="姓名"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-[#ece7de] px-2.5 py-2 text-sm text-[#241f3d]"
+                className="mt-1 w-full rounded-lg border border-panel-border px-2.5 py-2 text-sm text-panel-ink"
               />
             </label>
             <label className="flex-1 text-xs font-semibold text-[#5d5480]">
@@ -83,7 +83,7 @@ export function CreateStudentModal({ classRooms, offCampusCourses, onCreate, onC
                 placeholder="学籍班"
                 value={schoolClassName}
                 onChange={(e) => setSchoolClassName(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-[#ece7de] px-2.5 py-2 text-sm text-[#241f3d]"
+                className="mt-1 w-full rounded-lg border border-panel-border px-2.5 py-2 text-sm text-panel-ink"
               />
             </label>
           </div>
@@ -93,7 +93,7 @@ export function CreateStudentModal({ classRooms, offCampusCourses, onCreate, onC
             <select
               value={teachingUnitId}
               onChange={(e) => setTeachingUnitId(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-[#ece7de] px-2.5 py-2 text-sm text-[#241f3d]"
+              className="mt-1 w-full rounded-lg border border-panel-border px-2.5 py-2 text-sm text-panel-ink"
             >
               <option value="">纯课外课学生</option>
               {classRooms.map((c) => (
@@ -108,9 +108,9 @@ export function CreateStudentModal({ classRooms, offCampusCourses, onCreate, onC
             <div>
               <div className="mb-1.5 flex items-baseline justify-between">
                 <span className="text-xs font-semibold text-[#5d5480]">课外课（可多选）</span>
-                <span className="text-[11px] text-[#7c7391]">已选 {courseIds.length} 门</span>
+                <span className="text-[11px] text-panel-muted">已选 {courseIds.length} 门</span>
               </div>
-              <div className="max-h-[150px] overflow-y-auto rounded-xl border border-[#ece7de] bg-[#faf9f6] p-2.5">
+              <div className="max-h-[150px] overflow-y-auto rounded-xl border border-panel-border bg-[#faf9f6] p-2.5">
                 <div className="flex flex-wrap gap-1.5">
                   {offCampusCourses.map((c) => {
                     const selected = courseIds.includes(c.id)
@@ -122,8 +122,8 @@ export function CreateStudentModal({ classRooms, offCampusCourses, onCreate, onC
                         onClick={() => toggleCourseId(c.id)}
                         className={
                           selected
-                            ? 'rounded-full border border-[#6d5bd0] bg-[#6d5bd0] px-3 py-1.5 text-xs font-semibold text-white'
-                            : 'rounded-full border border-[#ece7de] bg-white px-3 py-1.5 text-xs font-semibold text-[#5d5480] hover:bg-[#faf7ff]'
+                            ? 'rounded-full border border-panel-primary bg-panel-primary px-3 py-1.5 text-xs font-semibold text-white'
+                            : 'rounded-full border border-panel-border bg-white px-3 py-1.5 text-xs font-semibold text-[#5d5480] hover:bg-[#faf7ff]'
                         }
                       >
                         {c.name}
@@ -136,24 +136,24 @@ export function CreateStudentModal({ classRooms, offCampusCourses, onCreate, onC
           )}
 
           {createError && (
-            <p role="alert" className="text-sm text-[#b7591f]">
+            <p role="alert" className="text-sm text-panel-warn">
               {createError}
             </p>
           )}
 
-          <div className="flex justify-end gap-2 border-t border-[#ece7de] pt-3.5">
+          <div className="flex justify-end gap-2 border-t border-panel-border pt-3.5">
             <button
               type="button"
               onClick={onClose}
               disabled={creating}
-              className="rounded-full border border-[#ece7de] px-4 py-1.5 text-sm font-medium text-[#5d5480] hover:bg-[#faf7ff] disabled:opacity-50"
+              className="rounded-full border border-panel-border px-4 py-1.5 text-sm font-medium text-[#5d5480] hover:bg-[#faf7ff] disabled:opacity-50"
             >
               取消
             </button>
             <button
               type="submit"
               disabled={creating || !name.trim()}
-              className="rounded-full bg-[#6d5bd0] px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+              className="rounded-full bg-panel-primary px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
             >
               创建
             </button>

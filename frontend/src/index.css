@@ -1,5 +1,21 @@
 @import "tailwindcss";
 
+/* 管理后台专用语义色 token（产品诊断 #68/#71）：此前管理后台页面全部用 Tailwind
+   任意值语法内联这 5 个十六进制颜色（如 text-[#241f3d]），而一批外围弹窗/页面
+   (RenewalModal/LoginPage/PlatformAdminPage 等) 用的是 Tailwind 原生灰/蓝/红色
+   表达同样的语义，造成"同一语义不同颜色"。这里统一成命名 token（加 panel- 前缀，
+   避免跟下面 :root 里给家长分享/看板玻璃拟态页面用的 --ink/--danger 混淆——
+   两套变量数值完全不同、服务不同的页面族群）。panel-muted 比原始的 #7c7391
+   更深（对白底对比度从约 4.45:1 提到约 5.7:1），顺带达到 WCAG AA 4.5:1。 */
+@theme {
+  --color-panel-ink: #241f3d;
+  --color-panel-primary: #6d5bd0;
+  --color-panel-muted: #6c6381;
+  --color-panel-border: #ece7de;
+  --color-panel-warn: #b7591f;
+  --color-panel-danger: #d7263d;
+}
+
   :root {
     --canvas: #F4F6FB;
     --bg-blob-blue: #DCEAFF;

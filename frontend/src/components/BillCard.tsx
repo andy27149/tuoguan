@@ -33,28 +33,28 @@ export const BillCard = forwardRef<HTMLDivElement, BillCardProps>(function BillC
   const hasLeaveLines = !isPureOffCampus && bill.leaveLines.length > 0
 
   return (
-    <div ref={ref} className="w-[360px] space-y-3 bg-white p-5 text-sm text-[#241f3d]">
-      <div className="border-b border-[#ece7de] pb-2 text-center">
-        <p className="font-['Sora'] text-base font-bold text-[#241f3d]">{bill.yearMonth} 月度账单</p>
-        <p className="mt-0.5 text-xs text-[#7c7391]">
+    <div ref={ref} className="w-[360px] space-y-3 bg-white p-5 text-sm text-panel-ink">
+      <div className="border-b border-panel-border pb-2 text-center">
+        <p className="font-['Sora'] text-base font-bold text-panel-ink">{bill.yearMonth} 月度账单</p>
+        <p className="mt-0.5 text-xs text-panel-muted">
           {isPureOffCampus ? studentName : `${className} · ${studentName}`}
         </p>
       </div>
 
       {!isPureOffCampus && (
-        <div className="grid grid-cols-2 gap-2 text-center text-xs text-[#7c7391]">
+        <div className="grid grid-cols-2 gap-2 text-center text-xs text-panel-muted">
           <div>
-            <p className="font-['Sora'] text-base font-semibold text-[#241f3d]">{bill.leaveDays}</p>
+            <p className="font-['Sora'] text-base font-semibold text-panel-ink">{bill.leaveDays}</p>
             <p>请假天数</p>
           </div>
           <div>
-            <p className="font-['Sora'] text-base font-semibold text-[#241f3d]">{bill.mealRecordDates.length}</p>
+            <p className="font-['Sora'] text-base font-semibold text-panel-ink">{bill.mealRecordDates.length}</p>
             <p>用餐天数</p>
           </div>
         </div>
       )}
 
-      <div className="space-y-2 border-t border-[#ece7de] pt-2">
+      <div className="space-y-2 border-t border-panel-border pt-2">
         {!isPureOffCampus && (
           <>
             <div className="flex justify-between">
@@ -66,7 +66,7 @@ export const BillCard = forwardRef<HTMLDivElement, BillCardProps>(function BillC
               <span>¥{formatAmount(bill.mealAmount)}</span>
             </div>
             {bill.mealRecordDates.length > 0 && (
-              <p className="pl-2 text-[11px] text-[#7c7391]">
+              <p className="pl-2 text-[11px] text-panel-muted">
                 {bill.mealRecordDates.length}天 × ¥{formatAmount(bill.mealAmount / bill.mealRecordDates.length)} = ¥{formatAmount(bill.mealAmount)}
               </p>
             )}
@@ -102,14 +102,14 @@ export const BillCard = forwardRef<HTMLDivElement, BillCardProps>(function BillC
               <span>¥{formatAmount(line.amount)}</span>
             </div>
             {line.settledByRecharge ? (
-              <p className="pl-2 text-[11px] text-[#7c7391]">
+              <p className="pl-2 text-[11px] text-panel-muted">
                 共{line.lessonCount}次消课
                 {line.amount === 0
                   ? '（已通过后续充值补齐，本次账单不收费）'
                   : `，按¥${formatAmount(line.amount)}计费（部分已通过后续充值补齐）`}
               </p>
             ) : (
-              <p className="pl-2 text-[11px] text-[#7c7391]">
+              <p className="pl-2 text-[11px] text-panel-muted">
                 {line.lessonCount}次 × ¥{formatAmount(line.pricePerLesson)} = ¥{formatAmount(line.amount)}
               </p>
             )}
@@ -122,12 +122,12 @@ export const BillCard = forwardRef<HTMLDivElement, BillCardProps>(function BillC
         ))}
       </div>
 
-      <div className="flex justify-between border-t border-[#ece7de] pt-2 text-base font-['Sora'] font-bold text-[#6d5bd0]">
+      <div className="flex justify-between border-t border-panel-border pt-2 text-base font-['Sora'] font-bold text-panel-primary">
         <span>合计</span>
         <span>¥{formatAmount(bill.totalAmount)}</span>
       </div>
 
-      <p className="text-center text-[11px] text-[#7c7391]">
+      <p className="text-center text-[11px] text-panel-muted">
         生成时间 {formatDateTime(bill.generatedAt)}
       </p>
     </div>

@@ -122,8 +122,8 @@ export function PlatformAdminPage() {
       </header>
 
       <main className="mx-auto max-w-4xl space-y-4 px-4 pt-4">
-        <div className="rounded-lg border border-gray-200 bg-white p-3">
-          <h2 className="text-sm font-medium text-gray-700">开通新机构</h2>
+        <div className="rounded-lg border border-panel-border bg-white p-3">
+          <h2 className="text-sm font-medium text-panel-muted">开通新机构</h2>
           <form onSubmit={handleCreate} className="mt-2 flex flex-wrap items-end gap-2">
             <input
               placeholder="机构名称"
@@ -161,26 +161,26 @@ export function PlatformAdminPage() {
               onChange={(e) => setAddress(e.target.value)}
               className="w-32 rounded border px-2 py-1 text-sm"
             />
-            <label className="flex flex-col text-xs text-gray-500">
+            <label className="flex flex-col text-xs text-panel-muted">
               试用到期日
               <input
                 type="date"
                 aria-label="试用到期日"
                 value={trialValidUntil}
                 onChange={(e) => setTrialValidUntil(e.target.value)}
-                className="rounded border px-2 py-1 text-sm text-gray-900"
+                className="rounded border px-2 py-1 text-sm text-panel-ink"
               />
             </label>
             <button
               type="submit"
               disabled={creating || !canSubmit}
-              className="rounded bg-blue-600 px-3 py-1 text-sm text-white disabled:opacity-50"
+              className="rounded bg-panel-primary px-3 py-1 text-sm text-white disabled:opacity-50"
             >
               开通
             </button>
           </form>
           {createError && (
-            <p role="alert" className="mt-1 text-xs text-red-600">
+            <p role="alert" className="mt-1 text-xs text-panel-danger">
               {createError}
             </p>
           )}
@@ -201,38 +201,38 @@ export function PlatformAdminPage() {
           )}
         </div>
 
-        <div className="rounded-lg border border-gray-200 bg-white p-3">
-          <h2 className="text-sm font-medium text-gray-700">机构列表（{institutions.length}）</h2>
-          {loadError && <p className="mt-1 text-sm text-red-600">{loadError}</p>}
-          {loading && <p className="mt-1 text-sm text-gray-400">加载中...</p>}
+        <div className="rounded-lg border border-panel-border bg-white p-3">
+          <h2 className="text-sm font-medium text-panel-muted">机构列表（{institutions.length}）</h2>
+          {loadError && <p className="mt-1 text-sm text-panel-danger">{loadError}</p>}
+          {loading && <p className="mt-1 text-sm text-panel-muted">加载中...</p>}
           {!loading && (
             <table className="mt-2 w-full text-left text-sm">
               <thead>
-                <tr className="text-xs text-gray-500">
-                  <th className="border-b border-gray-100 py-2">机构名称</th>
-                  <th className="border-b border-gray-100 py-2">学生数</th>
-                  <th className="border-b border-gray-100 py-2">班级数</th>
-                  <th className="border-b border-gray-100 py-2">教师数</th>
-                  <th className="border-b border-gray-100 py-2">今日查看</th>
-                  <th className="border-b border-gray-100 py-2">联系人</th>
-                  <th className="border-b border-gray-100 py-2">到期状态</th>
-                  <th className="border-b border-gray-100 py-2">操作</th>
+                <tr className="text-xs text-panel-muted">
+                  <th className="border-b border-panel-border py-2">机构名称</th>
+                  <th className="border-b border-panel-border py-2">学生数</th>
+                  <th className="border-b border-panel-border py-2">班级数</th>
+                  <th className="border-b border-panel-border py-2">教师数</th>
+                  <th className="border-b border-panel-border py-2">今日查看</th>
+                  <th className="border-b border-panel-border py-2">联系人</th>
+                  <th className="border-b border-panel-border py-2">到期状态</th>
+                  <th className="border-b border-panel-border py-2">操作</th>
                 </tr>
               </thead>
               <tbody>
                 {institutions.map((institution) => {
                   const badge = statusBadge(institution)
                   return (
-                    <tr key={institution.id} className="border-b border-gray-50">
+                    <tr key={institution.id} className="border-b border-panel-border">
                       <td className="py-2">
                         {institution.name}
-                        <div className="text-xs text-gray-400">创建于 {formatDate(institution.createdAt)}</div>
+                        <div className="text-xs text-panel-muted">创建于 {formatDate(institution.createdAt)}</div>
                       </td>
                       <td className="py-2">{institution.studentCount}</td>
                       <td className="py-2">{institution.classCount}</td>
                       <td className="py-2">{institution.teacherCount}</td>
                       <td className="py-2">{institution.todayViewCount}</td>
-                      <td className="py-2 text-xs text-gray-600">
+                      <td className="py-2 text-xs text-panel-muted">
                         {institution.contactName || '—'} · {institution.contactPhone || '—'}
                       </td>
                       <td className="py-2">
@@ -242,14 +242,14 @@ export function PlatformAdminPage() {
                         <button
                           type="button"
                           onClick={() => setRenewingInstitution(institution)}
-                          className="rounded-full border border-gray-200 px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-50"
+                          className="rounded-full border border-panel-border px-2 py-0.5 text-xs text-panel-muted hover:bg-[#faf7ff]"
                         >
                           续费
                         </button>
                         <button
                           type="button"
                           onClick={() => setEditingContactInstitution(institution)}
-                          className="ml-1 rounded-full border border-gray-200 px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-50"
+                          className="ml-1 rounded-full border border-panel-border px-2 py-0.5 text-xs text-panel-muted hover:bg-[#faf7ff]"
                         >
                           编辑联系信息
                         </button>
@@ -259,7 +259,7 @@ export function PlatformAdminPage() {
                 })}
                 {institutions.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="py-2 text-xs text-gray-400">
+                    <td colSpan={8} className="py-2 text-xs text-panel-muted">
                       暂无机构
                     </td>
                   </tr>

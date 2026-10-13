@@ -1,6 +1,7 @@
 package com.tuoguan.backend.billing.dao;
 
 import com.tuoguan.backend.billing.domain.MonthlyBill;
+import com.tuoguan.backend.billing.domain.PaymentMethod;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -27,6 +28,7 @@ public class JdbcMonthlyBillDao implements MonthlyBillDao {
             rs.getBigDecimal("extra_fee_total"),
             rs.getBigDecimal("total_amount"),
             rs.getBoolean("is_paid"),
+            rs.getString("payment_method") != null ? PaymentMethod.valueOf(rs.getString("payment_method")) : null,
             rs.getTimestamp("generated_at").toInstant(),
             List.of(),
             List.of(),
@@ -34,7 +36,7 @@ public class JdbcMonthlyBillDao implements MonthlyBillDao {
 
     private static final String SELECT_COLUMNS = "SELECT id, institution_id, student_id, teaching_unit_id, bill_month, "
             + "total_weekdays, leave_days, attendance_days, tuition_amount, meal_amount, extra_fee_total, "
-            + "total_amount, is_paid, generated_at FROM monthly_bill";
+            + "total_amount, is_paid, payment_method, generated_at FROM monthly_bill";
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -106,7 +108,8 @@ public class JdbcMonthlyBillDao implements MonthlyBillDao {
     }
 
     @Override
-    public void setPaid(Long billId, boolean isPaid) {
-        jdbcTemplate.update("UPDATE monthly_bill SET is_paid = ? WHERE id = ?", isPaid, billId);
+    public void setPaid(Long billId, boolean isPaid, PaymentMethod paymentMethod) {
+        jdbcTemplate.update("UPDATE monthly_bill SET is_paid = ?, payment_method = ? WHERE id = ?", isPaid,
+                paymentMethod != null ? paymentMethod.name() : null, billId);
     }
 }

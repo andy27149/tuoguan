@@ -1,4 +1,5 @@
 import { createPortal } from 'react-dom'
+import { useEscapeToClose } from '../hooks/useEscapeToClose'
 
 interface RollCallResultModalProps {
   type: 'success' | 'warning'
@@ -11,6 +12,8 @@ interface RollCallResultModalProps {
 export function RollCallResultModal({ type, message, onClose, title }: RollCallResultModalProps) {
   const isSuccess = type === 'success'
 
+  useEscapeToClose(onClose)
+
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -22,14 +25,22 @@ export function RollCallResultModal({ type, message, onClose, title }: RollCallR
         role="dialog"
         aria-modal="true"
         aria-label={title ?? (isSuccess ? '消课成功' : '消课提醒')}
-        className="w-full max-w-xs rounded-2xl border border-[#ece7de] bg-white p-5 text-center shadow-[0_20px_50px_rgba(36,31,61,0.25)]"
+        className="relative w-full max-w-xs rounded-2xl border border-panel-border bg-white p-5 text-center shadow-[0_20px_50px_rgba(36,31,61,0.25)]"
       >
+        <button
+          type="button"
+          aria-label="关闭"
+          onClick={onClose}
+          className="absolute right-2 top-2 rounded-lg px-1.5 py-0.5 text-xl leading-none text-panel-muted hover:bg-[#faf7ff] hover:text-panel-ink"
+        >
+          ×
+        </button>
         <div
           aria-hidden="true"
           className={
             isSuccess
               ? 'mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#e6f6ee] text-[#2f9e6e]'
-              : 'mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#fdeee1] text-[#b7591f]'
+              : 'mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#fdeee1] text-panel-warn'
           }
         >
           {isSuccess ? (
@@ -44,11 +55,11 @@ export function RollCallResultModal({ type, message, onClose, title }: RollCallR
             </svg>
           )}
         </div>
-        <p className="mt-3 text-sm font-medium text-[#241f3d]">{message}</p>
+        <p className="mt-3 text-sm font-medium text-panel-ink">{message}</p>
         <button
           type="button"
           onClick={onClose}
-          className="mt-4 w-full rounded-full bg-[#6d5bd0] px-4 py-2 text-sm font-medium text-white"
+          className="mt-4 w-full rounded-full bg-panel-primary px-4 py-2 text-sm font-medium text-white"
         >
           知道了
         </button>

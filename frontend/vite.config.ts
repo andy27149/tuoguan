@@ -14,6 +14,17 @@ export default defineConfig({
     },
   },
   test: {
+    // e2e/ 下是 Playwright 规格文件（产品诊断 #46），用的是 @playwright/test 的
+    // test()，不是 vitest 的，两边文件名都是 *.spec.ts 容易被 vitest 的默认匹配
+    // 规则一起扫进去，必须显式排除。
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/cypress/**',
+      '**/.{idea,git,cache,output,temp}/**',
+      '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build}.config.*',
+      '**/e2e/**',
+    ],
     environment: 'jsdom',
     environmentOptions: {
       jsdom: {

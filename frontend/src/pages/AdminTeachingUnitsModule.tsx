@@ -235,8 +235,8 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled, onO
               onClick={() => setActiveTab(tab)}
               className={
                 activeTab === tab
-                  ? 'rounded-full bg-[#6d5bd0] px-4 py-1.5 text-sm font-medium text-white'
-                  : 'rounded-full border border-[#ece7de] px-4 py-1.5 text-sm text-[#5d5480] hover:bg-[#faf7ff]'
+                  ? 'rounded-full bg-panel-primary px-4 py-1.5 text-sm font-medium text-white'
+                  : 'rounded-full border border-panel-border px-4 py-1.5 text-sm text-[#5d5480] hover:bg-[#faf7ff]'
               }
             >
               {TAB_LABEL[tab]}
@@ -245,8 +245,8 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled, onO
         </div>
       )}
 
-      <div className="rounded-2xl border border-[#ece7de] bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
-        <h2 className="font-['Sora'] text-base font-semibold text-[#241f3d]">新建{TAB_LABEL[activeTab]}</h2>
+      <div className="rounded-2xl border border-panel-border bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
+        <h2 className="font-['Sora'] text-base font-semibold text-panel-ink">新建{TAB_LABEL[activeTab]}</h2>
         <form onSubmit={handleCreate} className="mt-3 flex flex-wrap items-end gap-2">
           <label className="text-sm text-[#5d5480]">
             名称
@@ -254,7 +254,7 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled, onO
               placeholder={`${TAB_LABEL[activeTab]}名称`}
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              className="ml-2 w-32 rounded-lg border border-[#ece7de] px-2 py-1 text-sm"
+              className="ml-2 w-32 rounded-lg border border-panel-border px-2 py-1 text-sm"
             />
           </label>
           <label className="text-sm text-[#5d5480]">
@@ -264,7 +264,7 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled, onO
               value={newTeacherId ?? ''}
               onChange={(e) => setNewTeacherId(Number(e.target.value))}
               disabled={loadingTeachers}
-              className="ml-2 rounded-lg border border-[#ece7de] px-2 py-1 text-sm"
+              className="ml-2 rounded-lg border border-panel-border px-2 py-1 text-sm"
             >
               {teacherOptions.map((t) => (
                 <option key={t.id} value={t.id}>
@@ -283,7 +283,7 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled, onO
                   placeholder="时长（分钟）"
                   value={newDuration}
                   onChange={(e) => setNewDuration(e.target.value)}
-                  className="ml-2 w-24 rounded-lg border border-[#ece7de] px-2 py-1 text-sm"
+                  className="ml-2 w-24 rounded-lg border border-panel-border px-2 py-1 text-sm"
                 />
               </label>
               <label className="text-sm text-[#5d5480]">
@@ -292,7 +292,7 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled, onO
                   placeholder="单价（选填）"
                   value={newPrice}
                   onChange={(e) => setNewPrice(e.target.value)}
-                  className="ml-2 w-20 rounded-lg border border-[#ece7de] px-2 py-1 text-sm"
+                  className="ml-2 w-20 rounded-lg border border-panel-border px-2 py-1 text-sm"
                 />
               </label>
             </>
@@ -300,37 +300,37 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled, onO
           <button
             type="submit"
             disabled={creating || !newName.trim() || newTeacherId === null}
-            className="rounded-full bg-[#6d5bd0] px-4 py-1 text-sm font-medium text-white disabled:opacity-50"
+            className="rounded-full bg-panel-primary px-4 py-1 text-sm font-medium text-white disabled:opacity-50"
           >
             创建
           </button>
         </form>
         {createError && (
-          <p role="alert" className="mt-2 text-sm text-[#b7591f]">
+          <p role="alert" className="mt-2 text-sm text-panel-warn">
             {createError}
           </p>
         )}
       </div>
 
-      <div className="rounded-2xl border border-[#ece7de] bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
-        <h2 className="font-['Sora'] text-base font-semibold text-[#241f3d]">
+      <div className="rounded-2xl border border-panel-border bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
+        <h2 className="font-['Sora'] text-base font-semibold text-panel-ink">
           {TAB_LABEL[activeTab]}列表（{units.length}）
         </h2>
-        {loadError && <p className="mt-2 text-sm text-[#b7591f]">{loadError}</p>}
-        {deleteError && <p className="mt-2 text-sm text-[#b7591f]">{deleteError}</p>}
-        {editError && <p className="mt-2 text-sm text-[#b7591f]">{editError}</p>}
-        {loadingUnits && <p className="mt-2 text-sm text-[#7c7391]">加载中...</p>}
+        {loadError && <p className="mt-2 text-sm text-panel-warn">{loadError}</p>}
+        {deleteError && <p className="mt-2 text-sm text-panel-warn">{deleteError}</p>}
+        {editError && <p className="mt-2 text-sm text-panel-warn">{editError}</p>}
+        {loadingUnits && <p className="mt-2 text-sm text-panel-muted">加载中...</p>}
         {!loadingUnits && (
           <table className="mt-3 w-full text-left text-sm">
             <thead>
-              <tr className="text-xs text-[#7c7391]">
-                <th className="border-b border-[#ece7de] bg-[#faf7ff] px-4 py-3">名称</th>
-                <th className="border-b border-[#ece7de] bg-[#faf7ff] px-4 py-3">负责教师</th>
-                <th className="border-b border-[#ece7de] bg-[#faf7ff] px-4 py-3">登录账号</th>
-                {isLessonCount && <th className="border-b border-[#ece7de] bg-[#faf7ff] px-4 py-3">时长</th>}
-                {isLessonCount && <th className="border-b border-[#ece7de] bg-[#faf7ff] px-4 py-3">单价</th>}
-                {isLessonCount && <th className="border-b border-[#ece7de] bg-[#faf7ff] px-4 py-3">状态</th>}
-                <th className="border-b border-[#ece7de] bg-[#faf7ff] px-4 py-3">操作</th>
+              <tr className="text-xs text-panel-muted">
+                <th className="border-b border-panel-border bg-[#faf7ff] px-4 py-3">名称</th>
+                <th className="border-b border-panel-border bg-[#faf7ff] px-4 py-3">负责教师</th>
+                <th className="border-b border-panel-border bg-[#faf7ff] px-4 py-3">登录账号</th>
+                {isLessonCount && <th className="border-b border-panel-border bg-[#faf7ff] px-4 py-3">时长</th>}
+                {isLessonCount && <th className="border-b border-panel-border bg-[#faf7ff] px-4 py-3">单价</th>}
+                {isLessonCount && <th className="border-b border-panel-border bg-[#faf7ff] px-4 py-3">状态</th>}
+                <th className="border-b border-panel-border bg-[#faf7ff] px-4 py-3">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -340,17 +340,17 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled, onO
                 const avatarColor = avatarColors[unit.teacherId % avatarColors.length]
                 const avatarInitial = (unit.teacherName || unit.teacherPhone).charAt(0)
                 return (
-                  <tr key={unit.id} className="border-b border-[#ece7de] align-middle hover:bg-[#faf7ff]">
+                  <tr key={unit.id} className="border-b border-panel-border align-middle hover:bg-[#faf7ff]">
                     <td className="px-4 py-3">
                       {isEditing ? (
                         <input
                           aria-label={`名称${unit.id}`}
                           value={editingName}
                           onChange={(e) => setEditingName(e.target.value)}
-                          className="w-28 rounded-lg border border-[#ece7de] px-2 py-1 text-sm"
+                          className="w-28 rounded-lg border border-panel-border px-2 py-1 text-sm"
                         />
                       ) : (
-                        <span className="font-medium text-[#241f3d]">{unit.name}</span>
+                        <span className="font-medium text-panel-ink">{unit.name}</span>
                       )}
                     </td>
                     {isEditing ? (
@@ -360,7 +360,7 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled, onO
                             aria-label={`负责教师${unit.id}`}
                             value={editingTeacherId ?? ''}
                             onChange={(e) => setEditingTeacherId(Number(e.target.value))}
-                            className="rounded-lg border border-[#ece7de] px-2 py-1 text-sm"
+                            className="rounded-lg border border-panel-border px-2 py-1 text-sm"
                             disabled={loadingTeachers}
                           >
                             {teacherOptions.map((t) => (
@@ -370,7 +370,7 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled, onO
                             ))}
                           </select>
                           {editingTeacherId !== null && editingTeacherId !== unit.teacherId && (
-                            <p className="rounded-lg bg-[#fdf1e6] px-2 py-1 text-xs text-[#b7591f]">
+                            <p className="rounded-lg bg-[#fdf1e6] px-2 py-1 text-xs text-panel-warn">
                               该操作将把「{unit.name}」（含全部内容）整体转移给新教师，确认后无法撤回
                             </p>
                           )}
@@ -386,29 +386,29 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled, onO
                             >
                               {avatarInitial}
                             </span>
-                            <span className="text-[#241f3d]">{unit.teacherName}</span>
+                            <span className="text-panel-ink">{unit.teacherName}</span>
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="text-[#7c7391]">{unit.teacherPhone}</span>
+                          <span className="text-panel-muted">{unit.teacherPhone}</span>
                         </td>
                       </>
                     )}
                     {isLessonCount && (
                       <td className="px-4 py-3">
-                        <span className="text-[#7c7391]">{unit.lessonDurationMinutes}分钟</span>
+                        <span className="text-panel-muted">{unit.lessonDurationMinutes}分钟</span>
                       </td>
                     )}
                     {isLessonCount && (
                       <td className="px-4 py-3">
-                        <span className="text-[#241f3d]">
+                        <span className="text-panel-ink">
                           {unit.pricePerLesson !== null ? `¥${unit.pricePerLesson.toFixed(2)}` : '未配置'}
                         </span>
                         {onOpenPricing ? (
                           <button
                             type="button"
                             onClick={onOpenPricing}
-                            className="ml-2 text-xs text-[#6d5bd0] underline-offset-2 hover:underline"
+                            className="ml-2 text-xs text-panel-primary underline-offset-2 hover:underline"
                           >
                             前往定价中心设置
                           </button>
@@ -423,7 +423,7 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled, onO
                           className={
                             unit.active
                               ? 'rounded-full bg-[#e9f7f0] px-2 py-0.5 text-xs text-[#2f9e6e]'
-                              : 'rounded-full bg-[#f3f0ff] px-2 py-0.5 text-xs text-[#7c7391]'
+                              : 'rounded-full bg-[#f3f0ff] px-2 py-0.5 text-xs text-panel-muted'
                           }
                         >
                           {unit.active ? '启用中' : '已停用'}
@@ -437,7 +437,7 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled, onO
                             type="button"
                             onClick={handleSaveEdit}
                             disabled={editSubmitting || !editingName.trim()}
-                            className="shrink-0 rounded-full bg-[#6d5bd0] px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
+                            className="shrink-0 rounded-full bg-panel-primary px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
                           >
                             保存
                           </button>
@@ -445,7 +445,7 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled, onO
                             type="button"
                             onClick={handleCancelEdit}
                             disabled={editSubmitting}
-                            className="shrink-0 rounded-full border border-[#ece7de] px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]"
+                            className="shrink-0 rounded-full border border-panel-border px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]"
                           >
                             取消
                           </button>
@@ -456,7 +456,7 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled, onO
                             type="button"
                             aria-label={`编辑${unit.name}`}
                             onClick={() => handleStartEdit(unit)}
-                            className="rounded-full border border-[#ece7de] px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]"
+                            className="rounded-full border border-panel-border px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]"
                           >
                             编辑
                           </button>
@@ -466,7 +466,7 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled, onO
                               aria-label={`${unit.active ? '停用' : '启用'}${unit.name}`}
                               onClick={() => handleToggleActive(unit)}
                               disabled={togglingId === unit.id}
-                              className="rounded-full border border-[#ece7de] px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff] disabled:opacity-50"
+                              className="rounded-full border border-panel-border px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff] disabled:opacity-50"
                             >
                               {unit.active ? '停用' : '启用'}
                             </button>
@@ -475,7 +475,7 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled, onO
                             type="button"
                             aria-label={`删除${unit.name}`}
                             onClick={() => handleOpenDelete(unit)}
-                            className="rounded-full border border-[#f3d0c0] px-3 py-1 text-xs text-[#b7591f] hover:bg-[#fdf1e6]"
+                            className="rounded-full border border-[#f3d0c0] px-3 py-1 text-xs text-panel-warn hover:bg-[#fdf1e6]"
                           >
                             删除
                           </button>
@@ -487,7 +487,7 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled, onO
               })}
               {units.length === 0 && (
                 <tr>
-                  <td colSpan={isLessonCount ? 7 : 4} className="px-4 py-3 text-xs text-[#7c7391]">
+                  <td colSpan={isLessonCount ? 7 : 4} className="px-4 py-3 text-xs text-panel-muted">
                     暂无{TAB_LABEL[activeTab]}
                   </td>
                 </tr>

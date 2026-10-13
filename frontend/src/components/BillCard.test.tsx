@@ -17,6 +17,7 @@ const CUSTODY_BILL: MonthlyBill = {
   extraFeeTotal: 0,
   totalAmount: 800,
   isPaid: false,
+  paymentMethod: null,
   generatedAt: '2026-09-05T00:00:00Z',
   extraFeeLines: [],
   mealRecordDates: ['2026-09-02', '2026-09-01'],

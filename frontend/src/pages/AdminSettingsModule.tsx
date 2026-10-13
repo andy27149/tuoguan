@@ -6,6 +6,9 @@ import { useToast } from '../hooks/useToast'
 
 interface AdminSettingsModuleProps {
   onInstitutionUpdated?: (institution: institutionApi.InstitutionSettings) => void
+  // 仅供测试覆盖默认值：生产环境不传，沿用下面隐藏开关 UI 的现状；测试需要显式打开才能
+  // 覆盖到这段被隐藏但逻辑仍然存活的代码（产品诊断 #54）。
+  showBusinessFeatureToggles?: boolean
 }
 
 const FLAG_LABEL: Record<'custodyEnabled' | 'offCampusEnabled', string> = {
@@ -16,7 +19,10 @@ const FLAG_LABEL: Record<'custodyEnabled' | 'offCampusEnabled', string> = {
 // 绝大多数机构两项业务都会用到，开关暂时用处不大，先隐藏入口（后端校验与数据不受影响，随时可恢复显示）。
 const SHOW_BUSINESS_FEATURE_TOGGLES = false
 
-export function AdminSettingsModule({ onInstitutionUpdated }: AdminSettingsModuleProps) {
+export function AdminSettingsModule({
+  onInstitutionUpdated,
+  showBusinessFeatureToggles = SHOW_BUSINESS_FEATURE_TOGGLES,
+}: AdminSettingsModuleProps) {
   const [institution, setInstitution] = useState<institutionApi.InstitutionSettings | null>(null)
   const [loadingInstitution, setLoadingInstitution] = useState(true)
   const [nameInput, setNameInput] = useState('')
@@ -115,10 +121,10 @@ export function AdminSettingsModule({ onInstitutionUpdated }: AdminSettingsModul
 
   return (
     <div className="space-y-4 p-4">
-      <div className="rounded-2xl border border-[#ece7de] bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
-        <h2 className="font-['Sora'] text-base font-semibold text-[#241f3d]">机构信息</h2>
+      <div className="rounded-2xl border border-panel-border bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
+        <h2 className="font-['Sora'] text-base font-semibold text-panel-ink">机构信息</h2>
         {loadingInstitution ? (
-          <p className="mt-2 text-sm text-[#7c7391]">加载中...</p>
+          <p className="mt-2 text-sm text-panel-muted">加载中...</p>
         ) : (
           <div className="mt-3 flex flex-wrap items-start gap-6">
             <div className="flex flex-col items-center gap-2">
@@ -126,10 +132,10 @@ export function AdminSettingsModule({ onInstitutionUpdated }: AdminSettingsModul
                 <img
                   src={institution.logoUrl}
                   alt="托管班 Logo"
-                  className="h-20 w-20 rounded-2xl border border-[#ece7de] object-cover"
+                  className="h-20 w-20 rounded-2xl border border-panel-border object-cover"
                 />
               ) : (
-                <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-dashed border-[#ece7de] text-xs text-[#7c7391]">
+                <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-dashed border-panel-border text-xs text-panel-muted">
                   暂无 Logo
                 </div>
               )}
@@ -137,7 +143,7 @@ export function AdminSettingsModule({ onInstitutionUpdated }: AdminSettingsModul
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={logoUploading}
-                className="rounded-full border border-[#ece7de] px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff] disabled:opacity-50"
+                className="rounded-full border border-panel-border px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff] disabled:opacity-50"
               >
                 {logoUploading ? '上传中...' : '上传 Logo'}
               </button>
@@ -149,7 +155,7 @@ export function AdminSettingsModule({ onInstitutionUpdated }: AdminSettingsModul
                 className="hidden"
                 aria-label="上传托管班 Logo"
               />
-              {logoError && <p className="text-xs text-[#b7591f]">{logoError}</p>}
+              {logoError && <p className="text-xs text-panel-warn">{logoError}</p>}
             </div>
             <form onSubmit={handleSaveName} className="flex flex-wrap items-center gap-2">
               <label className="text-sm text-[#5d5480]">
@@ -157,31 +163,31 @@ export function AdminSettingsModule({ onInstitutionUpdated }: AdminSettingsModul
                 <input
                   value={nameInput}
                   onChange={(e) => setNameInput(e.target.value)}
-                  className="ml-2 w-48 rounded-lg border border-[#ece7de] px-2 py-1 text-sm"
+                  className="ml-2 w-48 rounded-lg border border-panel-border px-2 py-1 text-sm"
                 />
               </label>
               <button
                 type="submit"
                 disabled={nameSubmitting || !nameInput.trim()}
-                className="rounded-full bg-[#6d5bd0] px-4 py-1 text-sm font-medium text-white disabled:opacity-50"
+                className="rounded-full bg-panel-primary px-4 py-1 text-sm font-medium text-white disabled:opacity-50"
               >
                 保存
               </button>
-              {nameError && <p className="w-full text-xs text-[#b7591f]">{nameError}</p>}
+              {nameError && <p className="w-full text-xs text-panel-warn">{nameError}</p>}
             </form>
           </div>
         )}
       </div>
 
-      {SHOW_BUSINESS_FEATURE_TOGGLES && (
-        <div className="rounded-2xl border border-[#ece7de] bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
-          <h2 className="font-['Sora'] text-base font-semibold text-[#241f3d]">业务功能</h2>
+      {showBusinessFeatureToggles && (
+        <div className="rounded-2xl border border-panel-border bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
+          <h2 className="font-['Sora'] text-base font-semibold text-panel-ink">业务功能</h2>
           {loadingInstitution ? (
-            <p className="mt-2 text-sm text-[#7c7391]">加载中...</p>
+            <p className="mt-2 text-sm text-panel-muted">加载中...</p>
           ) : (
             institution && (
               <div className="mt-3 flex flex-col gap-3">
-                <label className="flex items-center gap-2 text-sm text-[#241f3d]">
+                <label className="flex items-center gap-2 text-sm text-panel-ink">
                   <input
                     type="checkbox"
                     checked={institution.custodyEnabled}
@@ -190,7 +196,7 @@ export function AdminSettingsModule({ onInstitutionUpdated }: AdminSettingsModul
                   />
                   启用托管功能
                 </label>
-                <label className="flex items-center gap-2 text-sm text-[#241f3d]">
+                <label className="flex items-center gap-2 text-sm text-panel-ink">
                   <input
                     type="checkbox"
                     checked={institution.offCampusEnabled}
@@ -199,14 +205,14 @@ export function AdminSettingsModule({ onInstitutionUpdated }: AdminSettingsModul
                   />
                   启用课外课功能
                 </label>
-                {flagsError && <p className="text-xs text-[#b7591f]">{flagsError}</p>}
+                {flagsError && <p className="text-xs text-panel-warn">{flagsError}</p>}
               </div>
             )
           )}
         </div>
       )}
 
-      {SHOW_BUSINESS_FEATURE_TOGGLES && confirmingFlag && (
+      {showBusinessFeatureToggles && confirmingFlag && (
         <ConfirmDialog
           title={`关闭${FLAG_LABEL[confirmingFlag]}`}
           message={`关闭后，${FLAG_LABEL[confirmingFlag]}相关入口将从教师端与家长端隐藏，已产生的数据不会被删除，可随时重新开启。确认关闭吗？`}

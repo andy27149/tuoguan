@@ -42,7 +42,7 @@ export function DismissButton({ dismissed, onDismiss, onUndoDismiss }: DismissBu
         onClick={handleClick}
         disabled={submitting}
         className={`rounded px-3 py-1.5 text-sm font-medium disabled:opacity-50 ${
-          dismissed ? 'bg-gray-200 text-gray-700' : 'bg-orange-500 text-white'
+          dismissed ? 'bg-gray-200 text-panel-muted' : 'bg-orange-500 text-white'
         }`}
       >
         {dismissed ? '撤销放学' : '放学'}

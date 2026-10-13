@@ -53,14 +53,14 @@ export function TaskTemplateManager({ templates, onCreate, onDelete }: TaskTempl
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-3">
+    <div className="rounded-lg border border-panel-border bg-white p-3">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between text-sm font-medium text-gray-700"
+        className="flex w-full items-center justify-between text-sm font-medium text-panel-muted"
       >
         <span>任务库管理（{templates.length}）</span>
-        <span className="text-xs text-gray-400">{open ? '收起' : '展开'}</span>
+        <span className="text-xs text-panel-muted">{open ? '收起' : '展开'}</span>
       </button>
 
       {open && (
@@ -76,13 +76,13 @@ export function TaskTemplateManager({ templates, onCreate, onDelete }: TaskTempl
                   onClick={() => setConfirmingTemplate(t)}
                   disabled={deletingId === t.id}
                   aria-label={`删除模板${t.name}`}
-                  className="text-gray-400 hover:text-red-500 disabled:opacity-50"
+                  className="text-panel-muted hover:text-panel-danger disabled:opacity-50"
                 >
                   ×
                 </button>
               </li>
             ))}
-            {templates.length === 0 && <li className="text-xs text-gray-400">任务库为空</li>}
+            {templates.length === 0 && <li className="text-xs text-panel-muted">任务库为空</li>}
           </ul>
 
           <form onSubmit={handleSubmit} className="flex gap-2">
@@ -101,12 +101,12 @@ export function TaskTemplateManager({ templates, onCreate, onDelete }: TaskTempl
             <button
               type="submit"
               disabled={submitting || !subject.trim() || !name.trim()}
-              className="rounded bg-blue-600 px-3 py-1 text-sm text-white disabled:opacity-50"
+              className="rounded bg-panel-primary px-3 py-1 text-sm text-white disabled:opacity-50"
             >
               添加
             </button>
           </form>
-          {error && <p className="text-xs text-red-600">{error}</p>}
+          {error && <p className="text-xs text-panel-danger">{error}</p>}
         </div>
       )}
 

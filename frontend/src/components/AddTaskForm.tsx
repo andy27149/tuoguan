@@ -32,19 +32,19 @@ export function AddTaskForm({ templates, onAddFromTemplate, onAddCustom, onCance
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-2 space-y-2 rounded border border-dashed border-gray-300 p-2">
+    <form onSubmit={handleSubmit} className="mt-2 space-y-2 rounded border border-dashed border-panel-border p-2">
       <div className="flex gap-2 text-sm">
         <button
           type="button"
           onClick={() => setMode('template')}
-          className={`rounded px-2 py-1 ${mode === 'template' ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}
+          className={`rounded px-2 py-1 ${mode === 'template' ? 'bg-panel-primary text-white' : 'bg-gray-100'}`}
         >
           从任务库选
         </button>
         <button
           type="button"
           onClick={() => setMode('custom')}
-          className={`rounded px-2 py-1 ${mode === 'custom' ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}
+          className={`rounded px-2 py-1 ${mode === 'custom' ? 'bg-panel-primary text-white' : 'bg-gray-100'}`}
         >
           定制任务
         </button>
@@ -81,13 +81,13 @@ export function AddTaskForm({ templates, onAddFromTemplate, onAddCustom, onCance
       )}
 
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={onCancel} className="rounded px-2 py-1 text-sm text-gray-500">
+        <button type="button" onClick={onCancel} className="rounded px-2 py-1 text-sm text-panel-muted">
           取消
         </button>
         <button
           type="submit"
           disabled={submitting || (mode === 'template' && templates.length === 0)}
-          className="rounded bg-blue-600 px-3 py-1 text-sm text-white disabled:opacity-50"
+          className="rounded bg-panel-primary px-3 py-1 text-sm text-white disabled:opacity-50"
         >
           添加
         </button>

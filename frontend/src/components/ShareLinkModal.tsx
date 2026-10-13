@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import QRCode from 'qrcode'
 import { fetchShareLink } from '../api/students'
+import { LOAD_FAILURE_MESSAGE } from '../constants'
+import { useEscapeToClose } from '../hooks/useEscapeToClose'
 
 interface ShareLinkModalProps {
   studentId: number
@@ -27,7 +29,7 @@ export function ShareLinkModal({ studentId, studentName, onClose, onShowToast, f
         setUrl(`${window.location.origin}${import.meta.env.BASE_URL}share/${token}`)
       })
       .catch(() => {
-        if (!cancelled) setError('加载失败，请重试')
+        if (!cancelled) setError(LOAD_FAILURE_MESSAGE)
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -45,13 +47,7 @@ export function ShareLinkModal({ studentId, studentName, onClose, onShowToast, f
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url])
 
-  useEffect(() => {
-    const onKeydown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKeydown)
-    return () => document.removeEventListener('keydown', onKeydown)
-  }, [onClose])
+  useEscapeToClose(onClose)
 
   const handleCopyLink = () => {
     if (!url) return

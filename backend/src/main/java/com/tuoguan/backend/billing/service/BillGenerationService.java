@@ -1,5 +1,7 @@
 package com.tuoguan.backend.billing.service;
 
+import com.tuoguan.backend.admin.web.BatchSetPaidFailure;
+import com.tuoguan.backend.admin.web.BatchSetPaidResult;
 import com.tuoguan.backend.admin.web.BillOverviewRow;
 import com.tuoguan.backend.admin.web.BillingRateNotConfiguredException;
 import com.tuoguan.backend.admin.web.BulkBillGenerationFailure;
@@ -22,6 +24,7 @@ import com.tuoguan.backend.billing.domain.ClassBillingRate;
 import com.tuoguan.backend.billing.domain.MonthlyBill;
 import com.tuoguan.backend.billing.domain.MonthlyBillLeaveLine;
 import com.tuoguan.backend.billing.domain.MonthlyBillMealLine;
+import com.tuoguan.backend.billing.domain.PaymentMethod;
 import com.tuoguan.backend.billing.domain.StudentLeaveRecord;
 import com.tuoguan.backend.course.service.CourseAccountService;
 import com.tuoguan.backend.course.web.ConsumptionCoverage;
@@ -43,6 +46,7 @@ import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -159,8 +163,10 @@ public class BillGenerationService {
     // 计费，没补平就只收差额部分，消课次数和日期始终如实展示。只在这个月账单还没标记
     // 已缴费时生效（见 isMonthAlreadyPaid），避免已经收过现金的旧账单被重新生成时又被
     // 倒着免单。
-    private List<CourseConsumptionSummaryRow> computeCourseConsumptionRows(Long studentId, YearMonth month,
-                                                                            boolean applyCatchUp) {
+    // package-private（非 private）：供 BillGenerationServiceCatchUpUnitTest 直接单测
+    // 追缴夹断逻辑，不需要经过 generateBill 的完整 DB 依赖链。
+    List<CourseConsumptionSummaryRow> computeCourseConsumptionRows(Long studentId, YearMonth month,
+                                                                     boolean applyCatchUp) {
         LocalDate start = month.atDay(1);
         LocalDate end = month.atEndOfMonth();
         List<ConsumptionCoverage> coverageThisMonth = courseAccountService.classifyConsumptions(studentId).stream()
@@ -307,16 +313,35 @@ public class BillGenerationService {
         return enrich(bill);
     }
 
-    public MonthlyBill setBillPaid(Long institutionId, Long billId, boolean isPaid) {
+    public MonthlyBill setBillPaid(Long institutionId, Long billId, boolean isPaid, PaymentMethod paymentMethod) {
         MonthlyBill bill = monthlyBillDao.findById(billId)
                 .orElseThrow(() -> new NotFoundException("Bill not found: " + billId));
         if (!bill.institutionId().equals(institutionId)) {
             throw new NotFoundException("Bill not found: " + billId);
         }
-        monthlyBillDao.setPaid(billId, isPaid);
+        // 取消缴费时顺带清空收款方式（#14）：未缴费的账单记一个收款方式没有意义，避免
+        // 下次重新标记已缴费时让人误以为沿用了上一次的渠道。
+        monthlyBillDao.setPaid(billId, isPaid, isPaid ? paymentMethod : null);
         return monthlyBillDao.findById(billId)
                 .map(this::enrich)
                 .orElseThrow(() -> new IllegalStateException("Bill not found after update: " + billId));
+    }
+
+    // 批量标记已缴费（#14）：逐个复用 setBillPaid 的权限校验和落库逻辑，跨机构/不存在的
+    // 账单 id 归为失败，不让整批请求因为一条脏数据就全部 500。
+    public BatchSetPaidResult batchSetBillPaid(Long institutionId, List<Long> billIds, boolean isPaid,
+                                                PaymentMethod paymentMethod) {
+        int successCount = 0;
+        List<BatchSetPaidFailure> failures = new ArrayList<>();
+        for (Long billId : billIds) {
+            try {
+                setBillPaid(institutionId, billId, isPaid, paymentMethod);
+                successCount++;
+            } catch (NotFoundException e) {
+                failures.add(new BatchSetPaidFailure(billId, e.getMessage()));
+            }
+        }
+        return new BatchSetPaidResult(successCount, failures);
     }
 
     public List<BillOverviewRow> getBillOverview(Long institutionId, YearMonth month, Long classRoomId,
@@ -339,14 +364,15 @@ public class BillGenerationService {
             }
             TeachingUnit unit = student.teachingUnitId() != null ? unitsById.get(student.teachingUnitId()) : null;
             String teacherName = unit != null
-                    ? teacherDao.findById(unit.teacherId()).map(Teacher::name).orElse("-") : "-";
+                    ? teacherDao.findById(unit.teacherId()).map(Teacher::name).orElse("—") : "—";
             // 账单按 student_id 直接查（而不是按 teaching_unit_id 遍历再反查），纯课外课
             // 学生的账单 teaching_unit_id 是 NULL，按单元遍历永远查不到——曾经导致这类学生
             // 明明已经生成了账单，账单管理总览却一直显示"未生成"。
             MonthlyBill bill = monthlyBillDao.findByStudentIdAndYearMonth(student.id(), month).orElse(null);
             rows.add(new BillOverviewRow(student.id(), student.name(), unit != null ? unit.id() : null,
                     unit != null ? unit.name() : "—", teacherName, bill != null ? bill.id() : null,
-                    bill != null ? bill.totalAmount() : null, bill != null && bill.isPaid(), month.toString()));
+                    bill != null ? bill.totalAmount() : null, bill != null && bill.isPaid(),
+                    bill != null ? bill.paymentMethod() : null, month.toString(), overdueDaysFor(bill)));
         }
         return rows;
     }
@@ -372,13 +398,14 @@ public class BillGenerationService {
     private List<BillOverviewRow> buildOverviewRowsForUnit(TeachingUnit unit, Long institutionId, String studentName,
                                                              Map<Long, MonthlyBill> billsByStudentId,
                                                              String yearMonth) {
-        String teacherName = teacherDao.findById(unit.teacherId()).map(Teacher::name).orElse("-");
+        String teacherName = teacherDao.findById(unit.teacherId()).map(Teacher::name).orElse("—");
         List<BillOverviewRow> rows = new ArrayList<>();
         for (Student student : studentsInUnitSortedByName(unit.id(), studentName)) {
             MonthlyBill bill = billsByStudentId.get(student.id());
             rows.add(new BillOverviewRow(student.id(), student.name(), unit.id(), unit.name(), teacherName,
                     bill != null ? bill.id() : null, bill != null ? bill.totalAmount() : null,
-                    bill != null && bill.isPaid(), yearMonth));
+                    bill != null && bill.isPaid(), bill != null ? bill.paymentMethod() : null, yearMonth,
+                    overdueDaysFor(bill)));
         }
         return rows;
     }
@@ -409,18 +436,18 @@ public class BillGenerationService {
             }
             TeachingUnit unit = student.teachingUnitId() != null ? unitsById.get(student.teachingUnitId()) : null;
             String teacherName = unit != null
-                    ? teacherDao.findById(unit.teacherId()).map(Teacher::name).orElse("-") : "-";
+                    ? teacherDao.findById(unit.teacherId()).map(Teacher::name).orElse("—") : "—";
             // 同上：按 student_id 直接查全部账单，不按 teaching_unit_id 遍历——纯课外课
             // 学生的账单 teaching_unit_id 是 NULL。
             List<MonthlyBill> bills = monthlyBillDao.findAllByStudentId(student.id());
             if (bills == null || bills.isEmpty()) {
                 rows.add(new BillOverviewRow(student.id(), student.name(), unit != null ? unit.id() : null,
-                        unit != null ? unit.name() : "—", teacherName, null, null, false, "-"));
+                        unit != null ? unit.name() : "—", teacherName, null, null, false, null, "-", 0));
             } else {
                 for (MonthlyBill bill : bills) {
                     rows.add(new BillOverviewRow(student.id(), student.name(), unit != null ? unit.id() : null,
                             unit != null ? unit.name() : "—", teacherName, bill.id(), bill.totalAmount(),
-                            bill.isPaid(), bill.yearMonth().toString()));
+                            bill.isPaid(), bill.paymentMethod(), bill.yearMonth().toString(), overdueDaysFor(bill)));
                 }
             }
         }
@@ -428,11 +455,15 @@ public class BillGenerationService {
     }
 
     public UnpaidBillSummary getUnpaidBillSummary(Long institutionId) {
+        // 产品诊断 #11：¥0.00 的账单（纯课外课学生当月消课全被充值覆盖时会生成）本质上
+        // 不欠钱，混进"未缴费"提醒会把真正该催收的大额欠费淹没，这里额外排除掉——只影响
+        // 这个提醒口径，账单管理页逐条列表不受影响。
         List<UnpaidBillRow> rows = getBillOverviewAllMonths(institutionId, null, null, false).stream()
-                .filter(row -> row.billId() != null && !row.isPaid())
+                .filter(row -> row.billId() != null && !row.isPaid()
+                        && row.totalAmount() != null && row.totalAmount().compareTo(BigDecimal.ZERO) > 0)
                 .sorted(Comparator.comparing(BillOverviewRow::yearMonth).thenComparing(BillOverviewRow::studentName))
                 .map(row -> new UnpaidBillRow(row.studentId(), row.studentName(), row.className(), row.yearMonth(),
-                        row.totalAmount()))
+                        row.totalAmount(), row.overdueDays()))
                 .toList();
         BigDecimal total = rows.stream()
                 .map(UnpaidBillRow::totalAmount)
@@ -464,7 +495,7 @@ public class BillGenerationService {
     }
 
     private List<BillOverviewRow> buildOverviewRowsAllMonthsForUnit(TeachingUnit unit, String studentName) {
-        String teacherName = teacherDao.findById(unit.teacherId()).map(Teacher::name).orElse("-");
+        String teacherName = teacherDao.findById(unit.teacherId()).map(Teacher::name).orElse("—");
         Map<Long, List<MonthlyBill>> billsByStudentId = monthlyBillDao.findAllByTeachingUnitId(unit.id())
                 .stream().collect(Collectors.groupingBy(MonthlyBill::studentId));
         List<BillOverviewRow> rows = new ArrayList<>();
@@ -472,15 +503,26 @@ public class BillGenerationService {
             List<MonthlyBill> bills = billsByStudentId.get(student.id());
             if (bills == null || bills.isEmpty()) {
                 rows.add(new BillOverviewRow(student.id(), student.name(), unit.id(), unit.name(), teacherName,
-                        null, null, false, "-"));
+                        null, null, false, null, "-", 0));
             } else {
                 for (MonthlyBill bill : bills) {
                     rows.add(new BillOverviewRow(student.id(), student.name(), unit.id(), unit.name(), teacherName,
-                            bill.id(), bill.totalAmount(), bill.isPaid(), bill.yearMonth().toString()));
+                            bill.id(), bill.totalAmount(), bill.isPaid(), bill.paymentMethod(),
+                            bill.yearMonth().toString(), overdueDaysFor(bill)));
                 }
             }
         }
         return rows;
+    }
+
+    // 产品诊断 #14：账单没有独立的到期日字段，这里约定到期日 = 账单所属月份的月底，
+    // 未缴费且已过月底才算逾期；没有账单（bill==null）或已缴费恒为 0。
+    private int overdueDaysFor(MonthlyBill bill) {
+        if (bill == null || bill.isPaid()) {
+            return 0;
+        }
+        long days = ChronoUnit.DAYS.between(bill.yearMonth().atEndOfMonth(), LocalDate.now());
+        return (int) Math.max(0, days);
     }
 
     private int countWeekdays(LocalDate start, LocalDate end) {
@@ -504,7 +546,7 @@ public class BillGenerationService {
         return new MonthlyBill(bill.id(), bill.institutionId(), bill.studentId(), bill.teachingUnitId(),
                 bill.yearMonth(), bill.totalWeekdays(), bill.leaveDays(), bill.attendanceDays(),
                 bill.tuitionAmount(), bill.mealAmount(), bill.extraFeeTotal(), bill.totalAmount(), bill.isPaid(),
-                bill.generatedAt(), lines, mealDates, leaveLines);
+                bill.paymentMethod(), bill.generatedAt(), lines, mealDates, leaveLines);
     }
 
     private Student requireStudentInInstitution(Long institutionId, Long studentId) {

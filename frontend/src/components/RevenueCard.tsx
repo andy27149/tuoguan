@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchRevenueSnapshot, type RevenueSnapshot } from '../api/adminOverview'
+import { LOAD_FAILURE_MESSAGE } from '../constants'
 
 export function RevenueCard() {
   const [snapshot, setSnapshot] = useState<RevenueSnapshot | null>(null)
@@ -8,16 +9,16 @@ export function RevenueCard() {
   useEffect(() => {
     fetchRevenueSnapshot()
       .then(setSnapshot)
-      .catch(() => setError('加载失败，请刷新重试'))
+      .catch(() => setError(LOAD_FAILURE_MESSAGE))
   }, [])
 
   return (
-    <section className="rounded-2xl border border-[#ece7de] bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
-      <h2 className="font-['Sora'] text-base font-semibold text-[#241f3d]">收入快照</h2>
+    <section className="rounded-2xl border border-panel-border bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
+      <h2 className="font-['Sora'] text-base font-semibold text-panel-ink">收入快照</h2>
 
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-3 text-sm text-panel-danger">{error}</p>}
 
-      {!error && !snapshot && <p className="mt-3 text-sm text-[#7c7391]">加载中...</p>}
+      {!error && !snapshot && <p className="mt-3 text-sm text-panel-muted">加载中...</p>}
 
       {!error && snapshot && (
         <>
@@ -27,7 +28,7 @@ export function RevenueCard() {
                 托管费实收 / 应收
                 <span className="ml-1 text-xs text-[#a79fc2]">（{snapshot.tuitionMonth}）</span>
               </span>
-              <span className="font-['Sora'] text-sm font-semibold text-[#241f3d]">
+              <span className="font-['Sora'] text-sm font-semibold text-panel-ink">
                 ¥{snapshot.tuitionCollected.toFixed(2)} / ¥{snapshot.tuitionBilled.toFixed(2)}
               </span>
             </div>
@@ -58,8 +59,8 @@ export function RevenueCard() {
               课外课消课次数
               <span className="ml-1 text-xs text-[#a79fc2]">（{snapshot.consumptionMonth} 至今）</span>
             </span>
-            <span className="font-['Sora'] text-lg font-semibold text-[#241f3d]">
-              {snapshot.offCampusConsumptionCount} <span className="text-xs font-normal text-[#7c7391]">次</span>
+            <span className="font-['Sora'] text-lg font-semibold text-panel-ink">
+              {snapshot.offCampusConsumptionCount} <span className="text-xs font-normal text-panel-muted">次</span>
             </span>
           </div>
         </>

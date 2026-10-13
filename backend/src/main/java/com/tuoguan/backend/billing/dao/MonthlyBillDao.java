@@ -1,6 +1,7 @@
 package com.tuoguan.backend.billing.dao;
 
 import com.tuoguan.backend.billing.domain.MonthlyBill;
+import com.tuoguan.backend.billing.domain.PaymentMethod;
 
 import java.math.BigDecimal;
 import java.time.YearMonth;
@@ -25,5 +26,5 @@ public interface MonthlyBillDao {
 
     void deleteAllByTeachingUnitId(Long teachingUnitId);
 
-    void setPaid(Long billId, boolean isPaid);
+    void setPaid(Long billId, boolean isPaid, PaymentMethod paymentMethod);
 }

@@ -236,8 +236,10 @@ public class CourseAccountService {
                           CourseConsumptionRecord consumption) {
     }
 
-    private List<ConsumptionCoverage> classifyForCourse(List<CourseRechargeRecord> recharges,
-                                                          List<CourseConsumptionRecord> consumptions) {
+    // package-private（非 private）：供 CourseAccountServiceUnitTest 直接单测这段纯
+    // 回放算法，不需要经过 classifyConsumptions 的 DAO 查询。
+    List<ConsumptionCoverage> classifyForCourse(List<CourseRechargeRecord> recharges,
+                                                 List<CourseConsumptionRecord> consumptions) {
         List<Event> events = new ArrayList<>();
         for (CourseRechargeRecord r : recharges) {
             // order=0：同一天的充值在排序上先于消课处理，避免"同日充值能不能覆盖同日消课"

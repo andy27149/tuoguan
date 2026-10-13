@@ -21,6 +21,7 @@
 
 - 后端测试：`cd backend && mvn test`
 - 前端测试：`cd frontend && pnpm vitest run`
+- 端到端冒烟测试（需要本地标准 dev 环境已启动，见 `frontend/e2e/README.md`）：`cd frontend && pnpm test:e2e`
 - 停止所有容器：`docker compose down`
 
 ### 后端集成测试依赖 Docker（colima 用户需额外配置）

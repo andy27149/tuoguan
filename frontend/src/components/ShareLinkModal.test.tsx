@@ -50,6 +50,6 @@ describe('ShareLinkModal', () => {
     vi.mocked(studentsApi.fetchShareLink).mockRejectedValue(new Error('boom'))
     render(<ShareLinkModal studentId={10} studentName="小明" onClose={vi.fn()} onShowToast={vi.fn()} />)
 
-    expect(await screen.findByText('加载失败，请重试')).toBeInTheDocument()
+    expect(await screen.findByText('加载失败，请刷新重试')).toBeInTheDocument()
   })
 })

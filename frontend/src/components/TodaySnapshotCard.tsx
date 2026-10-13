@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchTodaySnapshot, type TodaySnapshot } from '../api/adminOverview'
+import { LOAD_FAILURE_MESSAGE } from '../constants'
 
 const TODAY = new Date().toISOString().slice(0, 10)
 
@@ -10,18 +11,18 @@ export function TodaySnapshotCard() {
   useEffect(() => {
     fetchTodaySnapshot()
       .then(setSnapshot)
-      .catch(() => setError('加载失败，请刷新重试'))
+      .catch(() => setError(LOAD_FAILURE_MESSAGE))
   }, [])
 
   return (
-    <section className="rounded-2xl border border-[#ece7de] bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
+    <section className="rounded-2xl border border-panel-border bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
       <div className="flex items-baseline justify-between">
-        <h2 className="font-['Sora'] text-base font-semibold text-[#241f3d]">今日运营快照</h2>
-        <span className="text-xs text-[#7c7391]">{TODAY}</span>
+        <h2 className="font-['Sora'] text-base font-semibold text-panel-ink">今日运营快照</h2>
+        <span className="text-xs text-panel-muted">{TODAY}</span>
       </div>
 
-      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-      {!error && !snapshot && <p className="mt-2 text-sm text-[#7c7391]">加载中...</p>}
+      {error && <p className="mt-2 text-sm text-panel-danger">{error}</p>}
+      {!error && !snapshot && <p className="mt-2 text-sm text-panel-muted">加载中...</p>}
 
       {snapshot && (
         <div className="mt-4 space-y-3">
@@ -77,7 +78,7 @@ function Row({
         <span className="text-[#5d5480]">
           {icon} {label}
         </span>
-        <span className="font-['Sora'] font-semibold text-[#241f3d]">
+        <span className="font-['Sora'] font-semibold text-panel-ink">
           {count} / {total}
         </span>
       </div>

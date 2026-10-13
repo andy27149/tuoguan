@@ -36,6 +36,16 @@ export interface MonthlyBillLeaveLine {
   reason: string | null
 }
 
+// 与后端 PaymentMethod 枚举一一对应（产品诊断 #14）。
+export type PaymentMethod = 'CASH' | 'WECHAT' | 'ALIPAY' | 'BANK_TRANSFER'
+
+export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
+  CASH: '现金',
+  WECHAT: '微信',
+  ALIPAY: '支付宝',
+  BANK_TRANSFER: '银行转账',
+}
+
 export interface MonthlyBill {
   id: number
   institutionId: number
@@ -52,6 +62,7 @@ export interface MonthlyBill {
   extraFeeTotal: number
   totalAmount: number
   isPaid: boolean
+  paymentMethod: PaymentMethod | null
   generatedAt: string
   extraFeeLines: MonthlyBillExtraFeeLine[]
   mealRecordDates: string[]
@@ -79,7 +90,21 @@ export interface BillOverviewRow {
   billId: number | null
   totalAmount: number | null
   isPaid: boolean
+  paymentMethod: PaymentMethod | null
   yearMonth: string
+  // 没有独立到期日字段，约定为账单所属月份的月底（产品诊断 #14），已缴费或还没生成
+  // 账单恒为 0。
+  overdueDays: number
+}
+
+export interface BatchSetPaidFailure {
+  billId: number
+  reason: string
+}
+
+export interface BatchSetPaidResult {
+  successCount: number
+  failures: BatchSetPaidFailure[]
 }
 
 export function fetchClassBillingRate(classId: number): Promise<ClassBillingRate | null> {
@@ -162,9 +187,20 @@ export function fetchBillDetail(billId: number): Promise<MonthlyBill> {
   return apiFetch<MonthlyBill>(`/admin/bills/${billId}`)
 }
 
-export function setBillPaid(billId: number, isPaid: boolean): Promise<MonthlyBill> {
+export function setBillPaid(billId: number, isPaid: boolean, paymentMethod?: PaymentMethod): Promise<MonthlyBill> {
   return apiFetch<MonthlyBill>(`/admin/bills/${billId}/paid`, {
     method: 'PATCH',
-    body: JSON.stringify({ isPaid }),
+    body: JSON.stringify({ isPaid, paymentMethod }),
+  })
+}
+
+export function batchSetBillPaid(
+  billIds: number[],
+  isPaid: boolean,
+  paymentMethod?: PaymentMethod,
+): Promise<BatchSetPaidResult> {
+  return apiFetch<BatchSetPaidResult>('/admin/bills/batch-paid', {
+    method: 'PATCH',
+    body: JSON.stringify({ billIds, isPaid, paymentMethod }),
   })
 }

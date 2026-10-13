@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import * as platformApi from '../api/platform'
+import { useEscapeToClose } from '../hooks/useEscapeToClose'
 
 interface RenewalModalProps {
   institutionId: number
@@ -91,6 +92,8 @@ export function RenewalModal({
       .finally(() => setLoadingHistory(false))
   }, [institutionId])
 
+  useEscapeToClose(onClose)
+
   function handlePlanChange(nextPlan: platformApi.RenewalPlan) {
     setPlan(nextPlan)
     setAmount(PLAN_DEFAULT_AMOUNT[nextPlan])
@@ -121,22 +124,30 @@ export function RenewalModal({
       }}
     >
       <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-gray-200 bg-white shadow-xl"
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-panel-border bg-white shadow-xl"
         role="dialog"
         aria-modal="true"
         aria-label="续费"
       >
-        <div className="border-b border-gray-100 p-4">
-          <h2 className="text-base font-semibold text-gray-800">续费 - {institutionName}</h2>
+        <div className="flex items-center justify-between border-b border-panel-border p-4">
+          <h2 className="text-base font-semibold text-panel-ink">续费 - {institutionName}</h2>
+          <button
+            type="button"
+            aria-label="关闭"
+            onClick={onClose}
+            className="rounded-lg px-1.5 py-0.5 text-xl leading-none text-panel-muted hover:bg-[#faf7ff] hover:text-panel-ink"
+          >
+            ×
+          </button>
         </div>
 
         <div className="space-y-4 p-4">
           <section>
-            <h3 className="text-sm font-semibold text-gray-700">历史记录</h3>
+            <h3 className="text-sm font-semibold text-panel-muted">历史记录</h3>
             {loadingHistory ? (
-              <p className="mt-1 text-xs text-gray-400">加载中...</p>
+              <p className="mt-1 text-xs text-panel-muted">加载中...</p>
             ) : (
-              <ul className="mt-2 space-y-1 text-xs text-gray-600">
+              <ul className="mt-2 space-y-1 text-xs text-panel-muted">
                 {history.map((record) => (
                   <li key={record.id}>
                     <span>{PLAN_LABELS[record.plan]}</span>
@@ -160,13 +171,13 @@ export function RenewalModal({
           </section>
 
           <section className="flex flex-wrap items-end gap-2">
-            <label className="flex flex-col text-xs text-gray-500">
+            <label className="flex flex-col text-xs text-panel-muted">
               套餐
               <select
                 aria-label="套餐"
                 value={plan}
                 onChange={(e) => handlePlanChange(e.target.value as platformApi.RenewalPlan)}
-                className="rounded border px-2 py-1 text-sm text-gray-900"
+                className="rounded border px-2 py-1 text-sm text-panel-ink"
               >
                 <option value="TRIAL">试用</option>
                 <option value="MONTHLY">月</option>
@@ -174,7 +185,7 @@ export function RenewalModal({
                 <option value="YEARLY">年</option>
               </select>
             </label>
-            <label className="flex flex-col text-xs text-gray-500">
+            <label className="flex flex-col text-xs text-panel-muted">
               金额
               <input
                 aria-label="金额"
@@ -182,39 +193,39 @@ export function RenewalModal({
                 value={amount}
                 disabled={plan === 'TRIAL'}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-24 rounded border px-2 py-1 text-sm text-gray-900 disabled:opacity-50"
+                className="w-24 rounded border px-2 py-1 text-sm text-panel-ink disabled:opacity-50"
               />
             </label>
-            <label className="flex flex-col text-xs text-gray-500">
+            <label className="flex flex-col text-xs text-panel-muted">
               新的到期日
               <input
                 aria-label="新的到期日"
                 type="date"
                 value={validUntil}
                 onChange={(e) => setValidUntil(e.target.value)}
-                className="rounded border px-2 py-1 text-sm text-gray-900"
+                className="rounded border px-2 py-1 text-sm text-panel-ink"
               />
             </label>
-            <label className="flex flex-1 flex-col text-xs text-gray-500">
+            <label className="flex flex-1 flex-col text-xs text-panel-muted">
               备注（选填）
               <input
                 aria-label="备注（选填）"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                className="rounded border px-2 py-1 text-sm text-gray-900"
+                className="rounded border px-2 py-1 text-sm text-panel-ink"
               />
             </label>
           </section>
 
-          {saveError && <p className="text-sm text-red-600">{saveError}</p>}
+          {saveError && <p className="text-sm text-panel-danger">{saveError}</p>}
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-gray-100 p-3">
+        <div className="flex justify-end gap-2 border-t border-panel-border p-3">
           <button
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="rounded-full border border-gray-200 px-3 py-1 text-sm text-gray-600 disabled:opacity-50"
+            className="rounded-full border border-panel-border px-3 py-1 text-sm text-panel-muted disabled:opacity-50"
           >
             取消
           </button>
@@ -222,7 +233,7 @@ export function RenewalModal({
             type="button"
             onClick={handleSubmit}
             disabled={saving || !validUntil}
-            className="rounded-full bg-blue-600 px-3 py-1 text-sm font-medium text-white disabled:opacity-50"
+            className="rounded-full bg-panel-primary px-3 py-1 text-sm font-medium text-white disabled:opacity-50"
           >
             {saving ? '提交中...' : '提交'}
           </button>

@@ -20,6 +20,7 @@ const BILL: MonthlyBill = {
   extraFeeTotal: 200,
   totalAmount: 1000,
   isPaid: false,
+  paymentMethod: null,
   generatedAt: '2026-09-05T00:00:00Z',
   extraFeeLines: [{
     id: 1,

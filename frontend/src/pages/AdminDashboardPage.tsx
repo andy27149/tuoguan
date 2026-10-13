@@ -66,7 +66,7 @@ export function AdminDashboardPage({ onBack, onOpenClassKanban }: AdminDashboard
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col px-4 pb-4 pt-4">
-        <div className="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-[#ece7de] bg-[#faf9f6] shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
+        <div className="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-panel-border bg-[#faf9f6] shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
           <AdminSidebar
             active={activeModule}
             onSelect={setActiveModule}

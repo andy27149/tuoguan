@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { Teacher, TeacherDeletionImpact } from '../api/admin'
+import { useEscapeToClose } from '../hooks/useEscapeToClose'
 
 interface DeleteTeacherModalProps {
   teacherName: string
@@ -26,13 +27,7 @@ export function DeleteTeacherModal({
   )
   const [targetTeacherId, setTargetTeacherId] = useState<string>('')
 
-  useEffect(() => {
-    const onKeydown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKeydown)
-    return () => document.removeEventListener('keydown', onKeydown)
-  }, [onClose])
+  useEscapeToClose(onClose)
 
   function handleConfirm() {
     if (impact?.hasStudents && mode === 'TRANSFER') {

@@ -87,7 +87,7 @@ function AppShell() {
     case 'loading':
       return (
         <div className="flex min-h-screen items-center justify-center bg-gray-50">
-          <p className="text-gray-400">加载中...</p>
+          <p className="text-panel-muted">加载中...</p>
         </div>
       )
     case 'anonymous':
