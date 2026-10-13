@@ -23,6 +23,7 @@ export interface MonthlyBillExtraFeeLine {
   pricePerLesson: number
   lessonCount: number
   amount: number
+  consumptionDates: string[]
 }
 
 export interface MonthlyBillLeaveLine {

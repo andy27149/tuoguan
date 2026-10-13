@@ -110,6 +110,9 @@ public class CourseAccountService {
         return new StudentCourseStatement(balances, rechargeResponses, consumptionResponses);
     }
 
+    // 只统计纯课外课学生（诊断反馈 #50）：托管班学生的课外课费用按业务约定走月底托管
+    // 账单一并结算（见 BillGenerationService.generateBill 的"课外课附加费"），不是真的
+    // 欠费，在这里预警会和"月底统一结算"的业务方向冲突，让管理员误以为需要马上催缴。
     public List<LowBalanceRow> getLowBalanceEntries(Long institutionId, int threshold) {
         List<CourseRechargeRecord> recharges = rechargeRecordDao.findAllByInstitutionId(institutionId);
         List<CourseConsumptionRecord> consumptions = consumptionRecordDao.findAllByInstitutionId(institutionId);
@@ -123,9 +126,15 @@ public class CourseAccountService {
 
         Map<Long, String> studentNames = new HashMap<>();
         Map<Long, String> courseNames = new HashMap<>();
+        Map<Long, Boolean> pureOffCampusByStudentId = new HashMap<>();
 
         List<LowBalanceRow> rows = new ArrayList<>();
         for (StudentCourseKey key : keys) {
+            boolean pureOffCampus = pureOffCampusByStudentId.computeIfAbsent(key.studentId(),
+                    id -> studentDao.findById(id).map(s -> s.teachingUnitId() == null).orElse(false));
+            if (!pureOffCampus) {
+                continue;
+            }
             int recharged = recharges.stream()
                     .filter(r -> r.studentId().equals(key.studentId()) && r.teachingUnitId().equals(key.teachingUnitId()))
                     .mapToInt(CourseRechargeRecord::lessonCount)

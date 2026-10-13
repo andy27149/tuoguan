@@ -157,6 +157,38 @@ class AdminOverviewControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void lowBalanceExcludesCustodyStudentsEvenWithNegativeBalance() throws Exception {
+        Long institutionId = institutionDao.insert("总览课时预警测试机构H");
+        teacherDao.insert(new Teacher(null, institutionId, "13900015070",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900015071",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "托管班H",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long courseId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "英语课H",
+                BillingMode.LESSON_COUNT, 60, null, true, null));
+        // 双重身份学生：有托管班，课外课消课但从不充值，余额为负——这类学生的课外课费用
+        // 按业务约定走月底托管账单一并结算，不应该出现在课时不足预警里（诊断反馈 #50）。
+        Long custodyStudentId = studentDao.insert(
+                new Student(null, institutionId, classRoomId, "托管学生H", "一班", true, null, null));
+        courseConsumptionRecordDao.insert(new CourseConsumptionRecord(null, institutionId, custodyStudentId, courseId,
+                LocalDate.now(), BigDecimal.valueOf(50), teacherId, null));
+        // 对照组：纯课外课学生，同样的负余额，应该照常出现。
+        Long offCampusStudentId = studentDao.insert(
+                new Student(null, institutionId, null, "纯课外学生H", null, true, null, null));
+        courseConsumptionRecordDao.insert(new CourseConsumptionRecord(null, institutionId, offCampusStudentId, courseId,
+                LocalDate.now(), BigDecimal.valueOf(50), teacherId, null));
+        String adminToken = login("13900015070", "admin-password");
+
+        mockMvc.perform(get("/api/admin/overview/low-balance")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.studentId == " + custodyStudentId + ")]").isEmpty())
+                .andExpect(jsonPath("$[?(@.studentId == " + offCampusStudentId + ")].balance").value(
+                        org.hamcrest.Matchers.contains(-1)));
+    }
+
+    @Test
     void lowBalanceListsTwoCoursesForTheSameStudentAsSeparateRows() throws Exception {
         Long institutionId = institutionDao.insert("总览课时预警测试机构C");
         teacherDao.insert(new Teacher(null, institutionId, "13900015020",

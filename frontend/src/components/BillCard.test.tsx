@@ -19,8 +19,8 @@ const CUSTODY_BILL: MonthlyBill = {
   isPaid: false,
   generatedAt: '2026-09-05T00:00:00Z',
   extraFeeLines: [],
-  mealRecordDates: ['2026-09-01', '2026-09-02'],
-  leaveLines: [],
+  mealRecordDates: ['2026-09-02', '2026-09-01'],
+  leaveLines: [{ id: 1, monthlyBillId: 500, leaveDate: '2026-09-10', reason: '发烧' }],
 }
 
 const PURE_OFF_CAMPUS_BILL: MonthlyBill = {
@@ -30,7 +30,16 @@ const PURE_OFF_CAMPUS_BILL: MonthlyBill = {
   mealAmount: 0,
   totalAmount: 200,
   extraFeeTotal: 200,
-  extraFeeLines: [{ id: 1, monthlyBillId: 500, name: '围棋课', pricePerLesson: 50, lessonCount: 4, amount: 200 }],
+  extraFeeLines: [{
+    id: 1,
+    monthlyBillId: 500,
+    name: '围棋课',
+    pricePerLesson: 50,
+    lessonCount: 4,
+    amount: 200,
+    consumptionDates: ['2026-09-03', '2026-09-01', '2026-09-08', '2026-09-15'],
+  }],
+  leaveLines: [],
 }
 
 describe('BillCard', () => {
@@ -48,6 +57,16 @@ describe('BillCard', () => {
     expect(screen.getByText('2天 × ¥100.00 = ¥200.00')).toBeInTheDocument()
   })
 
+  it('shows meal and leave dates as chips, so the exported image carries the same detail as the on-screen view', () => {
+    render(<BillCard bill={CUSTODY_BILL} studentName="小明" className="一班" />)
+
+    expect(screen.getByText('用餐日期（共2天）')).toBeInTheDocument()
+    const mealDateEls = screen.getAllByText(/^2026-09-0[12]$/)
+    expect(mealDateEls.map((el) => el.textContent)).toEqual(['2026-09-01', '2026-09-02'])
+    expect(screen.getByText('请假日期（共1天）')).toBeInTheDocument()
+    expect(screen.getByText('2026-09-10 · 发烧')).toBeInTheDocument()
+  })
+
   it('hides custody-specific fields for a pure off-campus student', () => {
     render(<BillCard bill={PURE_OFF_CAMPUS_BILL} studentName="小外" className="—" />)
 
@@ -59,5 +78,12 @@ describe('BillCard', () => {
     expect(screen.queryByText('用餐天数')).not.toBeInTheDocument()
     expect(screen.getByText('围棋课')).toBeInTheDocument()
     expect(screen.getByText('4次 × ¥50.00 = ¥200.00')).toBeInTheDocument()
+  })
+
+  it('shows the specific consumption dates for a course extra-fee line', () => {
+    render(<BillCard bill={PURE_OFF_CAMPUS_BILL} studentName="小外" className="—" />)
+
+    const dateEls = screen.getAllByText(/^2026-09-(01|03|08|15)$/)
+    expect(dateEls.map((el) => el.textContent)).toEqual(['2026-09-01', '2026-09-03', '2026-09-08', '2026-09-15'])
   })
 })

@@ -219,7 +219,10 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.extraFeeLines[0].name").value("数学课"))
                 .andExpect(jsonPath("$.extraFeeLines[0].pricePerLesson").value(50.00))
                 .andExpect(jsonPath("$.extraFeeLines[0].lessonCount").value(4))
-                .andExpect(jsonPath("$.extraFeeLines[0].amount").value(200.00));
+                .andExpect(jsonPath("$.extraFeeLines[0].amount").value(200.00))
+                .andExpect(jsonPath("$.extraFeeLines[0].consumptionDates.length()").value(4))
+                .andExpect(jsonPath("$.extraFeeLines[0].consumptionDates[0]").value("2024-01-02"))
+                .andExpect(jsonPath("$.extraFeeLines[0].consumptionDates[3]").value("2024-01-05"));
     }
 
     @Test

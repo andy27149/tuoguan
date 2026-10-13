@@ -21,7 +21,15 @@ const BILL: MonthlyBill = {
   totalAmount: 1000,
   isPaid: false,
   generatedAt: '2026-09-05T00:00:00Z',
-  extraFeeLines: [{ id: 1, monthlyBillId: 500, name: '数学课', pricePerLesson: 50, lessonCount: 4, amount: 200 }],
+  extraFeeLines: [{
+    id: 1,
+    monthlyBillId: 500,
+    name: '数学课',
+    pricePerLesson: 50,
+    lessonCount: 4,
+    amount: 200,
+    consumptionDates: ['2026-09-10', '2026-09-17', '2026-09-24', '2026-09-30'],
+  }],
   mealRecordDates: ['2026-09-03', '2026-09-01', '2026-09-02'],
   leaveLines: [
     { id: 1, monthlyBillId: 500, leaveDate: '2026-09-04', reason: '发烧' },

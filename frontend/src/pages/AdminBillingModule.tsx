@@ -128,15 +128,6 @@ export function AdminBillingModule() {
             />
           </label>
           <span className="text-xs text-[#7c7391]">留空查看全部月份</span>
-          {month && (
-            <button
-              type="button"
-              onClick={() => setConfirmingBulkGenerate(true)}
-              className="rounded-full border border-[#ece7de] px-3 py-1 text-xs text-[#5d5480] hover:bg-[#faf7ff]"
-            >
-              一键生成本月账单
-            </button>
-          )}
           <label className="text-sm text-[#5d5480]">
             班级
             <select
@@ -163,6 +154,15 @@ export function AdminBillingModule() {
               className="ml-2 rounded-lg border border-[#ece7de] px-2 py-1 text-sm"
             />
           </label>
+          {month && (
+            <button
+              type="button"
+              onClick={() => setConfirmingBulkGenerate(true)}
+              className="rounded-full bg-[#6d5bd0] px-4 py-1 text-sm font-medium text-white"
+            >
+              一键生成本月账单
+            </button>
+          )}
         </div>
       </div>
 

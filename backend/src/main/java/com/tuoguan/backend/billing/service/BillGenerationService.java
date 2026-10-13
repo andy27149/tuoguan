@@ -14,6 +14,7 @@ import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.billing.dao.ClassBillingRateDao;
 import com.tuoguan.backend.billing.dao.MonthlyBillDao;
 import com.tuoguan.backend.billing.dao.MonthlyBillExtraFeeLineDao;
+import com.tuoguan.backend.billing.dao.MonthlyBillExtraFeeLineDateDao;
 import com.tuoguan.backend.billing.dao.MonthlyBillLeaveLineDao;
 import com.tuoguan.backend.billing.dao.MonthlyBillMealLineDao;
 import com.tuoguan.backend.billing.dao.StudentLeaveRecordDao;
@@ -56,6 +57,7 @@ public class BillGenerationService {
     private final StudentLeaveRecordDao studentLeaveRecordDao;
     private final MonthlyBillDao monthlyBillDao;
     private final MonthlyBillExtraFeeLineDao monthlyBillExtraFeeLineDao;
+    private final MonthlyBillExtraFeeLineDateDao monthlyBillExtraFeeLineDateDao;
     private final MonthlyBillMealLineDao monthlyBillMealLineDao;
     private final MonthlyBillLeaveLineDao monthlyBillLeaveLineDao;
     private final StudentMealRecordDao studentMealRecordDao;
@@ -68,6 +70,7 @@ public class BillGenerationService {
                                   CourseAccountService courseAccountService,
                                   StudentLeaveRecordDao studentLeaveRecordDao, MonthlyBillDao monthlyBillDao,
                                   MonthlyBillExtraFeeLineDao monthlyBillExtraFeeLineDao,
+                                  MonthlyBillExtraFeeLineDateDao monthlyBillExtraFeeLineDateDao,
                                   MonthlyBillMealLineDao monthlyBillMealLineDao,
                                   MonthlyBillLeaveLineDao monthlyBillLeaveLineDao,
                                   StudentMealRecordDao studentMealRecordDao, StudentDao studentDao,
@@ -78,6 +81,7 @@ public class BillGenerationService {
         this.studentLeaveRecordDao = studentLeaveRecordDao;
         this.monthlyBillDao = monthlyBillDao;
         this.monthlyBillExtraFeeLineDao = monthlyBillExtraFeeLineDao;
+        this.monthlyBillExtraFeeLineDateDao = monthlyBillExtraFeeLineDateDao;
         this.monthlyBillMealLineDao = monthlyBillMealLineDao;
         this.monthlyBillLeaveLineDao = monthlyBillLeaveLineDao;
         this.studentMealRecordDao = studentMealRecordDao;
@@ -145,8 +149,13 @@ public class BillGenerationService {
             int coveredByBalanceCount = courseCoverage.size() - billable.size();
             BigDecimal amount = billable.stream().map(c -> c.record().priceSnapshot())
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
+            List<LocalDate> billableDates = billable.stream()
+                    .map(c -> c.record().consumptionDate())
+                    .sorted()
+                    .toList();
             rows.add(new CourseConsumptionSummaryRow(entry.getKey(), unit != null ? unit.name() : "-",
-                    unit != null ? unit.pricePerLesson() : null, billable.size(), amount, coveredByBalanceCount));
+                    unit != null ? unit.pricePerLesson() : null, billable.size(), amount, coveredByBalanceCount,
+                    billableDates));
         }
         return rows;
     }
@@ -203,8 +212,11 @@ public class BillGenerationService {
         // 弹窗才需要展示的透明度信息，不是真实欠费，出现在账单明细里反而容易让人误解。
         extraFeeRows.stream()
                 .filter(row -> row.lessonCount() > 0)
-                .forEach(row -> monthlyBillExtraFeeLineDao.insert(billId, row.courseName(), row.pricePerLesson(),
-                        row.lessonCount(), row.amount()));
+                .forEach(row -> {
+                    Long lineId = monthlyBillExtraFeeLineDao.insert(billId, row.courseName(), row.pricePerLesson(),
+                            row.lessonCount(), row.amount());
+                    row.billableDates().forEach(date -> monthlyBillExtraFeeLineDateDao.insert(lineId, date));
+                });
         monthlyBillMealLineDao.deleteAllByBillId(billId);
         mealDates.forEach(date -> monthlyBillMealLineDao.insert(billId, date));
         monthlyBillLeaveLineDao.deleteAllByBillId(billId);
