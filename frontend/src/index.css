@@ -616,6 +616,34 @@
     color: var(--ink-soft);
   }
 
+  .student-card__celebration {
+    position: absolute;
+    top: -16px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #fff;
+    border-radius: 999px;
+    padding: 3px 14px 3px 3px;
+    box-shadow: 0 10px 24px rgba(109, 91, 208, 0.35);
+    z-index: 5;
+    animation: celebration-pop 0.4s cubic-bezier(.34,1.56,.64,1) both;
+  }
+  .student-card__celebration-text {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 12.5px;
+    color: #4e3fa8;
+    white-space: nowrap;
+  }
+  @keyframes celebration-pop {
+    0% { transform: translateX(-50%) scale(0.4); opacity: 0; }
+    60% { transform: translateX(-50%) scale(1.08); opacity: 1; }
+    100% { transform: translateX(-50%) scale(1); opacity: 1; }
+  }
+
   .progress-ring-wrap {
     position: absolute;
     top: 12px;
@@ -1080,6 +1108,11 @@
   .share-poster .star-rating--readonly {
     margin-bottom: 8px;
   }
+  .share-poster__mascot {
+    display: flex;
+    justify-content: center;
+    margin: 4px 0 8px;
+  }
   .share-poster__summary {
     margin: 0 0 8px;
     font-size: 13px;
@@ -1271,6 +1304,20 @@
     border-radius: 24px;
     padding: 20px;
     box-shadow: 0 20px 60px rgba(31, 41, 68, 0.18);
+  }
+  .parent-share-page__greeting {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 14px;
+  }
+  .parent-share-page__greeting-text {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 700;
+    color: #4e3fa8;
   }
   .parent-share-page__header {
     display: flex;

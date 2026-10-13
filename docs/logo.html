@@ -1,0 +1,405 @@
+<title>奕成长</title>
+<style>
+  :root {
+    --bg: #faf9f6;
+    --surface: #ffffff;
+    --surface-alt: #faf7ff;
+    --text: #241f3d;
+    --text-secondary: #5d5480;
+    --muted: #7c7391;
+    --border: #ece7de;
+    --purple: #6d5bd0;
+    --purple-deep: #4e3fa8;
+    --purple-light: #9c8ee8;
+    --gold: #f0a93e;
+    --blush: #f3a9be;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1b1730;
+      --surface: #241f3d;
+      --surface-alt: #2a2447;
+      --text: #f1eefb;
+      --text-secondary: #c9bff0;
+      --muted: #9088b5;
+      --border: #3a3260;
+      --purple: #8b7ae0;
+      --purple-deep: #6d5bd0;
+      --purple-light: #a89aec;
+      --gold: #f3bd63;
+      --blush: #f3a9be;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1b1730;
+    --surface: #241f3d;
+    --surface-alt: #2a2447;
+    --text: #f1eefb;
+    --text-secondary: #c9bff0;
+    --muted: #9088b5;
+    --border: #3a3260;
+    --purple: #8b7ae0;
+    --purple-deep: #6d5bd0;
+    --purple-light: #a89aec;
+    --gold: #f3bd63;
+    --blush: #f3a9be;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Noto Sans SC", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 56px 28px 80px; }
+
+  .eyebrow {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: var(--purple);
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 10px;
+  }
+  .eyebrow::before {
+    content: "";
+    width: 18px;
+    height: 3px;
+    background: var(--purple);
+    border-radius: 2px;
+  }
+
+  h1, h2, h3 { margin: 0; text-wrap: balance; }
+
+  .hero {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    padding: 40px 36px;
+    border-radius: 28px;
+    background: linear-gradient(135deg, var(--purple) 0%, var(--purple-deep) 100%);
+    color: #ffffff;
+  }
+  .hero svg { width: 88px; height: 88px; flex-shrink: 0; }
+  .hero .word {
+    font-family: "ZCOOL KuaiLe", "Noto Sans SC", sans-serif;
+    font-size: 52px;
+    line-height: 1;
+    letter-spacing: 0.02em;
+  }
+  .hero .tag {
+    margin-top: 8px;
+    font-size: 14.5px;
+    color: rgba(255,255,255,0.82);
+  }
+
+  section { margin-top: 56px; }
+  section > h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  section > .desc {
+    font-size: 13.5px;
+    color: var(--muted);
+    margin-bottom: 22px;
+    max-width: 62ch;
+  }
+
+  .panel {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: 20px;
+    padding: 28px;
+  }
+
+  /* lockup variants */
+  .lockup-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 700px) { .lockup-row { grid-template-columns: 1fr; } }
+  .lockup-card {
+    border-radius: 18px;
+    padding: 32px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    border: 1px solid var(--border);
+  }
+  .lockup-card.on-light { background: var(--surface); }
+  .lockup-card.on-dark { background: var(--text); border-color: transparent; }
+  .lockup-card svg.icon-md { width: 56px; height: 56px; }
+  .lockup-card .word-light {
+    font-family: "ZCOOL KuaiLe", sans-serif;
+    font-size: 34px;
+    color: var(--purple);
+  }
+  .lockup-card .word-dark {
+    font-family: "ZCOOL KuaiLe", sans-serif;
+    font-size: 34px;
+    color: #f1eefb;
+  }
+  .lockup-card .caption { font-size: 12px; color: var(--muted); }
+
+  /* icon grid */
+  .icon-grid { display: flex; align-items: flex-end; gap: 28px; flex-wrap: wrap; }
+  .icon-tile { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .icon-tile .size-label { font-size: 12px; color: var(--muted); }
+  .icon-tile.mono svg .icon-bg { fill: none; }
+  .icon-tile.mono { background: var(--surface-alt); border: 1px solid var(--border); border-radius: 16px; padding: 20px; }
+
+  /* mascot grid */
+  .mascot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 700px) { .mascot-grid { grid-template-columns: 1fr; } }
+  .mascot-card {
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 24px;
+    text-align: center;
+  }
+  .mascot-card svg { width: 168px; height: 196px; }
+  .mascot-card .name {
+    margin-top: 8px;
+    font-family: "ZCOOL KuaiLe", sans-serif;
+    font-size: 18px;
+    color: var(--purple-deep);
+  }
+  .mascot-card .line { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+
+  /* palette */
+  .palette-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 14px;
+  }
+  .swatch {
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .swatch .chip { height: 68px; }
+  .swatch .meta { padding: 10px 12px; background: var(--surface); }
+  .swatch .name { font-size: 12.5px; font-weight: 700; color: var(--text); }
+  .swatch .hex {
+    font-size: 11.5px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    font-family: "SFMono-Regular", Menlo, monospace;
+  }
+
+  /* type sample */
+  .type-sample { display: flex; flex-direction: column; gap: 18px; }
+  .type-row .label { font-size: 11.5px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }
+  .type-row .zcool { font-family: "ZCOOL KuaiLe", sans-serif; font-size: 30px; color: var(--text); }
+  .type-row .noto { font-family: "Noto Sans SC", sans-serif; font-size: 16px; color: var(--text-secondary); line-height: 1.6; max-width: 60ch; }
+
+  footer {
+    margin-top: 56px;
+    padding-top: 22px;
+    border-top: 1px solid var(--border);
+    font-size: 12.5px;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 28px;
+  }
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">Logo &amp; Mascot</div>
+  <div class="hero">
+    <svg viewBox="0 0 200 200" aria-hidden="true">
+      <defs>
+        <linearGradient id="gradA" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#8b7ae0"/>
+          <stop offset="1" stop-color="#4e3fa8"/>
+        </linearGradient>
+      </defs>
+      <rect x="10" y="10" width="180" height="180" rx="48" fill="url(#gradA)"/>
+      <path d="M100 158 C100 146 100 130 100 116" stroke="#ffffff" stroke-width="9" stroke-linecap="round" fill="none"/>
+      <path d="M100 132 C76 132 58 116 62 92 C88 94 100 110 100 132 Z" fill="#ffffff"/>
+      <path d="M100 122 C120 120 136 104 133 82 C110 85 99 102 100 122 Z" fill="#e7e1fb"/>
+      <path d="M100 62 L106 74 L118 78 L106 82 L100 96 L94 82 L82 78 L94 74 Z" fill="#f0a93e"/>
+    </svg>
+    <div>
+      <div class="word">奕成长</div>
+      <div class="tag">每一天的成长，看得见 · 吉祥物「小奕」</div>
+    </div>
+  </div>
+
+  <section>
+    <h2>主标志 Primary Lockup</h2>
+    <p class="desc">图标 + 中文字标的标准组合，左侧为浅底版本，右侧为深底反白版本，两者均以品牌紫为主色。</p>
+    <div class="lockup-row">
+      <div class="lockup-card on-light">
+        <svg class="icon-md" viewBox="0 0 200 200" aria-hidden="true">
+          <rect x="10" y="10" width="180" height="180" rx="48" fill="url(#gradA)"/>
+          <path d="M100 158 C100 146 100 130 100 116" stroke="#ffffff" stroke-width="9" stroke-linecap="round" fill="none"/>
+          <path d="M100 132 C76 132 58 116 62 92 C88 94 100 110 100 132 Z" fill="#ffffff"/>
+          <path d="M100 122 C120 120 136 104 133 82 C110 85 99 102 100 122 Z" fill="#e7e1fb"/>
+          <path d="M100 62 L106 74 L118 78 L106 82 L100 96 L94 82 L82 78 L94 74 Z" fill="#f0a93e"/>
+        </svg>
+        <div class="word-light">奕成长</div>
+        <div class="caption">浅底 · App / 网页头部</div>
+      </div>
+      <div class="lockup-card on-dark">
+        <svg class="icon-md" viewBox="0 0 200 200" aria-hidden="true">
+          <rect x="10" y="10" width="180" height="180" rx="48" fill="#ffffff" fill-opacity="0.12"/>
+          <path d="M100 158 C100 146 100 130 100 116" stroke="#ffffff" stroke-width="9" stroke-linecap="round" fill="none"/>
+          <path d="M100 132 C76 132 58 116 62 92 C88 94 100 110 100 132 Z" fill="#ffffff"/>
+          <path d="M100 122 C120 120 136 104 133 82 C110 85 99 102 100 122 Z" fill="#c9bff0"/>
+          <path d="M100 62 L106 74 L118 78 L106 82 L100 96 L94 82 L82 78 L94 74 Z" fill="#f3bd63"/>
+        </svg>
+        <div class="word-dark">奕成长</div>
+        <div class="caption" style="color:#9088b5">深底 · 封面 / 海报</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>图标标志 App Icon</h2>
+    <p class="desc">一株破土而出的嫩芽，芽尖化作一枚星标——对应产品每日「打卡 + 评星」的核心记录动作。形状简洁，缩小到应用图标尺寸仍清晰可辨。</p>
+    <div class="panel">
+      <div class="icon-grid">
+        <div class="icon-tile">
+          <svg width="120" height="120" viewBox="0 0 200 200" aria-hidden="true">
+            <rect x="10" y="10" width="180" height="180" rx="48" fill="url(#gradA)"/>
+            <path d="M100 158 C100 146 100 130 100 116" stroke="#ffffff" stroke-width="9" stroke-linecap="round" fill="none"/>
+            <path d="M100 132 C76 132 58 116 62 92 C88 94 100 110 100 132 Z" fill="#ffffff"/>
+            <path d="M100 122 C120 120 136 104 133 82 C110 85 99 102 100 122 Z" fill="#e7e1fb"/>
+            <path d="M100 62 L106 74 L118 78 L106 82 L100 96 L94 82 L82 78 L94 74 Z" fill="#f0a93e"/>
+          </svg>
+          <div class="size-label">大尺寸</div>
+        </div>
+        <div class="icon-tile">
+          <svg width="56" height="56" viewBox="0 0 200 200" aria-hidden="true">
+            <rect x="10" y="10" width="180" height="180" rx="48" fill="url(#gradA)"/>
+            <path d="M100 158 C100 146 100 130 100 116" stroke="#ffffff" stroke-width="9" stroke-linecap="round" fill="none"/>
+            <path d="M100 132 C76 132 58 116 62 92 C88 94 100 110 100 132 Z" fill="#ffffff"/>
+            <path d="M100 122 C120 120 136 104 133 82 C110 85 99 102 100 122 Z" fill="#e7e1fb"/>
+            <path d="M100 62 L106 74 L118 78 L106 82 L100 96 L94 82 L82 78 L94 74 Z" fill="#f0a93e"/>
+          </svg>
+          <div class="size-label">favicon / 小尺寸</div>
+        </div>
+        <div class="icon-tile mono">
+          <svg width="72" height="72" viewBox="0 0 200 200" aria-hidden="true">
+            <path d="M100 158 C100 146 100 130 100 116" stroke="var(--purple-deep)" stroke-width="9" stroke-linecap="round" fill="none"/>
+            <path d="M100 132 C76 132 58 116 62 92 C88 94 100 110 100 132 Z" fill="var(--purple-deep)"/>
+            <path d="M100 122 C120 120 136 104 133 82 C110 85 99 102 100 122 Z" fill="var(--purple)"/>
+            <path d="M100 62 L106 74 L118 78 L106 82 L100 96 L94 82 L82 78 L94 74 Z" fill="var(--purple-deep)"/>
+          </svg>
+          <div class="size-label">单色版 · 印章 / 水印</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>品牌吉祥物 · 小奕</h2>
+    <p class="desc">豆子形状的圆润角色，头顶延续图标的嫩芽+星标造型，与主标志同源；两种表情对应产品里最常见的两个场景——家长打开分享链接时的问候，以及完成当日任务后的庆祝。</p>
+    <div class="mascot-grid">
+      <div class="mascot-card">
+        <svg viewBox="0 0 240 280" aria-hidden="true">
+          <ellipse cx="120" cy="165" rx="92" ry="90" fill="var(--purple-light)"/>
+          <ellipse cx="85" cy="256" rx="22" ry="11" fill="var(--purple-deep)"/>
+          <ellipse cx="155" cy="256" rx="22" ry="11" fill="var(--purple-deep)"/>
+          <path d="M40 168 Q18 192 34 216" stroke="var(--purple-deep)" stroke-width="16" stroke-linecap="round" fill="none"/>
+          <path d="M200 162 Q226 132 210 96" stroke="var(--purple-deep)" stroke-width="16" stroke-linecap="round" fill="none"/>
+          <circle cx="210" cy="94" r="11" fill="var(--purple-light)"/>
+          <path d="M120 76 C120 65 120 55 120 46" stroke="var(--purple-deep)" stroke-width="7" stroke-linecap="round" fill="none"/>
+          <path d="M120 58 C108 58 99 50 101 38 C113 39 120 47 120 58 Z" fill="var(--purple-deep)"/>
+          <path d="M120 52 C131 51 140 43 138 31 C126 33 119 41 120 52 Z" fill="var(--purple)"/>
+          <path d="M120 14 L124 21 L131 24 L124 27 L120 34 L116 27 L109 24 L116 21 Z" fill="var(--gold)"/>
+          <circle cx="90" cy="150" r="10" fill="var(--text)"/>
+          <circle cx="150" cy="150" r="10" fill="var(--text)"/>
+          <circle cx="93" cy="146" r="3" fill="#ffffff"/>
+          <circle cx="153" cy="146" r="3" fill="#ffffff"/>
+          <circle cx="68" cy="175" r="12" fill="var(--blush)" opacity="0.7"/>
+          <circle cx="172" cy="175" r="12" fill="var(--blush)" opacity="0.7"/>
+          <path d="M95 178 Q120 194 145 178" stroke="var(--text)" stroke-width="6" stroke-linecap="round" fill="none"/>
+        </svg>
+        <div class="name">你好呀！</div>
+        <div class="line">家长打开分享链接时的问候</div>
+      </div>
+      <div class="mascot-card">
+        <svg viewBox="0 0 240 280" aria-hidden="true">
+          <ellipse cx="120" cy="165" rx="92" ry="90" fill="var(--purple-light)"/>
+          <ellipse cx="85" cy="256" rx="22" ry="11" fill="var(--purple-deep)"/>
+          <ellipse cx="155" cy="256" rx="22" ry="11" fill="var(--purple-deep)"/>
+          <path d="M45 152 Q15 118 33 82" stroke="var(--purple-deep)" stroke-width="16" stroke-linecap="round" fill="none"/>
+          <path d="M195 152 Q225 118 207 82" stroke="var(--purple-deep)" stroke-width="16" stroke-linecap="round" fill="none"/>
+          <circle cx="33" cy="80" r="11" fill="var(--purple-light)"/>
+          <circle cx="207" cy="80" r="11" fill="var(--purple-light)"/>
+          <path d="M120 76 C120 65 120 55 120 46" stroke="var(--purple-deep)" stroke-width="7" stroke-linecap="round" fill="none"/>
+          <path d="M120 58 C108 58 99 50 101 38 C113 39 120 47 120 58 Z" fill="var(--purple-deep)"/>
+          <path d="M120 52 C131 51 140 43 138 31 C126 33 119 41 120 52 Z" fill="var(--purple)"/>
+          <path d="M120 14 L124 21 L131 24 L124 27 L120 34 L116 27 L109 24 L116 21 Z" fill="var(--gold)"/>
+          <path d="M90 138 L93 148 L83 152 L93 156 L90 166 L97 158 L107 162 L101 152 L107 142 L97 146 Z" fill="var(--gold)" opacity="0.9"/>
+          <circle cx="90" cy="150" r="10" fill="var(--text)"/>
+          <circle cx="150" cy="150" r="10" fill="var(--text)"/>
+          <circle cx="93" cy="146" r="3" fill="#ffffff"/>
+          <circle cx="153" cy="146" r="3" fill="#ffffff"/>
+          <circle cx="68" cy="175" r="12" fill="var(--blush)" opacity="0.7"/>
+          <circle cx="172" cy="175" r="12" fill="var(--blush)" opacity="0.7"/>
+          <path d="M88 176 Q120 202 152 176" stroke="var(--text)" stroke-width="6" stroke-linecap="round" fill="none"/>
+        </svg>
+        <div class="name">今天又完成啦！</div>
+        <div class="line">当日任务全部打卡后的庆祝</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>色彩系统</h2>
+    <p class="desc">延续产品界面已在使用的品牌紫，新增一枚暖金色作为「奕」（光彩、生机）的点睛色，只用于图标星标与吉祥物等点缀，不进入界面主色。</p>
+    <div class="palette-grid">
+      <div class="swatch">
+        <div class="chip" style="background:#6d5bd0"></div>
+        <div class="meta"><div class="name">品牌紫</div><div class="hex">#6D5BD0</div></div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background:#4e3fa8"></div>
+        <div class="meta"><div class="name">深紫</div><div class="hex">#4E3FA8</div></div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background:#9c8ee8"></div>
+        <div class="meta"><div class="name">浅紫（吉祥物）</div><div class="hex">#9C8EE8</div></div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background:#f0a93e"></div>
+        <div class="meta"><div class="name">暖金</div><div class="hex">#F0A93E</div></div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background:#f3a9be"></div>
+        <div class="meta"><div class="name">腮红粉</div><div class="hex">#F3A9BE</div></div>
+      </div>
+      <div class="swatch">
+        <div class="chip" style="background:#241f3d"></div>
+        <div class="meta"><div class="name">墨色</div><div class="hex">#241F3D</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>字体</h2>
+    <div class="panel type-sample">
+      <div class="type-row">
+        <div class="label">字标 · ZCOOL KuaiLe</div>
+        <div class="zcool">奕成长 · 小奕</div>
+      </div>
+      <div class="type-row">
+        <div class="label">正文 · Noto Sans SC</div>
+        <div class="noto">让每一次签到、打卡、点评，都变成家长愿意转发的成长记录。</div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>最小展示尺寸 ≥ 32px</span>
+    <span>四周留白 ≥ 图标高度的 1/4</span>
+    <span>深色背景优先使用反白版本，避免直接压缩变形</span>
+  </footer>
+</div>

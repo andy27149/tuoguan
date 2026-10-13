@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
 
 interface EmptyStateProps {
-  icon?: string
+  /** 默认是个 emoji 字符串；也可以传任意节点（比如吉祥物插画）替代。 */
+  icon?: ReactNode
   message: string
   children?: ReactNode
 }

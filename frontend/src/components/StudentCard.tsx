@@ -14,6 +14,7 @@ import { ShareLinkModal } from './ShareLinkModal'
 import { ArrivalModal } from './ArrivalModal'
 import { LeaveModal } from './LeaveModal'
 import { ConfirmDialog } from './ConfirmDialog'
+import { Mascot } from '../brand/Mascot'
 
 interface StudentCardProps {
   student: Student
@@ -133,6 +134,7 @@ export function StudentCard({
   const [showingLeave, setShowingLeave] = useState(false)
   const [confirmingArrivalOverLeave, setConfirmingArrivalOverLeave] = useState(false)
   const [justCompleted, setJustCompleted] = useState(false)
+  const [showCelebration, setShowCelebration] = useState(false)
   const [deletingTask, setDeletingTask] = useState<DailyTask | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const status = computeCardStatus(tasks, dismissed)
@@ -143,7 +145,11 @@ export function StudentCard({
       completed &&
       tasks.length > 0 &&
       tasks.every((t) => (t.id === taskId ? true : t.completed))
-    if (willBeDone) setJustCompleted(true)
+    if (willBeDone) {
+      setJustCompleted(true)
+      setShowCelebration(true)
+      window.setTimeout(() => setShowCelebration(false), 3200)
+    }
     onToggleTask?.(taskId, completed)
   }
 
@@ -191,6 +197,12 @@ export function StudentCard({
 
   return (
     <div data-testid="student-card" className="student-card" data-status={status}>
+      {showCelebration && (
+        <div className="student-card__celebration" role="status">
+          <Mascot variant="celebrating" size={32} />
+          <span className="student-card__celebration-text">今天又完成啦！</span>
+        </div>
+      )}
       <ProgressRing completed={completedCount} total={tasks.length} justCompleted={justCompleted} />
 
       <div className="card-head">

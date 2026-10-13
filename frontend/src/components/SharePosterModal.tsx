@@ -5,6 +5,7 @@ import { computeCardStatus } from '../kanban/cardStatus'
 import { subjectColor, subjectIconMarkup } from '../kanban/subjectIcons'
 import { StarRating } from './StarRating'
 import { BrandMark } from '../brand/BrandMark'
+import { Mascot } from '../brand/Mascot'
 import { useEscapeToClose } from '../hooks/useEscapeToClose'
 
 interface SharePosterStudent {
@@ -153,6 +154,12 @@ export function SharePosterModal({
               ))
             )}
           </ul>
+
+          {allDone && (
+            <div className="share-poster__mascot">
+              <Mascot variant="celebrating" size={72} />
+            </div>
+          )}
 
           <p className="share-poster__cheer">
             {cheerText.split('\n').map((line, i) => (

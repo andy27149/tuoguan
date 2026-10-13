@@ -1,4 +1,5 @@
 import { BrandMark } from '../brand/BrandMark'
+import { Mascot } from '../brand/Mascot'
 import { EmptyState } from './EmptyState'
 
 interface EmptyTeacherStateProps {
@@ -19,7 +20,10 @@ export function EmptyTeacherState({ onLogout }: EmptyTeacherStateProps) {
           </button>
         </div>
       </header>
-      <EmptyState icon="👋" message="欢迎加入！管理员还没有把你安排进任何托管班或课外课，安排好之后这里会自动显示。" />
+      <EmptyState
+        icon={<Mascot variant="greeting" size={96} />}
+        message="欢迎加入！管理员还没有把你安排进任何托管班或课外课，安排好之后这里会自动显示。"
+      />
     </div>
   )
 }

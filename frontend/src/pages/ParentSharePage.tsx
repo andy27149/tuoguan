@@ -5,6 +5,7 @@ import { MonthlyStatsView } from '../components/MonthlyStatsView'
 import { CourseStatementView } from '../components/CourseStatementView'
 import { CourseActivityView } from '../components/CourseActivityView'
 import { BrandMark } from '../brand/BrandMark'
+import { Mascot } from '../brand/Mascot'
 
 interface ParentSharePageProps {
   token: string
@@ -50,6 +51,11 @@ export function ParentSharePage({ token }: ParentSharePageProps) {
   return (
     <div className="parent-share-page">
       <div className="parent-share-page__card">
+        <div className="parent-share-page__greeting">
+          <Mascot variant="greeting" size={56} />
+          <p className="parent-share-page__greeting-text">你好呀！</p>
+        </div>
+
         {loading && <p className="stats-status">加载中...</p>}
         {error && <p className="stats-status stats-status--error">{error}</p>}
 
