@@ -144,8 +144,18 @@ export function fetchBillOverview(
   return apiFetch<BillOverviewRow[]>(`/admin/bills?${params.toString()}`)
 }
 
-export function generateInstitutionBills(month: string): Promise<BulkBillGenerationResult> {
-  return apiFetch<BulkBillGenerationResult>(`/admin/bills/generate?month=${month}`, { method: 'POST' })
+export function generateInstitutionBills(
+  month: string,
+  classRoomId?: number,
+  studentName?: string,
+  offCampusOnly?: boolean,
+): Promise<BulkBillGenerationResult> {
+  const params = new URLSearchParams()
+  params.set('month', month)
+  if (classRoomId !== undefined) params.set('classRoomId', String(classRoomId))
+  if (studentName) params.set('studentName', studentName)
+  if (offCampusOnly) params.set('offCampusOnly', 'true')
+  return apiFetch<BulkBillGenerationResult>(`/admin/bills/generate?${params.toString()}`, { method: 'POST' })
 }
 
 export function fetchBillDetail(billId: number): Promise<MonthlyBill> {

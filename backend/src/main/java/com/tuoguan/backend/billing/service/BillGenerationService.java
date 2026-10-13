@@ -263,21 +263,25 @@ public class BillGenerationService {
                 .toList();
     }
 
-    // 覆盖机构下所有在读学生（含没有托管班的纯课外课学生）。单个学生因班级未配置计费单价
-    // 失败是预期中会发生的情况（管理员忘记配），跳过并记下原因，不影响同批次其它学生；
-    // 除此之外的异常照常往外抛——那是真 bug，不该被悄悄吞掉。
-    public BulkBillGenerationResult generateBillsForInstitution(Long institutionId, YearMonth month) {
+    // 生成范围和账单管理页当前筛选出来的学生列表完全一致（产品诊断 #55）：直接复用
+    // getBillOverview 算出来的那批学生 id，而不是自己再重新遍历一遍全机构学生——这样
+    // "看到哪些学生就生成哪些学生的账单"永远和列表展示口径保持一致，不会出现按班级/
+    // 姓名筛选之后，背后却把没筛选出来的学生账单也重新生成了一遍的意外。classRoomId/
+    // studentName/offCampusOnly 都不传时就是没有筛选，等价于覆盖全机构所有在读学生
+    // （含没有托管班的纯课外课学生）。单个学生因班级未配置计费单价失败是预期中会发生
+    // 的情况（管理员忘记配），跳过并记下原因，不影响同批次其它学生；除此之外的异常照常
+    // 往外抛——那是真 bug，不该被悄悄吞掉。
+    public BulkBillGenerationResult generateBillsForInstitution(Long institutionId, YearMonth month,
+                                                                 Long classRoomId, String studentName,
+                                                                 boolean offCampusOnly) {
         List<BulkBillGenerationFailure> failures = new ArrayList<>();
         int generatedCount = 0;
-        for (Student student : studentDao.findAllByInstitutionId(institutionId)) {
-            if (!student.enrolled()) {
-                continue;
-            }
+        for (BillOverviewRow row : getBillOverview(institutionId, month, classRoomId, studentName, offCampusOnly)) {
             try {
-                generateBill(institutionId, student.id(), month);
+                generateBill(institutionId, row.studentId(), month);
                 generatedCount++;
             } catch (BillingRateNotConfiguredException e) {
-                failures.add(new BulkBillGenerationFailure(student.id(), student.name(), e.getMessage()));
+                failures.add(new BulkBillGenerationFailure(row.studentId(), row.studentName(), e.getMessage()));
             }
         }
         return new BulkBillGenerationResult(generatedCount, failures);

@@ -74,7 +74,14 @@ export function AdminBillingModule() {
     if (!month) return
     setBulkGenerating(true)
     try {
-      const result = await billingApi.generateInstitutionBills(month)
+      // 生成范围和当前列表展示的筛选结果保持一致（产品诊断 #55）：筛了班级/搜了姓名，
+      // 这里就只生成筛选出来的这些学生，不会背着管理员把其它学生的账单也重新算一遍。
+      const result = await billingApi.generateInstitutionBills(
+        month,
+        selectedClassId,
+        studentName.trim() || undefined,
+        offCampusOnly,
+      )
       setBulkGenerateResult(result)
       loadRows()
     } finally {
@@ -157,7 +164,13 @@ export function AdminBillingModule() {
           {month && (
             <button
               type="button"
-              onClick={() => setConfirmingBulkGenerate(true)}
+              onClick={() => {
+                if (rows.length === 0) {
+                  showToast('当前无学生可以生成账单！')
+                  return
+                }
+                setConfirmingBulkGenerate(true)
+              }}
               className="rounded-full bg-[#6d5bd0] px-4 py-1 text-sm font-medium text-white"
             >
               一键生成本月账单
@@ -291,7 +304,7 @@ export function AdminBillingModule() {
       {confirmingBulkGenerate && (
         <ConfirmDialog
           title="一键生成本月账单"
-          message={`确定要生成 ${month} 的全部学生账单吗？已生成过的账单会被重新计算覆盖。`}
+          message={`确定要为当前筛选出的 ${rows.length} 名学生生成 ${month} 账单吗？已生成过的账单会被重新计算覆盖。`}
           confirmLabel="确认生成"
           danger={false}
           confirming={bulkGenerating}

@@ -279,6 +279,72 @@ class AdminBillOverviewControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void bulkGenerateOnlyCoversStudentsMatchingTheCurrentClassAndNameFilters() throws Exception {
+        Long institutionId = institutionDao.insert("账单批量生成筛选测试机构");
+        teacherDao.insert(new Teacher(null, institutionId, "13900014070",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900014071",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classAId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "甲班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long classBId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "乙班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long classAStudentId = studentDao.insert(
+                new Student(null, institutionId, classAId, "甲班学生", "一班", true, null, null));
+        Long classBStudentId = studentDao.insert(
+                new Student(null, institutionId, classBId, "乙班学生", "一班", true, null, null));
+        Long offCampusStudentId = studentDao.insert(
+                new Student(null, institutionId, null, "纯课外学生", null, true, null, null));
+        String adminToken = login("13900014070", "admin-password");
+
+        mockMvc.perform(put("/api/admin/classes/" + classAId + "/billing-rate")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tuitionRatePerMonth\":50.00,\"mealRatePerDay\":10.00}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(put("/api/admin/classes/" + classBId + "/billing-rate")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tuitionRatePerMonth\":50.00,\"mealRatePerDay\":10.00}"))
+                .andExpect(status().isOk());
+
+        // 诊断反馈 #55：按班级筛选后点「一键生成本月账单」，范围应该只是当前筛选出来的
+        // 学生——这里筛了"甲班"，乙班学生和纯课外课学生都不应该被生成账单。
+        mockMvc.perform(post("/api/admin/bills/generate?month=2024-01&classRoomId=" + classAId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.generatedCount").value(1))
+                .andExpect(jsonPath("$.failures.length()").value(0));
+
+        mockMvc.perform(get("/api/admin/bills?month=2024-01")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.studentId == " + classAStudentId + ")].billId").value(
+                        org.hamcrest.Matchers.contains(org.hamcrest.Matchers.notNullValue())))
+                .andExpect(jsonPath("$[?(@.studentId == " + classBStudentId + ")].billId").value(
+                        org.hamcrest.Matchers.contains(org.hamcrest.Matchers.nullValue())))
+                .andExpect(jsonPath("$[?(@.studentId == " + offCampusStudentId + ")].billId").value(
+                        org.hamcrest.Matchers.contains(org.hamcrest.Matchers.nullValue())));
+
+        // 按姓名筛选同理：只生成姓名能匹配上的学生。
+        mockMvc.perform(post("/api/admin/bills/generate")
+                        .param("month", "2024-01")
+                        .param("studentName", "纯课外")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.generatedCount").value(1))
+                .andExpect(jsonPath("$.failures.length()").value(0));
+
+        mockMvc.perform(get("/api/admin/bills?month=2024-01")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.studentId == " + offCampusStudentId + ")].billId").value(
+                        org.hamcrest.Matchers.contains(org.hamcrest.Matchers.notNullValue())))
+                .andExpect(jsonPath("$[?(@.studentId == " + classBStudentId + ")].billId").value(
+                        org.hamcrest.Matchers.contains(org.hamcrest.Matchers.nullValue())));
+    }
+
+    @Test
     void bulkGenerateOnlyCoversTheRequestingAdminsOwnInstitution() throws Exception {
         Long institutionAId = institutionDao.insert("账单批量生成隔离机构A");
         Long institutionBId = institutionDao.insert("账单批量生成隔离机构B");

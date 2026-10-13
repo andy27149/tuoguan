@@ -252,19 +252,33 @@ describe('AdminBillingModule', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: '一键生成本月账单' })).not.toBeInTheDocument())
   })
 
-  it('asks for confirmation before bulk-generating, and does nothing on cancel', async () => {
+  it('shows a toast instead of the confirm dialog when the current filters match no students', async () => {
+    vi.mocked(billingApi.fetchBillOverview).mockResolvedValue([])
+    render(<AdminBillingModule />)
+    await screen.findByText('暂无学生')
+
+    fireEvent.click(screen.getByRole('button', { name: '一键生成本月账单' }))
+
+    expect(await screen.findByText('当前无学生可以生成账单！')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: '一键生成本月账单' })).not.toBeInTheDocument()
+    expect(billingApi.generateInstitutionBills).not.toHaveBeenCalled()
+  })
+
+  it('asks for confirmation before bulk-generating, scoped to the currently displayed students, and does nothing on cancel', async () => {
     render(<AdminBillingModule />)
     await screen.findByText('小明')
 
     fireEvent.click(screen.getByRole('button', { name: '一键生成本月账单' }))
-    expect(await screen.findByText(`确定要生成 ${MONTH} 的全部学生账单吗？已生成过的账单会被重新计算覆盖。`)).toBeInTheDocument()
+    expect(
+      await screen.findByText(`确定要为当前筛选出的 2 名学生生成 ${MONTH} 账单吗？已生成过的账单会被重新计算覆盖。`),
+    ).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '取消' }))
 
     expect(billingApi.generateInstitutionBills).not.toHaveBeenCalled()
   })
 
-  it('bulk-generates bills for the selected month, reloads the overview, and shows a success summary', async () => {
+  it('bulk-generates bills for the selected month and current filters, reloads the overview, and shows a success summary', async () => {
     vi.mocked(billingApi.generateInstitutionBills).mockResolvedValue({ generatedCount: 42, failures: [] })
     render(<AdminBillingModule />)
     await screen.findByText('小明')
@@ -272,10 +286,49 @@ describe('AdminBillingModule', () => {
     fireEvent.click(screen.getByRole('button', { name: '一键生成本月账单' }))
     fireEvent.click(await screen.findByRole('button', { name: '确认生成' }))
 
-    await waitFor(() => expect(billingApi.generateInstitutionBills).toHaveBeenCalledWith(MONTH))
+    await waitFor(() =>
+      expect(billingApi.generateInstitutionBills).toHaveBeenCalledWith(MONTH, undefined, undefined, false),
+    )
     expect(await screen.findByRole('dialog', { name: '账单生成完成' })).toBeInTheDocument()
     expect(screen.getByText('已生成 42 份账单')).toBeInTheDocument()
     await waitFor(() => expect(billingApi.fetchBillOverview).toHaveBeenCalledTimes(2))
+  })
+
+  it('scopes bulk-generate to the selected class filter, both in the confirm message and the request', async () => {
+    vi.mocked(billingApi.fetchBillOverview).mockResolvedValue([ROWS[0]])
+    vi.mocked(billingApi.generateInstitutionBills).mockResolvedValue({ generatedCount: 1, failures: [] })
+    render(<AdminBillingModule />)
+    await screen.findByText('小明')
+
+    fireEvent.change(screen.getByLabelText('班级'), { target: { value: '21' } })
+    await waitFor(() => expect(billingApi.fetchBillOverview).toHaveBeenCalledWith(MONTH, 21, undefined, false))
+
+    fireEvent.click(screen.getByRole('button', { name: '一键生成本月账单' }))
+    expect(
+      await screen.findByText(`确定要为当前筛选出的 1 名学生生成 ${MONTH} 账单吗？已生成过的账单会被重新计算覆盖。`),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '确认生成' }))
+
+    await waitFor(() =>
+      expect(billingApi.generateInstitutionBills).toHaveBeenCalledWith(MONTH, 21, undefined, false),
+    )
+  })
+
+  it('scopes bulk-generate to the current student name search', async () => {
+    vi.mocked(billingApi.generateInstitutionBills).mockResolvedValue({ generatedCount: 1, failures: [] })
+    render(<AdminBillingModule />)
+    await screen.findByText('小明')
+
+    fireEvent.change(screen.getByPlaceholderText('搜索学生姓名'), { target: { value: '小明' } })
+    await waitFor(() => expect(billingApi.fetchBillOverview).toHaveBeenCalledWith(MONTH, undefined, '小明', false))
+
+    fireEvent.click(screen.getByRole('button', { name: '一键生成本月账单' }))
+    fireEvent.click(await screen.findByRole('button', { name: '确认生成' }))
+
+    await waitFor(() =>
+      expect(billingApi.generateInstitutionBills).toHaveBeenCalledWith(MONTH, undefined, '小明', false),
+    )
   })
 
   it('shows a warning summary listing students skipped for an unconfigured billing rate', async () => {

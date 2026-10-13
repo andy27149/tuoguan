@@ -53,9 +53,12 @@ public class AdminBillOverviewController {
 
     @PostMapping("/generate")
     public BulkBillGenerationResult generateBills(@AuthenticationPrincipal TeacherPrincipal principal,
-                                                   @RequestParam String month) {
-        BulkBillGenerationResult result =
-                billGenerationService.generateBillsForInstitution(principal.institutionId(), YearMonth.parse(month));
+                                                   @RequestParam String month,
+                                                   @RequestParam(required = false) Long classRoomId,
+                                                   @RequestParam(required = false) String studentName,
+                                                   @RequestParam(required = false, defaultValue = "false") boolean offCampusOnly) {
+        BulkBillGenerationResult result = billGenerationService.generateBillsForInstitution(
+                principal.institutionId(), YearMonth.parse(month), classRoomId, studentName, offCampusOnly);
         auditLogService.record(principal.institutionId(), principal.teacherId(), "BILL_BULK_GENERATE", "INSTITUTION",
                 principal.institutionId(), "month=" + month + ", generated=" + result.generatedCount()
                         + ", skipped=" + result.failures().size());
