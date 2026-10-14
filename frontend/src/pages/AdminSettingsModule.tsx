@@ -36,6 +36,10 @@ export function AdminSettingsModule({
   const [flagsSubmitting, setFlagsSubmitting] = useState(false)
   const [flagsError, setFlagsError] = useState<string | null>(null)
   const [confirmingFlag, setConfirmingFlag] = useState<'custodyEnabled' | 'offCampusEnabled' | null>(null)
+
+  const [billAdvanceSubmitting, setBillAdvanceSubmitting] = useState(false)
+  const [billAdvanceError, setBillAdvanceError] = useState<string | null>(null)
+  const [confirmingBillAdvance, setConfirmingBillAdvance] = useState(false)
   const { toastMessage, showToast } = useToast()
 
   function loadInstitution() {
@@ -119,6 +123,24 @@ export function AdminSettingsModule({
     }
   }
 
+  async function applyToggleBillAdvance() {
+    if (!institution) return
+    const next = !institution.billTuitionInAdvance
+    setBillAdvanceSubmitting(true)
+    setBillAdvanceError(null)
+    try {
+      const updated = await institutionApi.updateBillTuitionInAdvance(next)
+      setInstitution(updated)
+      onInstitutionUpdated?.(updated)
+      showToast(next ? '已开启托管费提前收取' : '已关闭托管费提前收取')
+    } catch {
+      setBillAdvanceError('保存失败，请重试')
+    } finally {
+      setBillAdvanceSubmitting(false)
+      setConfirmingBillAdvance(false)
+    }
+  }
+
   return (
     <div className="space-y-4 p-4">
       <div className="rounded-2xl border border-panel-border bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
@@ -179,6 +201,33 @@ export function AdminSettingsModule({
         )}
       </div>
 
+      <div className="rounded-2xl border border-panel-border bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
+        <h2 className="font-['Sora'] text-base font-semibold text-panel-ink">账单收款方式</h2>
+        {loadingInstitution ? (
+          <p className="mt-2 text-sm text-panel-muted">加载中...</p>
+        ) : (
+          institution && (
+            <div className="mt-3 flex flex-col gap-2">
+              <label className="flex items-center gap-2 text-sm text-panel-ink">
+                <input
+                  type="checkbox"
+                  checked={institution.billTuitionInAdvance}
+                  onChange={() => setConfirmingBillAdvance(true)}
+                  disabled={billAdvanceSubmitting}
+                />
+                托管费提前收取
+              </label>
+              <p className="text-xs text-panel-muted">
+                开启后，生成账单时托管费按所选月份预收（比如选 11 月，收的是 11 月的托管费），
+                餐费和课外课费则自动改成收上一个月实际发生的金额（比如 10 月的实际餐费/课外课费）。
+                关闭则保持现状：托管费/餐费/课外课费都按所选月份当月计算。
+              </p>
+              {billAdvanceError && <p className="text-xs text-panel-warn">{billAdvanceError}</p>}
+            </div>
+          )
+        )}
+      </div>
+
       {showBusinessFeatureToggles && (
         <div className="rounded-2xl border border-panel-border bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
           <h2 className="font-['Sora'] text-base font-semibold text-panel-ink">业务功能</h2>
@@ -210,6 +259,22 @@ export function AdminSettingsModule({
             )
           )}
         </div>
+      )}
+
+      {confirmingBillAdvance && institution && (
+        <ConfirmDialog
+          title={institution.billTuitionInAdvance ? '关闭托管费提前收取' : '开启托管费提前收取'}
+          message={
+            institution.billTuitionInAdvance
+              ? '关闭后，生成账单时托管费/餐费/课外课费都会改回按所选月份当月计算，和现在的预收方式不一样，确认关闭吗？'
+              : '开启后，生成账单时选的月份是托管费所属月份（预收），餐费和课外课费会自动改成算上一个月的实际发生金额。确认开启吗？'
+          }
+          confirmLabel="确认"
+          danger={false}
+          confirming={billAdvanceSubmitting}
+          onConfirm={applyToggleBillAdvance}
+          onCancel={() => setConfirmingBillAdvance(false)}
+        />
       )}
 
       {showBusinessFeatureToggles && confirmingFlag && (

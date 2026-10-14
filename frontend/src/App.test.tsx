@@ -82,6 +82,7 @@ describe('App', () => {
       logoUrl: null,
       custodyEnabled: true,
       offCampusEnabled: true,
+      billTuitionInAdvance: false,
     })
     vi.mocked(adminApi.fetchTeachers).mockResolvedValue([])
     vi.mocked(adminApi.fetchAdminClasses).mockResolvedValue([])

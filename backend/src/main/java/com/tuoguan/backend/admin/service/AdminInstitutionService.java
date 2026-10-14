@@ -51,6 +51,15 @@ public class AdminInstitutionService {
         return toResponse(requireInstitution(institutionId));
     }
 
+    // 产品反馈：部分机构月初预收下个月托管费、同时后收上个月实际发生的餐费/课外课费，
+    // 两者合并成一张账单。开启后 BillGenerationService.generateBill 会把餐费/课外课费/
+    // 请假统计的取数月份往前倒一个月，托管费本身不受影响，详见该方法内的说明。
+    public InstitutionSettingsResponse updateBillTuitionInAdvance(Long institutionId, boolean billTuitionInAdvance) {
+        requireInstitution(institutionId);
+        institutionDao.updateBillTuitionInAdvance(institutionId, billTuitionInAdvance);
+        return toResponse(requireInstitution(institutionId));
+    }
+
     public InstitutionSettingsResponse updateLogo(Long institutionId, String contentType, byte[] content) {
         if (!ALLOWED_LOGO_CONTENT_TYPES.contains(contentType)) {
             throw new InvalidLogoException("Unsupported logo content type: " + contentType);
@@ -73,6 +82,6 @@ public class AdminInstitutionService {
     private InstitutionSettingsResponse toResponse(Institution institution) {
         return new InstitutionSettingsResponse(institution.id(), institution.name(),
                 storageService.avatarUrl(institution.logoObjectKey()), institution.custodyEnabled(),
-                institution.offCampusEnabled());
+                institution.offCampusEnabled(), institution.billTuitionInAdvance());
     }
 }

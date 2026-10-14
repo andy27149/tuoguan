@@ -11,6 +11,7 @@ const INSTITUTION: institutionApi.InstitutionSettings = {
   logoUrl: null,
   custodyEnabled: true,
   offCampusEnabled: true,
+  billTuitionInAdvance: false,
 }
 
 describe('AdminSettingsModule', () => {

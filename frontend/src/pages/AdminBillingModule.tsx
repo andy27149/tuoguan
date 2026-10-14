@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import * as adminApi from '../api/admin'
 import * as billingApi from '../api/billing'
 import { PAYMENT_METHOD_LABEL, type PaymentMethod } from '../api/billing'
-import { currentMonthString } from '../kanban/date'
+import { currentMonthString, shiftMonthString } from '../kanban/date'
 import { FeeManagementModal } from '../components/FeeManagementModal'
 import { BillDetailModal } from '../components/BillDetailModal'
 import { ConfirmDialog } from '../components/ConfirmDialog'
@@ -27,7 +27,14 @@ const PAYMENT_METHODS: PaymentMethod[] = ['CASH', 'WECHAT', 'ALIPAY', 'BANK_TRAN
 const PANEL_CONFIRM_BUTTON_CLASSNAME =
   'rounded-full bg-panel-primary px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50'
 
-export function AdminBillingModule() {
+interface AdminBillingModuleProps {
+  // 开了这个开关的机构，托管费是提前收下个月的，所以月份选择器要能选到"当前月+1"，
+  // 不能再卡死在当前月（见产品反馈：机构要在月底就把下个月的托管费账单生成出来）。
+  // 可选且默认 false：现有测试大量直接 render 不传这个 prop，保持默认关闭不影响它们。
+  billTuitionInAdvance?: boolean
+}
+
+export function AdminBillingModule({ billTuitionInAdvance = false }: AdminBillingModuleProps) {
   const [classes, setClasses] = useState<adminApi.AdminClassRoom[]>([])
   const [loadingClasses, setLoadingClasses] = useState(true)
 
@@ -165,12 +172,17 @@ export function AdminBillingModule() {
             <input
               type="month"
               value={month}
-              max={currentMonthString()}
+              max={billTuitionInAdvance ? shiftMonthString(currentMonthString(), 1) : currentMonthString()}
               onChange={(e) => setMonth(e.target.value)}
               className="ml-2 rounded-lg border border-panel-border px-2 py-1 text-sm"
             />
           </label>
           <span className="text-xs text-panel-muted">留空查看全部月份</span>
+          {billTuitionInAdvance && month && (
+            <span className="text-xs text-panel-muted">
+              （此处选的是托管费所属月份，餐费/课外课费将按 {shiftMonthString(month, -1)} 实际发生计算）
+            </span>
+          )}
           <label className="text-sm text-[#5d5480]">
             班级
             <select
@@ -384,7 +396,11 @@ export function AdminBillingModule() {
       {confirmingBulkGenerate && (
         <ConfirmDialog
           title="一键生成本月账单"
-          message={`确定要为当前筛选出的 ${rows.length} 名学生生成 ${month} 账单吗？已生成过的账单会被重新计算覆盖。`}
+          message={
+            billTuitionInAdvance
+              ? `确定要为当前筛选出的 ${rows.length} 名学生生成 ${month} 账单吗？（含 ${month} 托管费 + ${shiftMonthString(month, -1)} 餐费/课外课费）已生成过的账单会被重新计算覆盖。`
+              : `确定要为当前筛选出的 ${rows.length} 名学生生成 ${month} 账单吗？已生成过的账单会被重新计算覆盖。`
+          }
           confirmLabel="确认生成"
           danger={false}
           confirmClassName={PANEL_CONFIRM_BUTTON_CLASSNAME}

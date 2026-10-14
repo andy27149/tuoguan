@@ -92,7 +92,9 @@ export function AdminDashboardPage({ onBack, onOpenClassKanban }: AdminDashboard
             {activeModule === 'pricing' && (
               <AdminPricingModule custodyEnabled={custodyEnabled} offCampusEnabled={offCampusEnabled} />
             )}
-            {activeModule === 'billing' && <AdminBillingModule />}
+            {activeModule === 'billing' && (
+              <AdminBillingModule billTuitionInAdvance={institution?.billTuitionInAdvance ?? false} />
+            )}
             {activeModule === 'settings' && <AdminSettingsModule onInstitutionUpdated={setInstitution} />}
           </div>
         </div>

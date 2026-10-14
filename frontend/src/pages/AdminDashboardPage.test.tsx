@@ -41,6 +41,7 @@ describe('AdminDashboardPage', () => {
       logoUrl: null,
       custodyEnabled: true,
       offCampusEnabled: true,
+      billTuitionInAdvance: false,
     })
   })
 
@@ -61,6 +62,7 @@ describe('AdminDashboardPage', () => {
       logoUrl: null,
       custodyEnabled: true,
       offCampusEnabled: true,
+      billTuitionInAdvance: false,
     })
     render(<AdminDashboardPage onBack={vi.fn()} />)
 
@@ -146,6 +148,7 @@ describe('AdminDashboardPage', () => {
       logoUrl: null,
       custodyEnabled: false,
       offCampusEnabled: true,
+      billTuitionInAdvance: false,
     })
     render(<AdminDashboardPage onBack={vi.fn()} />)
 
@@ -163,6 +166,7 @@ describe('AdminDashboardPage', () => {
       logoUrl: null,
       custodyEnabled: false,
       offCampusEnabled: false,
+      billTuitionInAdvance: false,
     })
     render(<AdminDashboardPage onBack={vi.fn()} />)
 

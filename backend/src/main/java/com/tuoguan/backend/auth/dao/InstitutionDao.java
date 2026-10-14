@@ -23,4 +23,6 @@ public interface InstitutionDao {
     void updateContact(Long id, String contactName, String contactPhone, String address);
 
     void updateValidUntil(Long id, LocalDate validUntil);
+
+    void updateBillTuitionInAdvance(Long id, boolean billTuitionInAdvance);
 }

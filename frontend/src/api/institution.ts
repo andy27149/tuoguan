@@ -7,6 +7,7 @@ export interface InstitutionSettings {
   logoUrl: string | null
   custodyEnabled: boolean
   offCampusEnabled: boolean
+  billTuitionInAdvance: boolean
 }
 
 export function fetchInstitutionSettings(): Promise<InstitutionSettings> {
@@ -24,6 +25,13 @@ export function updateFeatureFlags(custodyEnabled: boolean, offCampusEnabled: bo
   return apiFetch<InstitutionSettings>('/admin/institution/feature-flags', {
     method: 'PUT',
     body: JSON.stringify({ custodyEnabled, offCampusEnabled }),
+  })
+}
+
+export function updateBillTuitionInAdvance(billTuitionInAdvance: boolean): Promise<InstitutionSettings> {
+  return apiFetch<InstitutionSettings>('/admin/institution/bill-tuition-in-advance', {
+    method: 'PUT',
+    body: JSON.stringify({ billTuitionInAdvance }),
   })
 }
 

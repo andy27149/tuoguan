@@ -46,6 +46,13 @@ public class AdminInstitutionController {
                 request.offCampusEnabled());
     }
 
+    @PutMapping("/bill-tuition-in-advance")
+    public InstitutionSettingsResponse updateBillTuitionInAdvance(@AuthenticationPrincipal TeacherPrincipal principal,
+                                                                    @Valid @RequestBody UpdateBillTuitionInAdvanceRequest request) {
+        return adminInstitutionService.updateBillTuitionInAdvance(principal.institutionId(),
+                request.billTuitionInAdvance());
+    }
+
     @PostMapping("/logo")
     public InstitutionSettingsResponse uploadLogo(@AuthenticationPrincipal TeacherPrincipal principal,
                                                    @RequestParam("file") MultipartFile file) {

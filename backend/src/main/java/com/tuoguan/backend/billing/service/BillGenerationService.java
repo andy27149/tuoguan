@@ -11,7 +11,9 @@ import com.tuoguan.backend.admin.web.CourseConsumptionSummaryRow;
 import com.tuoguan.backend.admin.web.RevenueSnapshot;
 import com.tuoguan.backend.admin.web.UnpaidBillRow;
 import com.tuoguan.backend.admin.web.UnpaidBillSummary;
+import com.tuoguan.backend.auth.dao.InstitutionDao;
 import com.tuoguan.backend.auth.dao.TeacherDao;
+import com.tuoguan.backend.auth.domain.Institution;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.billing.dao.ClassBillingRateDao;
 import com.tuoguan.backend.billing.dao.MonthlyBillDao;
@@ -70,6 +72,7 @@ public class BillGenerationService {
     private final TeachingUnitDao teachingUnitDao;
     private final TeacherDao teacherDao;
     private final StudentUnitEnrollmentDao enrollmentDao;
+    private final InstitutionDao institutionDao;
     // 诊断 #33：批量生成（generateBillsForClass/generateBillsForInstitution）内部要调用
     // 本类自己的 generateBill，如果直接用 this.generateBill(...)，是类内自调用，Spring AOP
     // 代理拦截不到，@Transactional 对那次调用形同虚设——上一个学生账单写到一半失败，已经
@@ -88,7 +91,8 @@ public class BillGenerationService {
                                   MonthlyBillLeaveLineDao monthlyBillLeaveLineDao,
                                   StudentMealRecordDao studentMealRecordDao, StudentDao studentDao,
                                   TeachingUnitDao teachingUnitDao, TeacherDao teacherDao,
-                                  StudentUnitEnrollmentDao enrollmentDao, @Lazy BillGenerationService self) {
+                                  StudentUnitEnrollmentDao enrollmentDao, InstitutionDao institutionDao,
+                                  @Lazy BillGenerationService self) {
         this.classBillingRateDao = classBillingRateDao;
         this.courseAccountService = courseAccountService;
         this.studentLeaveRecordDao = studentLeaveRecordDao;
@@ -102,7 +106,20 @@ public class BillGenerationService {
         this.teachingUnitDao = teachingUnitDao;
         this.teacherDao = teacherDao;
         this.enrollmentDao = enrollmentDao;
+        this.institutionDao = institutionDao;
         this.self = self;
+    }
+
+    // 产品反馈：部分机构月初预收「下个月」托管费，同时后收「上个月」实际发生的餐费/
+    // 课外课费，两者合并成一张账单（不是两次独立收款）。账单本身的 yearMonth 始终是
+    // 管理员选的那个托管费所属月份；开启 billTuitionInAdvance 后，除了托管费单价仍按
+    // 账单的 yearMonth 取值之外，其余一切依赖"这个月实际发生了什么"的数据（请假、
+    // 用餐、课外课消课）全部改用上一个月。纯课外课学生（没有托管费这一项）也按同一个
+    // 偏移量处理——这是机构统一的收款节奏，不是只跟托管费绑定的规则。
+    private YearMonth resolveUsageMonth(Long institutionId, YearMonth billMonth) {
+        Institution institution = institutionDao.findById(institutionId)
+                .orElseThrow(() -> new NotFoundException("Institution not found: " + institutionId));
+        return institution.billTuitionInAdvance() ? billMonth.minusMonths(1) : billMonth;
     }
 
     public Optional<ClassBillingRate> getBillingRate(Long institutionId, Long classRoomId) {
@@ -139,7 +156,8 @@ public class BillGenerationService {
     public List<CourseConsumptionSummaryRow> listCourseConsumptionForMonth(Long institutionId, Long studentId,
                                                                             YearMonth month) {
         requireStudentInInstitution(institutionId, studentId);
-        return computeCourseConsumptionRows(studentId, month, !isMonthAlreadyPaid(studentId, month));
+        YearMonth usageMonth = resolveUsageMonth(institutionId, month);
+        return computeCourseConsumptionRows(studentId, usageMonth, !isMonthAlreadyPaid(studentId, month));
     }
 
     // 这个月的账单是否已经标记"已缴费"（产品诊断 #54）：已缴费说明机构已经收过这笔钱，
@@ -220,8 +238,12 @@ public class BillGenerationService {
         Student student = requireStudentInInstitution(institutionId, studentId);
         Long teachingUnitId = student.teachingUnitId();
 
-        LocalDate start = month.atDay(1);
-        LocalDate end = month.atEndOfMonth();
+        // usageMonth：请假/用餐/课外课消课这些"实际发生过什么"的数据该去查哪个月，
+        // 托管费单价本身始终按账单的 yearMonth（即 month 参数）取值，不受影响，
+        // 详见 resolveUsageMonth 的说明。
+        YearMonth usageMonth = resolveUsageMonth(institutionId, month);
+        LocalDate start = usageMonth.atDay(1);
+        LocalDate end = usageMonth.atEndOfMonth();
         int totalWeekdays = countWeekdays(start, end);
         // 请假天数不再用 countByStudentIdAndDateRange 直接数，而是先查出完整记录列表——
         // 既要算天数，也要把具体哪几天、什么原因拍成快照存进 monthly_bill_leave_line，
@@ -245,7 +267,7 @@ public class BillGenerationService {
             mealAmount = rate.mealRatePerDay().multiply(BigDecimal.valueOf(mealDates.size()));
         }
         List<CourseConsumptionSummaryRow> extraFeeRows =
-                computeCourseConsumptionRows(studentId, month, !isMonthAlreadyPaid(studentId, month));
+                computeCourseConsumptionRows(studentId, usageMonth, !isMonthAlreadyPaid(studentId, month));
         BigDecimal extraFeeTotal = extraFeeRows.stream().map(CourseConsumptionSummaryRow::amount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalAmount = tuitionAmount.add(mealAmount).add(extraFeeTotal);
