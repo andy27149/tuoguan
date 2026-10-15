@@ -36,4 +36,9 @@ public class AuthController {
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public void handleBadCredentials() {
     }
+
+    @ExceptionHandler(AccountLockedException.class)
+    @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
+    public void handleAccountLocked() {
+    }
 }
