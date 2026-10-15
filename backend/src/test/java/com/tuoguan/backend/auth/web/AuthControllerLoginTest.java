@@ -60,4 +60,25 @@ class AuthControllerLoginTest extends IntegrationTestBase {
                         .content("{\"phone\":\"13800001099\",\"password\":\"whatever\"}"))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void loginLocksAccountAfterFiveFailedAttemptsEvenWithCorrectPassword() throws Exception {
+        Long institutionId = institutionDao.insert("登录测试机构C");
+        String phone = uniquePhone();
+        Teacher teacher = new Teacher(null, institutionId, phone,
+                passwordEncoder.encode("correct-password"), Role.TEACHER, false, null);
+        teacherDao.insert(teacher);
+
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(post("/api/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"phone\":\"" + phone + "\",\"password\":\"wrong-password\"}"))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"phone\":\"" + phone + "\",\"password\":\"correct-password\"}"))
+                .andExpect(status().isTooManyRequests());
+    }
 }

@@ -1,0 +1,8 @@
+package com.tuoguan.backend.auth.web;
+
+public class AccountLockedException extends RuntimeException {
+
+    public AccountLockedException(String message) {
+        super(message);
+    }
+}
