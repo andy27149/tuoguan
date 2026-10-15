@@ -11,6 +11,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.MinIOContainer;
 import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.utility.DockerImageName;
 
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -22,7 +23,12 @@ public abstract class IntegrationTestBase {
     @ServiceConnection
     static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.0");
 
-    static final MinIOContainer MINIO = new MinIOContainer("minio/minio:latest");
+    // MinIO 官方 2026-09-11 把 minio/minio 在 Docker Hub 上的仓库直接删掉了（docker-
+    // compose.yml 里有完整背景），改用 cgr.dev/chainguard/minio——同一套 server 二进制
+    // 的维护分支，多架构、不需要登录。MinIOContainer 的单字符串构造函数会校验镜像名
+    // 必须和官方 "minio/minio" 兼容，自定义仓库路径必须显式 asCompatibleSubstituteFor。
+    static final MinIOContainer MINIO = new MinIOContainer(
+            DockerImageName.parse("cgr.dev/chainguard/minio:latest").asCompatibleSubstituteFor("minio/minio"));
 
     static {
         MYSQL.start();
