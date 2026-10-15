@@ -16,13 +16,13 @@ services:
       retries: 20
 
   minio:
-    # 2026-10-15 起 MinIO 官方锁死了 minio/minio 在 Docker Hub（以及 quay.io 镜像）的
-    # 匿名拉取权限——本机和服务器上已经在跑的容器不受影响（镜像早就缓存在本地），但
-    # 任何需要重新拉取这个镜像的场景（GitHub Actions CI、新服务器部署、或者哪天手滑
-    # `docker system prune` 清了本地镜像缓存）都会直接报 403/404 失败（已实测复现，
-    # 本机 `docker pull minio/minio:latest` 同样被拒）。把当时本地缓存的那个版本原样
-    # 镜像一份到 GHCR（我们自己能控制的仓库），不再依赖 MinIO 官方公开可见性。
-    image: ghcr.io/andy27149/tuoguan-minio:latest
+    # MinIO 官方 2026-09-11 把 minio/minio 在 Docker Hub 上的仓库直接删掉了（不是限流
+    # 也不是要登录——仓库本体不存在了，哪怕登录账号也拉不到，已实测复现），quay.io 的
+    # 备份镜像也在同月底跟着失效；社区版从此只发源码，官方的说法是要用容器镜像就买
+    # 商业版 AIStor。改用 cgr.dev/chainguard/minio——这是 Chainguard 维护的同一套
+    # MinIO server 二进制的发行分支，多架构、不需要登录、持续在更新，命令行参数和原来
+    # 的 minio/minio 完全兼容，不需要改任何应用代码。
+    image: cgr.dev/chainguard/minio:latest
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:

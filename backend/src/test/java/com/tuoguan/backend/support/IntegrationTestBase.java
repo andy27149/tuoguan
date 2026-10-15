@@ -23,12 +23,12 @@ public abstract class IntegrationTestBase {
     @ServiceConnection
     static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.0");
 
-    // 2026-10-15 起 MinIO 官方锁死了 minio/minio 在 Docker Hub 的匿名拉取权限
-    // （docker-compose.yml 里有更详细的说明），改用我们自己镜像到 GHCR 的那一份——
-    // MinIOContainer 的单字符串构造函数内部会校验镜像名必须和官方 "minio/minio"
-    // 兼容，直接传自定义仓库路径会被拒绝，必须显式 asCompatibleSubstituteFor 声明。
+    // MinIO 官方 2026-09-11 把 minio/minio 在 Docker Hub 上的仓库直接删掉了（docker-
+    // compose.yml 里有完整背景），改用 cgr.dev/chainguard/minio——同一套 server 二进制
+    // 的维护分支，多架构、不需要登录。MinIOContainer 的单字符串构造函数会校验镜像名
+    // 必须和官方 "minio/minio" 兼容，自定义仓库路径必须显式 asCompatibleSubstituteFor。
     static final MinIOContainer MINIO = new MinIOContainer(
-            DockerImageName.parse("ghcr.io/andy27149/tuoguan-minio:latest").asCompatibleSubstituteFor("minio/minio"));
+            DockerImageName.parse("cgr.dev/chainguard/minio:latest").asCompatibleSubstituteFor("minio/minio"));
 
     static {
         MYSQL.start();
