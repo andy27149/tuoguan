@@ -62,6 +62,14 @@ class AuthControllerLoginTest extends IntegrationTestBase {
     }
 
     @Test
+    void loginFailsWithUnauthorizedRatherThanServerErrorWhenPhoneIsMissing() throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"password\":\"whatever\"}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void loginLocksAccountAfterFiveFailedAttemptsEvenWithCorrectPassword() throws Exception {
         Long institutionId = institutionDao.insert("登录测试机构C");
         String phone = uniquePhone();

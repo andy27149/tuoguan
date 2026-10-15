@@ -26,14 +26,19 @@ public class AuthService {
     }
 
     public LoginResponse login(String phone, String rawPassword) {
-        if (loginAttemptService.isLocked(phone)) {
+        // phone 为 null/空（缺字段或显式传 null）本来就查不到任何老师，直接当凭证错误处理；
+        // 不加这个前置判断的话会把 null 传进 ConcurrentHashMap.compute()，NPE 变成 500，
+        // 这是 review 发现的一个回归，必须在走到限流检查之前就挡掉。
+        if (phone == null || phone.isBlank()) {
+            throw new BadCredentialsException("Invalid credentials");
+        }
+        if (loginAttemptService.isLockedAndRegisterAttempt(phone)) {
             throw new AccountLockedException("Too many failed login attempts");
         }
         Teacher teacher = teacherDao.findByPhone(phone)
                 .filter(t -> passwordEncoder.matches(rawPassword, t.passwordHash()))
                 .orElse(null);
         if (teacher == null) {
-            loginAttemptService.recordFailure(phone);
             throw new BadCredentialsException("Invalid credentials");
         }
         loginAttemptService.recordSuccess(phone);

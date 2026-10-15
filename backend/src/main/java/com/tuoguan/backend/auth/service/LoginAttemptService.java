@@ -31,33 +31,34 @@ public class LoginAttemptService {
         this.clock = clock;
     }
 
-    public void recordFailure(String phone) {
+    // 判断是否已锁定、以及把本次尝试计入次数，必须是同一次原子操作：如果分成"先查是否
+    // 锁定"和"校验完密码再记一次失败"两步（调用方中间隔着一次数据库查询 + bcrypt 比对，
+    // 耗时几十毫秒），并发请求会全部读到"未锁定"，实际能绕过的尝试次数就不再是 5 次，
+    // 而是约等于服务器当时能并行处理的请求数——这是 review 发现的真实漏洞，不是假设。
+    // 调用方应当在做密码校验之前先调用这个方法；返回 true 时直接拒绝、不要再做密码校验。
+    public boolean isLockedAndRegisterAttempt(String phone) {
         Instant now = clock.instant();
+        boolean[] wasLocked = new boolean[1];
         attemptsByPhone.compute(phone, (key, existing) -> {
-            if (existing == null || existing.windowStart().plus(WINDOW).isBefore(now)) {
-                return new Attempt(now, 1, null);
+            if (existing != null && existing.lockedUntil() != null) {
+                if (existing.lockedUntil().isAfter(now)) {
+                    wasLocked[0] = true;
+                    return existing;
+                }
+                // 锁定期已过，等同于重新开始计数。
+                existing = null;
             }
-            int count = existing.count() + 1;
-            Instant lockedUntil = count >= MAX_ATTEMPTS ? now.plus(LOCKOUT) : existing.lockedUntil();
-            return new Attempt(existing.windowStart(), count, lockedUntil);
+            boolean windowExpired = existing == null || existing.windowStart().plus(WINDOW).isBefore(now);
+            Instant windowStart = windowExpired ? now : existing.windowStart();
+            int count = windowExpired ? 1 : existing.count() + 1;
+            Instant lockedUntil = count >= MAX_ATTEMPTS ? now.plus(LOCKOUT) : null;
+            return new Attempt(windowStart, count, lockedUntil);
         });
+        return wasLocked[0];
     }
 
     public void recordSuccess(String phone) {
         attemptsByPhone.remove(phone);
-    }
-
-    public boolean isLocked(String phone) {
-        Attempt attempt = attemptsByPhone.get(phone);
-        if (attempt == null || attempt.lockedUntil() == null) {
-            return false;
-        }
-        if (attempt.lockedUntil().isBefore(clock.instant())) {
-            // 锁定期已过，顺手清掉这条记录，等于重新开始计数。
-            attemptsByPhone.remove(phone);
-            return false;
-        }
-        return true;
     }
 
     private record Attempt(Instant windowStart, int count, Instant lockedUntil) {
