@@ -49,7 +49,11 @@ public class HealthController {
     }
 
     private boolean checkDatabase() {
-        // 2 秒超时：健康检查本身不应该比它要探测的依赖更拖慢请求链路。
+        // isValid(2) 只给"连接有效性 ping"这一步设了 2 秒上限；在那之前 getConnection()
+        // 本身拿连接要花多久，上限是 application.yml 里 spring.datasource.hikari.
+        // connection-timeout（已经调到 5 秒，默认 30 秒太长），不是这里的 2——
+        // 两段加起来才是这个方法真实的最坏耗时（code review 发现，此前注释把这里
+        // 写成了"2 秒超时"，没说清楚只覆盖了一半）。
         try (Connection connection = dataSource.getConnection()) {
             return connection.isValid(2);
         } catch (SQLException e) {

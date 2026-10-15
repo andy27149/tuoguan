@@ -15,6 +15,14 @@ spring:
     url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:tuoguan}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
     username: ${DB_USERNAME:tuoguan}
     password: ${DB_PASSWORD:tuoguan}
+    hikari:
+      # 默认 30 秒——数据库网络分区（不是直接拒绝连接那种能快速报错的故障，而是悄悄
+      # 丢包的那种）时，每个等待获取连接的请求线程都要卡满 30 秒才失败，容易在故障期间
+      # 把 Tomcat 工作线程占满。缩短到 5 秒：对真实流量下偶尔的连接池短暂繁忙依然够用，
+      # 同时让 HealthController 的探测（以及所有业务请求）在数据库出问题时更快报错，
+      # 而不是被默认值拖着卡住（code review 发现：/api/health 原来的"2秒超时"注释只
+      # 覆盖了连接有效性 ping 那一步，不覆盖拿到连接本身这一步，实际上限是这里的配置值）。
+      connection-timeout: 5000
   flyway:
     enabled: true
     locations: classpath:db/migration
