@@ -24,6 +24,14 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     volumes:
       - minio_data:/data
+    # 产品诊断 #61：之前 minio 没有 healthcheck，backend 对它的 depends_on 只能用
+    # service_started（"进程起了"），没法等它真的能响应请求——MinIO 官方自带的
+    # /minio/health/live 探活端点，镜像里恰好带了 curl，直接用。
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   backend:
     build: ./backend
@@ -32,7 +40,7 @@ services:
       mysql:
         condition: service_healthy
       minio:
-        condition: service_started
+        condition: service_healthy
     environment:
       DB_HOST: mysql
       DB_PORT: 3306
@@ -44,6 +52,15 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       MINIO_BUCKET: avatars
+    # 产品诊断 #61：/api/health 现在会真实探测 DB/MinIO 连通性（见 HealthController），
+    # 配上这个 healthcheck，Compose 才能感知到"进程活着但依赖没连上"这种假性健康的情况，
+    # 而不是只看进程有没有在跑。镜像基于 eclipse-temurin:17-jre，自带 curl。
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   frontend:
     build:
@@ -53,7 +70,8 @@ services:
         VITE_BASE_PATH: ${VITE_BASE_PATH:-/}
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 volumes:
   mysql_data:
