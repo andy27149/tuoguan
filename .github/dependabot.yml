@@ -1,0 +1,23 @@
+version: 2
+updates:
+  - package-ecosystem: "maven"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # 注意：frontend 同时存在 package-lock.json（生产 Docker 构建用 npm ci 读取）和
+  # pnpm-lock.yaml（本地开发用 pnpm）两份锁文件——2026-10-14 曾因为只用 pnpm 装过新依赖、
+  # 忘了同步 package-lock.json 导致生产构建失败（npm ci 报 EUSAGE）。Dependabot 对 npm
+  # 生态只会更新它识别到的那一份锁文件，升级 PR 合并前务必确认两份锁文件都已同步，
+  # 必要时手动跑一遍 `npm install --package-lock-only` 补齐。
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
