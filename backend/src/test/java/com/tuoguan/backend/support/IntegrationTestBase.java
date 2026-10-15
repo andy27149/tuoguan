@@ -11,6 +11,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.MinIOContainer;
 import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.utility.DockerImageName;
 
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -22,7 +23,12 @@ public abstract class IntegrationTestBase {
     @ServiceConnection
     static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.0");
 
-    static final MinIOContainer MINIO = new MinIOContainer("minio/minio:latest");
+    // 2026-10-15 起 MinIO 官方锁死了 minio/minio 在 Docker Hub 的匿名拉取权限
+    // （docker-compose.yml 里有更详细的说明），改用我们自己镜像到 GHCR 的那一份——
+    // MinIOContainer 的单字符串构造函数内部会校验镜像名必须和官方 "minio/minio"
+    // 兼容，直接传自定义仓库路径会被拒绝，必须显式 asCompatibleSubstituteFor 声明。
+    static final MinIOContainer MINIO = new MinIOContainer(
+            DockerImageName.parse("ghcr.io/andy27149/tuoguan-minio:latest").asCompatibleSubstituteFor("minio/minio"));
 
     static {
         MYSQL.start();

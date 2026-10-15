@@ -16,7 +16,13 @@ services:
       retries: 20
 
   minio:
-    image: minio/minio:latest
+    # 2026-10-15 起 MinIO 官方锁死了 minio/minio 在 Docker Hub（以及 quay.io 镜像）的
+    # 匿名拉取权限——本机和服务器上已经在跑的容器不受影响（镜像早就缓存在本地），但
+    # 任何需要重新拉取这个镜像的场景（GitHub Actions CI、新服务器部署、或者哪天手滑
+    # `docker system prune` 清了本地镜像缓存）都会直接报 403/404 失败（已实测复现，
+    # 本机 `docker pull minio/minio:latest` 同样被拒）。把当时本地缓存的那个版本原样
+    # 镜像一份到 GHCR（我们自己能控制的仓库），不再依赖 MinIO 官方公开可见性。
+    image: ghcr.io/andy27149/tuoguan-minio:latest
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
