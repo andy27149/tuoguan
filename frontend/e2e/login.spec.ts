@@ -12,6 +12,6 @@ test('admin can log in and reach the institution overview', async ({ page }) => 
   await page.locator('#password').fill(ADMIN_PASSWORD)
   await page.getByRole('button', { name: '登录' }).click()
 
-  await expect(page.getByRole('button', { name: '账单管理' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '账单管理', exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: '课时不足预警' })).toBeVisible()
 })

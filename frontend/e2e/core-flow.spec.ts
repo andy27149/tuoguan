@@ -17,7 +17,7 @@ async function loginAsAdmin(page: Page) {
   await page.locator('#phone').fill(ADMIN_PHONE)
   await page.locator('#password').fill(ADMIN_PASSWORD)
   await page.getByRole('button', { name: '登录' }).click()
-  await expect(page.getByRole('button', { name: '账单管理' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '账单管理', exact: true })).toBeVisible()
 }
 
 // 这条测试自建全部数据（新教师、新课外课、新学生），不依赖手工预埋的记录，同时
@@ -79,7 +79,7 @@ test('admin creates a course and student, teacher consumes it, admin bills and m
   await page.getByRole('button', { name: '退出登录' }).click()
   await loginAsAdmin(page)
 
-  await page.getByRole('button', { name: '账单管理' }).click()
+  await page.getByRole('button', { name: '账单管理', exact: true }).click()
   await page.getByPlaceholder('搜索学生姓名').fill(STUDENT_NAME)
   await expect(page.getByRole('row', { name: new RegExp(STUDENT_NAME) })).toBeVisible()
   await page.getByRole('button', { name: '一键生成本月账单' }).click()
