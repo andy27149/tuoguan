@@ -2,11 +2,27 @@ services:
   mysql:
     ports:
       - "127.0.0.1:13306:3306"
+    # 产品诊断 #62/#63：生产服务器是 4 核 8G 单机跑 mysql+minio+backend+frontend 全部组件，
+    # 之前没有任何内存上限/日志轮转配置——任一容器异常吃满内存或日志无限增长磁盘，会拖垮
+    # 同机其它服务。下面几个 mem_limit 按 2g(mysql)+1g(backend)+512m(minio)+256m(frontend)=3.75g
+    # 分配，留了约 4.25g 给宿主机 OS/缓存和突发余量，不是卡着用、也不是形同虚设。
+    mem_limit: 2g
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
 
   minio:
     ports:
       - "127.0.0.1:9000:9000"
       - "127.0.0.1:9001:9001"
+    mem_limit: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
 
   backend:
     restart: always
@@ -17,8 +33,20 @@ services:
       # 否则后端生成的头像等预签名 URL 会指向 http://minio:9000，家长/老师的浏览器完全访问不到。
       # 见 deploy/nginx/files.conf.example 和 DEPLOY.md 第2节。
       MINIO_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT}
+    mem_limit: 1g
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
 
   frontend:
     restart: always
     ports:
       - "127.0.0.1:18081:80"
+    mem_limit: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
