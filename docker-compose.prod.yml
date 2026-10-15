@@ -6,7 +6,12 @@ services:
     # 之前没有任何内存上限/日志轮转配置——任一容器异常吃满内存或日志无限增长磁盘，会拖垮
     # 同机其它服务。下面几个 mem_limit 按 2g(mysql)+1g(backend)+512m(minio)+256m(frontend)=3.75g
     # 分配，留了约 4.25g 给宿主机 OS/缓存和突发余量，不是卡着用、也不是形同虚设。
+    # memswap_limit 顺带设成和 mem_limit 相等（code review 发现）：Docker 默认在只给
+    # mem_limit 时把 swap 配额设成 2×mem_limit，内存打满后会先悄悄用 swap 而不是立刻
+    # OOM——对 MySQL 这种延迟敏感服务尤其危险（会从毫秒级直接掉到秒级，比被杀掉更难
+    # 排查），这里统一关掉 swap，让 mem_limit 是真正的硬上限。
     mem_limit: 2g
+    memswap_limit: 2g
     logging:
       driver: json-file
       options:
@@ -18,6 +23,7 @@ services:
       - "127.0.0.1:9000:9000"
       - "127.0.0.1:9001:9001"
     mem_limit: 512m
+    memswap_limit: 512m
     logging:
       driver: json-file
       options:
@@ -34,6 +40,7 @@ services:
       # 见 deploy/nginx/files.conf.example 和 DEPLOY.md 第2节。
       MINIO_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT}
     mem_limit: 1g
+    memswap_limit: 1g
     logging:
       driver: json-file
       options:
@@ -45,6 +52,7 @@ services:
     ports:
       - "127.0.0.1:18081:80"
     mem_limit: 256m
+    memswap_limit: 256m
     logging:
       driver: json-file
       options:
