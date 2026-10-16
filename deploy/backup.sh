@@ -29,6 +29,11 @@ if [[ ! -f .env ]]; then
     exit 1
 fi
 
+# 备份文件是全机构学生/账单等真实数据的全量 dump，不能让同机其他账户/进程随便读到。
+# umask 只影响这个脚本之后新建的文件/目录，不影响 BACKUP_DIR 之前已经存在的权限，
+# 所以下面 mkdir -p 之后还要再显式 chmod 一次兜底。
+umask 077
+
 BACKUP_DIR="${BACKUP_DIR:-$(pwd)/backups}"
 RETENTION_DAYS=14
 TAG=""
@@ -45,32 +50,75 @@ for arg in "$@"; do
     esac
 done
 
+if ! [[ "$RETENTION_DAYS" =~ ^[0-9]+$ ]]; then
+    echo "错误：--retention-days 必须是非负整数，收到的是: ${RETENTION_DAYS}" >&2
+    exit 1
+fi
+
 mkdir -p "$BACKUP_DIR"
+chmod 700 "$BACKUP_DIR"
+
+# 同一把锁保护 cron 定时备份和 deploy.sh 的迁移前备份不会并发争用同一个 mysqldump/
+# tar 进程（两者理论上可能撞在同一时刻）。flock 是 util-linux 的标配命令，这里用的
+# Ubuntu/Debian/CentOS 生产服务器都自带；本机没有也不影响功能，只是失去这层互斥保护。
+LOCK_FILE="$BACKUP_DIR/.backup.lock"
+if command -v flock >/dev/null 2>&1; then
+    exec 9>"$LOCK_FILE"
+    chmod 600 "$LOCK_FILE"
+    if ! flock -n 9; then
+        echo "错误：已有另一个 backup.sh 在运行（锁文件 $LOCK_FILE），本次跳过，避免并发读写同一份数据。" >&2
+        exit 1
+    fi
+fi
+
 TIMESTAMP="$(date +%F_%H%M%S)"
+MYSQL_FILE=""
+MINIO_FILE=""
+
+# 任何一步中途失败（比如 mysql 容器没在跑），都不能把半成品文件留在 backups/ 目录里，
+# 冒充一份"看起来存在、实际恢复出来是空库/空文件"的备份——这比完全没有备份更危险。
+# 统一写到 .tmp 后缀，成功后才 rename 成正式文件名；失败时用 trap 兜底删掉 .tmp 残留。
+cleanup_incomplete() {
+    [[ -n "$MYSQL_FILE" ]] && rm -f "${MYSQL_FILE}.tmp"
+    [[ -n "$MINIO_FILE" ]] && rm -f "${MINIO_FILE}.tmp"
+}
+trap cleanup_incomplete EXIT
 
 if [[ "$DO_MYSQL" -eq 1 ]]; then
     MYSQL_FILE="$BACKUP_DIR/mysql_${TIMESTAMP}${TAG}.sql.gz"
     echo "==> 备份 MySQL 到 $MYSQL_FILE"
     # 密码始终从容器自身的环境变量里取，不会出现在本机终端历史或进程列表里。
     $COMPOSE exec -T mysql sh -c 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --all-databases' \
-        | gzip > "$MYSQL_FILE"
+        | gzip > "${MYSQL_FILE}.tmp"
+    chmod 600 "${MYSQL_FILE}.tmp"
+    mv "${MYSQL_FILE}.tmp" "$MYSQL_FILE"
     echo "    完成，大小：$(du -h "$MYSQL_FILE" | cut -f1)"
 fi
 
 if [[ "$DO_MINIO" -eq 1 ]]; then
-    MINIO_VOLUME="$(basename "$(pwd)")_minio_data"
-    if ! docker volume inspect "$MINIO_VOLUME" >/dev/null 2>&1; then
-        # docker compose 项目名默认取目录名，但可能被显式覆盖过，这里兜底扫描一次。
-        MINIO_VOLUME="$(docker volume ls --format '{{.Name}}' | grep '_minio_data$' | head -n1)"
+    # 不去猜"compose 项目名是不是等于目录名"（clone 到别的目录名、或设置过
+    # COMPOSE_PROJECT_NAME 时这个假设就不成立），也不做无限定的全局 volume 名模糊
+    # 匹配（同一台机器上跑着别的项目、卷名碰巧也以 _minio_data 结尾时会选错，静默
+    # 备份了完全无关的数据）。直接问 minio 容器自己挂载在 /data 的是哪个 volume，
+    # 这个信息绑定到"这个 compose 项目实际在跑的容器"，不依赖任何命名约定。
+    MINIO_CONTAINER="$($COMPOSE ps -q minio)"
+    if [[ -z "$MINIO_CONTAINER" ]]; then
+        echo "错误：minio 容器当前未运行，无法确定要备份哪个 volume（备份 MinIO 需要容器处于运行状态）。" >&2
+        exit 1
     fi
+    MINIO_VOLUME="$(docker inspect --format '{{ range .Mounts }}{{ if eq .Destination "/data" }}{{ .Name }}{{ end }}{{ end }}' "$MINIO_CONTAINER")"
     if [[ -z "$MINIO_VOLUME" ]]; then
-        echo "错误：找不到 MinIO 的 Docker volume（期望名字以 _minio_data 结尾）。" >&2
+        echo "错误：找不到 minio 容器挂载在 /data 路径的 volume。" >&2
         exit 1
     fi
     MINIO_FILE="$BACKUP_DIR/minio_${TIMESTAMP}${TAG}.tar.gz"
     echo "==> 备份 MinIO（volume: ${MINIO_VOLUME}）到 $MINIO_FILE"
     docker run --rm -v "$MINIO_VOLUME":/data -v "$BACKUP_DIR":/backup alpine \
-        tar czf "/backup/$(basename "$MINIO_FILE")" -C /data .
+        tar czf "/backup/$(basename "$MINIO_FILE").tmp" -C /data .
+    # 这个文件是容器里的 root 用 tar 创建的，用的是容器自己的 umask（默认 022），
+    # 不会继承宿主机这边 `umask 077` 的设置，所以必须显式 chmod，不能只靠 umask。
+    chmod 600 "${MINIO_FILE}.tmp"
+    mv "${MINIO_FILE}.tmp" "$MINIO_FILE"
     echo "    完成，大小：$(du -h "$MINIO_FILE" | cut -f1)"
 fi
 
@@ -80,4 +128,5 @@ if [[ "$RETENTION_DAYS" -gt 0 ]]; then
         -mtime "+$RETENTION_DAYS" -print -delete
 fi
 
-echo "==> 备份完成：$(ls -1 "$BACKUP_DIR" | wc -l | tr -d ' ') 个文件保留在 $BACKUP_DIR"
+BACKUP_FILE_COUNT="$(find "$BACKUP_DIR" -maxdepth 1 -type f \( -name 'mysql_*.sql.gz' -o -name 'minio_*.tar.gz' \) | wc -l | tr -d ' ')"
+echo "==> 备份完成：$BACKUP_FILE_COUNT 个备份文件保留在 $BACKUP_DIR"
