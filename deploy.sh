@@ -48,6 +48,19 @@ else
     $COMPOSE build
 fi
 
+# 产品诊断 #59：backend 容器启动时 Flyway 会自动跑数据库迁移，历史上出现过 V15/V17
+# 这种清空旧数据重录的破坏性迁移。只要 mysql 的数据 volume 已经存在（说明不是首次
+# 部署，里面有历史数据），在 `up -d` 真正触发这次迁移之前，先做一次 MySQL-only 的
+# 快照——万一这次迁移中途失败或者逻辑有问题，可以直接回滚这个备份，而不是依赖上一次
+# cron 定时备份（可能是几小时甚至一天前的数据）。用 volume 是否存在判断而不是解析
+# `docker compose ps` 的文字输出，是因为后者的格式在 v1/v2 之间不一致，容易误判。
+if docker volume ls --format '{{.Name}}' | grep -q '_mysql_data$'; then
+    echo "==> 迁移前自动备份 MySQL（即将执行的 up -d 会触发 Flyway 迁移）"
+    ./deploy/backup.sh --mysql-only --tag=predeploy
+else
+    echo "==> 跳过迁移前备份（mysql 数据 volume 尚不存在，视为首次部署，没有历史数据）"
+fi
+
 echo "==> 启动/更新容器"
 $COMPOSE up -d
 
