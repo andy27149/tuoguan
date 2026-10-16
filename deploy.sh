@@ -62,11 +62,16 @@ MYSQL_CONTAINER_ID="$($COMPOSE ps -q mysql 2>/dev/null || true)"
 if [[ -n "$MYSQL_CONTAINER_ID" ]] && [[ "$(docker inspect -f '{{.State.Running}}' "$MYSQL_CONTAINER_ID" 2>/dev/null)" == "true" ]]; then
     echo "==> 迁移前自动备份 MySQL（即将执行的 up -d 会触发 Flyway 迁移）"
     ./deploy/backup.sh --mysql-only --tag=predeploy
-elif docker volume ls --format '{{.Name}}' | grep -q '_mysql_data$'; then
-    echo "==> 跳过迁移前备份：mysql 数据 volume 已存在，但容器当前未运行（可能被手动停过），无法在线备份。"
+elif [[ -n "$($COMPOSE ps -aq mysql 2>/dev/null || true)" ]]; then
+    # 用 `ps -aq`（包含已停止的容器）判断"这个 compose 项目是否曾经创建过 mysql
+    # 容器"，而不是像上面判断 MinIO volume 时提醒过的那样去猜 volume 名字/做无
+    # 限定的全局模糊匹配——那种写法在同机跑着别的项目、卷名碰巧也以 _mysql_data
+    # 结尾时，会把"首次部署"误判成"容器被停过"，纯粹是这条提示文案说错原因，
+    # 不影响后面 up -d 是否继续执行，但没必要留着这个不一致。
+    echo "==> 跳过迁移前备份：mysql 容器存在但当前未运行（可能被手动停过），无法在线备份。"
     echo "    up -d 启动、确认服务恢复正常后，建议手动跑一次 ./deploy/backup.sh 补一份快照。"
 else
-    echo "==> 跳过迁移前备份（mysql 数据 volume 尚不存在，视为首次部署，没有历史数据）"
+    echo "==> 跳过迁移前备份（mysql 容器尚未创建过，视为首次部署，没有历史数据）"
 fi
 
 echo "==> 启动/更新容器"
