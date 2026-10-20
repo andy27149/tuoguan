@@ -26,3 +26,6 @@ frontend/docker-dev-ca-certs/*
 
 # 本地/服务器上 deploy/backup.sh 生成的备份文件，不进仓库
 backups/
+
+# 本地/服务器上 deploy.sh 生成的部署日志，不进仓库
+logs/
