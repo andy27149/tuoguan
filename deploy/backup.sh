@@ -62,7 +62,7 @@ chmod 700 "$BACKUP_DIR"
 
 # 同一把锁保护 cron 定时备份和 deploy.sh 的迁移前备份不会并发争用同一个 mysqldump/
 # tar 进程（两者理论上可能撞在同一时刻）。
-acquire_single_instance_lock "$BACKUP_DIR/.backup.lock" "backup.sh"
+acquire_single_instance_lock "$BACKUP_DIR/.backup.lock" "backup.sh" "跳过"
 
 TIMESTAMP="$(date +%F_%H%M%S)"
 MYSQL_FILE=""
