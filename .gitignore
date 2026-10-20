@@ -23,3 +23,6 @@ frontend/docker-dev-ca-certs/*
 
 # tooling
 .playwright-mcp/
+
+# 本地/服务器上 deploy/backup.sh 生成的备份文件，不进仓库
+backups/

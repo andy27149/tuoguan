@@ -12,7 +12,8 @@
 | `docker-compose.yml` | 基础编排：mysql / minio / backend / frontend 四个服务 |
 | `docker-compose.prod.yml` | 生产环境覆盖：所有端口只绑定 `127.0.0.1`，容器改为 `restart: always`，backend 的 `MINIO_ENDPOINT` 改成公网地址 |
 | `.env.example` | 环境变量模板，部署前复制成 `.env` 并填入真实的强密码 |
-| `deploy.sh` | 日常更新部署脚本（`bootstrap.sh` 内部也会调用它） |
+| `deploy.sh` | 日常更新部署脚本（`bootstrap.sh` 内部也会调用它），每次 `up -d` 前会自动做一次迁移前 MySQL 备份 |
+| `deploy/backup.sh` | MySQL/MinIO 备份脚本，配 cron 做日常定时备份，`deploy.sh` 也会调用它 |
 | `deploy/nginx/app.conf.example` | 主站 Nginx 配置示例（前端 + `/api/`），独占整个域名时用 |
 | `deploy/nginx/app-subpath.conf.example` | 域名根路径被别的系统占用、需要把本系统挂在子路径下时用，见下方"七、常见问题排查" |
 | `deploy/nginx/files.conf.example` | MinIO 独立子域名的 Nginx 配置示例 |
@@ -181,39 +182,105 @@ cd tuoguan
 用到的两个持久化 Docker volume 是 `mysql_data` 和 `minio_data`（实际名字会带项目名前缀，
 用 `docker volume ls` 确认，通常是 `tuoguan_mysql_data` / `tuoguan_minio_data`）。
 
-### MySQL：逻辑备份（推荐）
+### 自动化：`deploy/backup.sh`
 
-比直接打包 volume 更安全，能保证数据一致性：
+统一用这一个脚本做 MySQL 逻辑备份（`mysqldump --all-databases | gzip`）和 MinIO 文件级
+备份（打包整个 volume），都写到仓库根目录下的 `backups/`（已 `.gitignore`，不会被
+误提交；可以用 `BACKUP_DIR` 环境变量改成挂载的额外磁盘路径）：
 
 ```bash
-# 备份
-docker compose exec mysql sh -c 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --all-databases' \
-  > "backup_mysql_$(date +%F).sql"
+./deploy/backup.sh                       # MySQL + MinIO 都备份
+./deploy/backup.sh --mysql-only          # 只备份 MySQL（deploy.sh 迁移前自动调用的模式）
+./deploy/backup.sh --retention-days=30   # 自动清理这个天数之前的旧备份，默认 14 天
+```
 
-# 恢复（会覆盖当前数据库，操作前务必确认）
-cat backup_mysql_YYYY-MM-DD.sql | docker compose exec -T mysql sh -c 'exec mysql -uroot -p"$MYSQL_ROOT_PASSWORD"'
+**两种触发方式，建议都配上，各自解决不同的问题**：
+
+1. **迁移前自动备份（已经生效，不需要你额外配置）**：`deploy.sh` 每次执行 `up -d`
+   前，只要 mysql 容器当前确实在运行（不是首次部署），就会自动跑一次 `--mysql-only`
+   备份，文件名带 `predeploy` 标签。这是专门为了兜底 Flyway 迁移失败的场景（见下面
+   "迁移失败应急流程"），保证每次有 schema 变更的部署，手上至少有一份"迁移开始前
+   一刻"的数据，而不用依赖上一次定时备份可能是几小时甚至一天前的数据。如果 mysql
+   容器之前已经创建过、但当前没在运行（比如手动 `stop` 过服务），这一步会跳过并
+   打印提示，等 `up -d` 把服务拉起来、确认恢复正常后，记得手动补跑一次
+   `./deploy/backup.sh`。
+
+2. **日常定时备份（需要你在服务器上手动配一次 cron，出于安全考虑这一步必须你自己
+   执行，见下方命令）**：覆盖"平时没有部署动作、但数据本身需要定期备份"的场景。
+   在服务器上执行 `crontab -e`，加入（按你的服务器时区调整时间，这里是每天凌晨
+   3:17，刻意避开整点减少和其他定时任务撞在一起）：
+
+   ```cron
+   17 3 * * * cd /path/to/tuoguan && ./deploy/backup.sh >> /var/log/tuoguan-backup.log 2>&1
+   ```
+
+   配完用 `run-parts`/手动触发一次 `./deploy/backup.sh` 确认能正常生成文件，再检查
+   `/var/log/tuoguan-backup.log` 确认没有报错。
+
+**务必把 `backups/` 目录同步到服务器之外的地方**（另一台机器、对象存储、或者
+`rclone`/`rsync` 到异地），脚本本身只解决"本机有份备份"，不解决"服务器整机故障、
+备份跟着一起没了"（产品诊断 #58），这一步没有通用脚本，取决于你用什么异地存储，
+常见做法是在上面那条 cron 命令后面再接一条 `rclone sync backups/ remote:tuoguan-backups/`
+之类的命令。
+
+### 手动备份 / 恢复
+
+临时需要手动备份（比如做高风险操作前）直接跑 `./deploy/backup.sh` 即可。恢复：
+
+```bash
+# 恢复 MySQL（会覆盖当前数据库，操作前务必确认）
+gunzip -c backups/mysql_2026-10-16_031700_predeploy.sql.gz \
+  | docker compose exec -T mysql sh -c 'exec mysql -uroot -p"$MYSQL_ROOT_PASSWORD"'
+
+# 恢复 MinIO（会覆盖当前数据，操作前务必确认，且需要先停掉 minio 容器）
+docker compose stop minio
+docker run --rm -v tuoguan_minio_data:/data -v "$(pwd)/backups":/backup alpine \
+  sh -c "cd /data && tar xzf /backup/minio_2026-10-16_031700.tar.gz"
+docker compose start minio
 ```
 
 密码始终从容器自身的环境变量里取，不会出现在你本机的终端历史或日志里。
 
-### MinIO：文件级备份
+### 恢复演练（产品诊断 #55：备份从未验证过能恢复）
 
-MinIO 存的是头像等静态文件，直接打包 volume 即可：
+"配了备份"和"备份真的能用"是两回事，建议**每月一次**，在一台独立的机器或临时
+服务器上（不要在生产机上做，避免误操作影响线上数据）跑一遍完整演练：
 
-```bash
-# 备份
-docker run --rm -v tuoguan_minio_data:/data -v "$(pwd)":/backup alpine \
-  tar czf "/backup/backup_minio_$(date +%F).tar.gz" -C /data .
+1. 准备一台干净的机器，`git clone` 仓库、`cp .env.example .env` 填入任意密码（这台
+   机器只是验证恢复流程，密码不需要和生产一致）。
+2. `docker compose up -d mysql minio`，等两个容器都 healthy。
+3. 把生产服务器上最近一次的 `backups/mysql_*.sql.gz` 和 `backups/minio_*.tar.gz`
+   拷贝过来，按上面"手动备份 / 恢复"的命令分别恢复。
+4. 启动 backend（`docker compose up -d backend`），用 `curl /api/health` 确认数据库
+   连接正常，再登录一个真实机构账号，抽查学生/账单数据是否和生产一致。
+5. 记录这次演练花了多长时间（这个数字就是真实发生灾难时的预期 RTO 下限），演练
+   完直接整台机器销毁，不要把这台临时机器留着继续跑。
 
-# 恢复（会覆盖当前数据，操作前务必确认，且需要先停掉 minio 容器）
-docker compose stop minio
-docker run --rm -v tuoguan_minio_data:/data -v "$(pwd)":/backup alpine \
-  sh -c "cd /data && tar xzf /backup/backup_minio_YYYY-MM-DD.tar.gz"
-docker compose start minio
-```
+### Flyway 迁移失败应急流程（产品诊断 #59）
 
-建议写一个 cron 定时任务每天跑一次 MySQL 备份，并把备份文件同步到服务器之外的地方
-（比如另一台机器或对象存储），避免"服务器本身出问题"和"备份也没了"同时发生。
+Flyway 社区版不支持 down migration（没有"自动回滚到上一个版本"这种命令），`V15`/
+`V17` 历史上已经是破坏性迁移（清空旧数据强制重录），下一次类似迁移如果在生产执行
+中途失败，处理步骤：
+
+1. **停服，不要重试部署**：`docker compose stop backend`，避免 backend 用不完整的
+   schema 反复启动/崩溃循环，也避免用户在数据结构中间态下继续写入数据。
+2. **评估失败原因和影响范围**：`docker compose logs backend | grep -A30 "Migration .* failed"`
+   能看到 Flyway 报错的具体 SQL 和失败原因。判断这是"迁移脚本本身有 bug，数据没有
+   被破坏，修好脚本重跑就行"还是"迁移脚本已经执行到一半，数据已经处于不一致状态"。
+3. **分支处理**：
+   - 如果数据没有被破坏（比如迁移是新增字段但建索引失败）：修复迁移脚本，`mvn test`
+     本地验证通过后正常走 PR 流程修复，`./deploy.sh` 重新部署让 Flyway 重跑。
+   - 如果数据已经不一致：用 `deploy.sh` 在这次部署前自动生成的 `*_predeploy.sql.gz`
+     备份（上面"自动化"一节），按"手动备份 / 恢复"的命令整库回滚，回滚期间这次
+     部署引入的其他代码改动也会一起不生效，需要之后重新评估要不要单独修复迁移脚本
+     再部署一次。
+   - 极少数"迁移已经跑完但发现业务逻辑有问题"的情况（不是迁移本身失败），评估是否
+     能写一条补充的 Flyway 迁移（新版本号）去修正数据，而不是回滚整库——回滚会丢失
+     这次部署之后产生的所有新数据（机构当天录入的学生/账单等），只有在补 SQL 明显
+     比回滚更难、或者数据破坏范围说不清楚的时候才选择整库回滚。
+4. **恢复服务**：`docker compose start backend`，`curl /api/health` 确认正常。
+5. 事后把这次故障的原因、处理过程记录下来（哪怕只是写在 commit message 或者给自己
+   的笔记里），避免下一次类似迁移又踩同样的坑。
 
 ---
 
@@ -228,7 +295,13 @@ docker compose start minio
 - [ ] 主域名和 MinIO 子域名都已启用 HTTPS，且 80 端口的明文请求会被重定向到 443
       （certbot 默认会配置好这一条）
 - [ ] 服务器防火墙（如 `ufw`）只放行 22 / 80 / 443，其余端口一律拒绝公网访问
-- [ ] MySQL/MinIO 的备份策略已经建立并实际验证过能恢复成功，不是"配置了但没试过"
+- [ ] 已经在服务器上用 crontab 配好 `deploy/backup.sh` 的日常定时任务（见"五、备份
+      与恢复"），并且做过至少一次恢复演练验证备份真的能用，不是"配置了但没试过"
+- [ ] `backups/` 目录已经同步到服务器之外的地方（另一台机器/对象存储），不是只存在
+      同一台服务器本地磁盘上
+- [ ] `backups/` 目录和里面的备份文件权限是 `700`/`600`（`deploy/backup.sh` 已经用
+      `umask 077` + 显式 `chmod` 保证了这一点），不要用更宽松的权限手动覆盖——备份
+      文件是全机构学生/账单等真实数据的全量 dump，同机其他账户不应该能直接读到
 - [ ] 生产环境的手机号/密码等测试账号（如果有）已经清理或替换成真实数据
 - [ ] `docker-compose.prod.yml` 已给 4 个容器配置了内存上限（`mem_limit`+`memswap_limit`
       关闭 swap）和日志轮转（`max-size`/`max-file`），防止单个容器异常吃满内存或日志
