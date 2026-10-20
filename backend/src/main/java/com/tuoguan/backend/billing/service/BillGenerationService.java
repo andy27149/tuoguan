@@ -40,6 +40,8 @@ import com.tuoguan.backend.unit.dao.StudentUnitEnrollmentDao;
 import com.tuoguan.backend.unit.dao.TeachingUnitDao;
 import com.tuoguan.backend.unit.domain.BillingMode;
 import com.tuoguan.backend.unit.domain.TeachingUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -58,6 +60,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class BillGenerationService {
+
+    private static final Logger log = LoggerFactory.getLogger(BillGenerationService.class);
 
     private final ClassBillingRateDao classBillingRateDao;
     private final CourseAccountService courseAccountService;
@@ -320,9 +324,16 @@ public class BillGenerationService {
                 self.generateBill(institutionId, row.studentId(), month);
                 generatedCount++;
             } catch (BillingRateNotConfiguredException e) {
+                // 这个失败只会体现在返回给前端的 failures 列表里，管理员不点开结果弹窗
+                // 仔细看就完全没有留痕（产品诊断 #56）——打一条 warn，至少容器日志里
+                // 能查到"谁、什么时候、哪个学生因为什么原因没生成成功"。
+                log.warn("账单生成失败：institutionId={}, studentId={}, studentName={}, month={}, 原因={}",
+                        institutionId, row.studentId(), row.studentName(), month, e.getMessage());
                 failures.add(new BulkBillGenerationFailure(row.studentId(), row.studentName(), e.getMessage()));
             }
         }
+        log.info("批量生成账单完成：institutionId={}, month={}, 成功={}, 失败={}",
+                institutionId, month, generatedCount, failures.size());
         return new BulkBillGenerationResult(generatedCount, failures);
     }
 
@@ -360,9 +371,13 @@ public class BillGenerationService {
                 setBillPaid(institutionId, billId, isPaid, paymentMethod);
                 successCount++;
             } catch (NotFoundException e) {
+                log.warn("批量标记已缴费失败：institutionId={}, billId={}, 原因={}",
+                        institutionId, billId, e.getMessage());
                 failures.add(new BatchSetPaidFailure(billId, e.getMessage()));
             }
         }
+        log.info("批量标记已缴费完成：institutionId={}, isPaid={}, 成功={}, 失败={}",
+                institutionId, isPaid, successCount, failures.size());
         return new BatchSetPaidResult(successCount, failures);
     }
 
