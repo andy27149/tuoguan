@@ -14,6 +14,7 @@
 # 环境变量覆盖成其他路径（比如挂载了额外磁盘或异地同步工具监听的目录）。
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
+source deploy/lib/cleanup_old_files.sh
 
 if docker compose version >/dev/null 2>&1; then
     COMPOSE="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
@@ -124,8 +125,7 @@ fi
 
 if [[ "$RETENTION_DAYS" -gt 0 ]]; then
     echo "==> 清理 $RETENTION_DAYS 天之前的备份文件"
-    find "$BACKUP_DIR" -maxdepth 1 -type f \( -name 'mysql_*.sql.gz' -o -name 'minio_*.tar.gz' \) \
-        -mtime "+$RETENTION_DAYS" -print -delete
+    cleanup_old_files "$BACKUP_DIR" "$RETENTION_DAYS" 'mysql_*.sql.gz' 'minio_*.tar.gz'
 fi
 
 BACKUP_FILE_COUNT="$(find "$BACKUP_DIR" -maxdepth 1 -type f \( -name 'mysql_*.sql.gz' -o -name 'minio_*.tar.gz' \) | wc -l | tr -d ' ')"

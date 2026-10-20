@@ -10,6 +10,7 @@
 # 部署到底进行到哪一步、有没有报错。
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
+source deploy/lib/cleanup_old_files.sh
 
 LOG_DIR="${LOG_DIR:-$(pwd)/logs}"
 mkdir -p "$LOG_DIR"
@@ -111,10 +112,7 @@ log "==> 当前容器状态"
 $COMPOSE ps
 
 log "==> 清理 14 天之前的部署日志文件"
-# 清理旧日志纯粹是锦上添花，不该因为某个旧文件删除失败（权限变化等）就在 up -d
-# 已经成功之后让 set -e 把整个部署判定为失败，所以这里要兜底，不能让它的退出码
-# 影响脚本整体结果。
-find "$LOG_DIR" -maxdepth 1 -type f -name 'deploy_*.log' -mtime +14 -print -delete || true
+cleanup_old_files "$LOG_DIR" 14 'deploy_*.log'
 
 echo
 log "部署完成。查看后端启动日志: $COMPOSE logs -f backend"
