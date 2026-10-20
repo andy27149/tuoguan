@@ -4,36 +4,17 @@
 #   ./deploy.sh --no-pull    # 跳过 git pull，只重新构建 + 启动（适合本地已改好代码的情况）
 #   ./deploy.sh --no-cache   # 构建时不用 Docker 缓存（排查"缓存了不完整构建产物"类问题时用）
 #
-# 每次运行的完整输出（含 docker build 的全部过程）会同时打印到终端，并落盘保存到
-# logs/deploy_<时间戳>.log（可用 LOG_DIR 环境变量覆盖目录）。即使跑的时候 SSH
-# 连接意外断开、终端缓冲区被清空或复制不全，也能直接上服务器 cat 这份文件，看到
-# 部署到底进行到哪一步、有没有报错。
+# 每次运行的完整输出（含 docker build 的全部过程）会落盘保存到
+# logs/deploy_<时间戳>.log（可用 LOG_DIR 覆盖目录、LOG_RETENTION_DAYS 覆盖保留
+# 天数，默认 14 天）。日志文件是这个脚本自己的 stdout/stderr 直接 `exec >>`
+# 追加写入，不经过任何中间进程转发；另起一个 `tail -f` 子进程把内容镜像回终端，
+# 方便交互式运行时实时看效果，但它只是锦上添花的旁路——哪怕 SSH 连接意外断开、
+# 这个镜像进程先一步被杀掉，已经落盘的内容和脚本退出时 EXIT trap 打的最后一行
+# 都不会因此丢失（早期版本用 `exec > >(tee ...) 2>&1`，实测验证过 SIGHUP 场景下
+# tee 可能先于主脚本死掉，导致 trap 自己那行诊断信息因为管道另一端已经没人读而
+# 丢失——这恰好是本脚本最需要保留的那一行，所以改成现在这种直接写文件的方式）。
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
-source deploy/lib/cleanup_old_files.sh
-
-LOG_DIR="${LOG_DIR:-$(pwd)/logs}"
-mkdir -p "$LOG_DIR"
-LOG_FILE="$LOG_DIR/deploy_$(date +%Y-%m-%d_%H%M%S).log"
-# 用 `exec > >(tee ...) 2>&1` 把这之后所有输出（包括非 log 函数打的、各个
-# docker/git/mvn/npm 子命令自己的输出）都原样复制一份进日志文件，而不是只记录
-# 下面手动打的几条 `log "==> ..."` 关键节点——这样报错堆栈、构建警告等细节也不会丢。
-exec > >(tee -a "$LOG_FILE") 2>&1
-
-log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
-}
-
-trap '
-rc=$?
-if [[ "$rc" -eq 0 ]]; then
-    log "部署脚本正常结束"
-else
-    log "部署脚本异常退出，退出码：${rc}（如果上面没看到\"部署完成\"字样，说明流程中断/失败，需要排查）"
-fi
-' EXIT
-
-log "==> 部署开始，完整日志：$LOG_FILE"
 
 if docker compose version >/dev/null 2>&1; then
     COMPOSE="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
@@ -49,6 +30,48 @@ if [[ ! -f .env ]]; then
     echo "请先执行: cp .env.example .env 然后编辑 .env 填入生产环境的强密码/密钥。" >&2
     exit 1
 fi
+
+LOG_DIR="${LOG_DIR:-$(pwd)/logs}"
+LOG_RETENTION_DAYS="${LOG_RETENTION_DAYS:-14}"
+mkdir -p "$LOG_DIR"
+
+# 防止两次 deploy.sh 并发跑：不仅日志文件名按秒级时间戳会撞车、互相追加写乱掉，
+# 更根本的是 git pull / docker build / up -d（触发 Flyway 迁移）本身就不允许并发
+# 执行。flock 是 Ubuntu/Debian/CentOS 生产服务器自带的 util-linux 标配命令，跟
+# deploy/backup.sh 的做法一致；本机没有也不影响功能，只是失去这层互斥保护。
+LOCK_FILE="$LOG_DIR/.deploy.lock"
+if command -v flock >/dev/null 2>&1; then
+    exec 9>"$LOCK_FILE"
+    if ! flock -n 9; then
+        echo "错误：已有另一个 deploy.sh 在运行（锁文件 $LOCK_FILE），本次退出，避免并发执行 git pull/docker build/up -d。" >&2
+        exit 1
+    fi
+fi
+
+LOG_FILE="$LOG_DIR/deploy_$(date +%Y-%m-%d_%H%M%S).log"
+: > "$LOG_FILE"
+tail -f "$LOG_FILE" &
+TAIL_PID=$!
+exec >> "$LOG_FILE" 2>&1
+
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
+}
+
+trap '
+rc=$?
+if [[ "$rc" -eq 0 ]]; then
+    log "部署脚本正常结束"
+else
+    log "部署脚本异常退出，退出码：${rc}（如果上面没看到\"部署完成\"字样，说明流程中断/失败，需要排查）"
+fi
+kill "$TAIL_PID" 2>/dev/null || true
+wait "$TAIL_PID" 2>/dev/null || true
+' EXIT
+
+source deploy/lib/cleanup_old_files.sh
+
+log "==> 部署开始，完整日志：$LOG_FILE"
 
 PULL=1
 NO_CACHE=0
@@ -111,8 +134,8 @@ log "==> 容器启动命令执行完成"
 log "==> 当前容器状态"
 $COMPOSE ps
 
-log "==> 清理 14 天之前的部署日志文件"
-cleanup_old_files "$LOG_DIR" 14 'deploy_*.log'
+log "==> 清理 $LOG_RETENTION_DAYS 天之前的部署日志文件"
+cleanup_old_files "$LOG_DIR" "$LOG_RETENTION_DAYS" 'deploy_*.log'
 
 echo
 log "部署完成。查看后端启动日志: $COMPOSE logs -f backend"

@@ -123,10 +123,21 @@ if [[ "$DO_MINIO" -eq 1 ]]; then
     echo "    完成，大小：$(du -h "$MINIO_FILE" | cut -f1)"
 fi
 
+# 备份文件名的两种后缀模式只在这一处定义，清理和下面统计"还剩几个备份文件"都从
+# 这个数组派生，不再各自重复写一遍——以前两处分别手写过一份一样的 -name 'xxx' -o
+# -name 'yyy'，以后要是加第三种备份类型，容易改了一处忘了另一处，数量统计就会
+# 悄悄算错。
+BACKUP_FILE_PATTERNS=('mysql_*.sql.gz' 'minio_*.tar.gz')
+
 if [[ "$RETENTION_DAYS" -gt 0 ]]; then
     echo "==> 清理 $RETENTION_DAYS 天之前的备份文件"
-    cleanup_old_files "$BACKUP_DIR" "$RETENTION_DAYS" 'mysql_*.sql.gz' 'minio_*.tar.gz'
+    cleanup_old_files "$BACKUP_DIR" "$RETENTION_DAYS" "${BACKUP_FILE_PATTERNS[@]}"
 fi
 
-BACKUP_FILE_COUNT="$(find "$BACKUP_DIR" -maxdepth 1 -type f \( -name 'mysql_*.sql.gz' -o -name 'minio_*.tar.gz' \) | wc -l | tr -d ' ')"
+BACKUP_COUNT_NAME_ARGS=()
+for pattern in "${BACKUP_FILE_PATTERNS[@]}"; do
+    [[ ${#BACKUP_COUNT_NAME_ARGS[@]} -gt 0 ]] && BACKUP_COUNT_NAME_ARGS+=(-o)
+    BACKUP_COUNT_NAME_ARGS+=(-name "$pattern")
+done
+BACKUP_FILE_COUNT="$(find "$BACKUP_DIR" -maxdepth 1 -type f \( "${BACKUP_COUNT_NAME_ARGS[@]}" \) | wc -l | tr -d ' ')"
 echo "==> 备份完成：$BACKUP_FILE_COUNT 个备份文件保留在 $BACKUP_DIR"
