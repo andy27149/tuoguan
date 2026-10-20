@@ -351,7 +351,10 @@ def generate_sql(teachers, units, students, admin_phone, default_password, sourc
     lines.append("    -- ---------- 学生 + 课外课报名 ----------")
     for s in students:
         class_unit_var = f"@unit_{s['class_unit_tmp_id']}" if s["class_unit_tmp_id"] else "NULL"
-        share_token = str(uuid.uuid4())
+        # student.share_token 是 CHAR(32) NOT NULL，后端生成逻辑是
+        # UUID.randomUUID().toString().replace("-", "")（JdbcStudentDao.java），
+        # 必须去掉连字符变成 32 位，否则写不进这个定长列（实测复现过 Data too long 报错）。
+        share_token = uuid.uuid4().hex
         lines.append(
             "    INSERT INTO student (institution_id, teaching_unit_id, name, school_class_name, "
             "enrolled, share_token) "
