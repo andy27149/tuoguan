@@ -19,6 +19,8 @@ import com.tuoguan.backend.roster.web.NotFoundException;
 import com.tuoguan.backend.unit.dao.TeachingUnitDao;
 import com.tuoguan.backend.unit.domain.BillingMode;
 import com.tuoguan.backend.unit.domain.TeachingUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -36,6 +38,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class CourseAccountService {
+
+    private static final Logger log = LoggerFactory.getLogger(CourseAccountService.class);
 
     // 数据库连接以此时区解读 DATETIME 列（见 application.yml 的 JDBC URL serverTimezone
     // 参数），充值记录只有 Instant 时间戳，要和消课记录的 LocalDate 按"自然日"对齐比较时
@@ -67,6 +71,8 @@ public class CourseAccountService {
         requireCourseInInstitution(institutionId, courseId);
         Long id = rechargeRecordDao.insert(new CourseRechargeRecord(null, institutionId, studentId, courseId,
                 lessonCount, note, recordedByTeacherId, null));
+        log.info("课外课充值：institutionId={}, studentId={}, courseId={}, lessonCount={}, recordedByTeacherId={}",
+                institutionId, studentId, courseId, lessonCount, recordedByTeacherId);
         return rechargeRecordDao.findAllByStudentId(studentId).stream()
                 .filter(r -> r.id().equals(id))
                 .findFirst()

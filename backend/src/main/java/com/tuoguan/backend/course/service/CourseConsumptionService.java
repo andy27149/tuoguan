@@ -14,6 +14,8 @@ import com.tuoguan.backend.roster.web.NotFoundException;
 import com.tuoguan.backend.unit.dao.StudentUnitEnrollmentDao;
 import com.tuoguan.backend.unit.domain.StudentUnitEnrollment;
 import com.tuoguan.backend.unit.domain.TeachingUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -21,6 +23,8 @@ import java.util.List;
 
 @Service
 public class CourseConsumptionService {
+
+    private static final Logger log = LoggerFactory.getLogger(CourseConsumptionService.class);
 
     private final CourseService courseService;
     private final StudentDao studentDao;
@@ -96,8 +100,7 @@ public class CourseConsumptionService {
 
     // 设计权衡（产品诊断 #08）：未勾选的学生不生成任何记录，呼应「课外课无请假概念」的
     // 简化设计——事后无法区分「教师忘记点名」和「学生确实没来」。暂不建议改动这里的核心
-    // 语义；全库目前还没有应用日志基础设施，若投诉增多，比起单独为这一处引入日志框架，
-    // 更建议先统一规划一套应用日志方案（这里加一条「本日已点名，共到 N 人」的操作记录）。
+    // 语义；下面补的日志只记录"本日已点名，共到 N 人"，不改变这个语义。
     public List<CourseConsumptionRecord> recordBatchConsumption(Long teacherId, Long courseId, LocalDate date,
                                                                   List<Long> presentStudentIds) {
         TeachingUnit teachingUnit = courseService.getOwnedByTeacher(teacherId, courseId);
@@ -110,7 +113,7 @@ public class CourseConsumptionService {
                 .map(StudentUnitEnrollment::studentId)
                 .toList();
 
-        return presentStudentIds.stream()
+        List<CourseConsumptionRecord> recorded = presentStudentIds.stream()
                 .filter(enrolledStudentIds::contains)
                 .filter(studentId -> consumptionRecordDao
                         .findAllByStudentIdAndTeachingUnitIdAndDate(studentId, teachingUnit.id(), date).isEmpty())
@@ -126,5 +129,8 @@ public class CourseConsumptionService {
                             .orElseThrow(() -> new NotFoundException("Consumption record not found: " + id));
                 })
                 .toList();
+        log.info("课外课点名消课：institutionId={}, courseId={}, date={}, teacherId={}, 提交到={}, 实际新记={}",
+                teachingUnit.institutionId(), courseId, date, teacherId, presentStudentIds.size(), recorded.size());
+        return recorded;
     }
 }

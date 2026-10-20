@@ -307,12 +307,30 @@ Flyway 社区版不支持 down migration（没有"自动回滚到上一个版本
       关闭 swap）和日志轮转（`max-size`/`max-file`），防止单个容器异常吃满内存或日志
       无限增长拖垮整机（产品诊断 #62/#63）。当前数字是按 4 核 8G 服务器分配的：mysql 2g /
       backend 1g / minio 512m / frontend 256m——**是否适用取决于实际服务器配置**，
-      服务器规格不同或变了，部署前要核对并调整这几个数字再打勾
+      服务器规格不同或变了，部署前要核对并调整这几个数字再打勾。这个日志轮转同时
+      覆盖应用代码自己打的业务日志（账单生成/消课/登录等，产品诊断 #56），不是只管
+      框架启动日志——backend 容器所有写到 stdout 的内容都算在同一份 `max-size`×
+      `max-file` 额度里，不需要为业务日志单独配置
 
 ---
 
 ## 七、常见问题排查
 
+- **怎么查看应用日志**（产品诊断 #56）：账单生成失败、消课、充值、登录这几条关键
+  业务路径都打了日志（见 `BillGenerationService`/`CourseConsumptionService`/
+  `CourseAccountService`/`AuthService`），走的是 Spring Boot 默认的控制台输出，
+  没有写到任何独立的日志文件，所以查看方式和看其它容器日志完全一样：
+  ```bash
+  docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f backend        # 实时跟随
+  docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --since 2h backend # 只看最近2小时
+  ```
+  **不会无限增长撑爆磁盘**：backend 容器的日志（框架启动日志 + 这些业务日志，走的
+  是同一个 stdout）受"六、安全检查清单"里那条 `max-size: 10m` / `max-file: 5` 的
+  轮转配置约束，上限固定在 50MB，写满后自动删最老的文件——这是部署时就该配好的
+  Docker 层面限制，不需要为这几条新日志单独处理。副作用：轮转会删旧日志，这套方案
+  只保证"不撑爆磁盘"，不是长期留痕/审计，如果需要查几个月前的问题，现在这套本地
+  日志方案做不到（更完整的方案是接入外部日志归集/错误上报服务，目前评估后暂缓，
+  见产品诊断 #56 的决策记录）。
 - **前端能打开，但登录后接口全部报错**：先看 `docker compose logs -f backend`，
   多数是 `.env` 里数据库密码/JWT_SECRET 之类配置错误，或者 MySQL 容器还没就绪就被
   backend 连接（`docker-compose.yml` 里已经用 `depends_on: condition: service_healthy`
