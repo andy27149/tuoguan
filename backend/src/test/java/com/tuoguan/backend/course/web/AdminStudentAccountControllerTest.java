@@ -179,6 +179,39 @@ class AdminStudentAccountControllerTest extends IntegrationTestBase {
                 .andExpect(status().isForbidden());
     }
 
+    // 产品诊断 #48：涉及 institutionId 的接口里，跨机构越权（拿着 A 机构管理员 token
+    // 操作 B 机构学生的 id）只覆盖了大约一半，这里补上——充值是直接涉及金钱的操作，
+    // 是这类测试里优先级最高的缺口。底层 CourseAccountService 的 requireStudentInInstitution
+    // 已经做了校验（见该类源码），这里只是把这个既有防护钉成回归测试，而不是新增防护。
+    @Test
+    void adminCannotAccessStudentAccountFromAnotherInstitution() throws Exception {
+        Long institutionAId = institutionDao.insert("充值控制器测试机构E");
+        Long institutionBId = institutionDao.insert("充值控制器测试机构F");
+        teacherDao.insert(new Teacher(null, institutionAId, "13800013008",
+                passwordEncoder.encode("password"), Role.ADMIN, false, null));
+        Long teacherBId = teacherDao.insert(new Teacher(null, institutionBId, "13800013009",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long courseId = courseDao.insert(new TeachingUnit(null, institutionBId, teacherBId, "数学课",
+                BillingMode.LESSON_COUNT, 45, new BigDecimal("50.00"), true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionBId, null, "小外", null, true, null, null));
+        String adminAToken = login("13800013008", "password");
+
+        mockMvc.perform(post("/api/admin/students/" + studentId + "/recharges")
+                        .header("Authorization", "Bearer " + adminAToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"courseId\":" + courseId + ",\"lessonCount\":1,\"note\":null}"))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(get("/api/admin/students/" + studentId + "/course-statement")
+                        .header("Authorization", "Bearer " + adminAToken))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(get("/api/admin/students/" + studentId + "/course-consumption")
+                        .header("Authorization", "Bearer " + adminAToken)
+                        .param("month", "2024-01"))
+                .andExpect(status().isNotFound());
+    }
+
     private String login(String phone, String password) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
