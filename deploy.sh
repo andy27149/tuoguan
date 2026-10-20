@@ -31,26 +31,41 @@ if [[ ! -f .env ]]; then
     exit 1
 fi
 
+# 参数校验放在这里（任何有副作用的操作——加锁、建日志文件——之前），这样打错参数
+# 时直接报错退出，不会先占了锁、建了日志文件又立刻释放，给同时启动的另一次正常
+# 部署制造一个看起来像"已有实例在跑"、实际上是误触发的假警告。
+PULL=1
+NO_CACHE=0
+for arg in "$@"; do
+    case "$arg" in
+        --no-pull) PULL=0 ;;
+        --no-cache) NO_CACHE=1 ;;
+        *) echo "未知参数: $arg" >&2; exit 1 ;;
+    esac
+done
+
 LOG_DIR="${LOG_DIR:-$(pwd)/logs}"
 LOG_RETENTION_DAYS="${LOG_RETENTION_DAYS:-14}"
+if ! [[ "$LOG_RETENTION_DAYS" =~ ^[0-9]+$ ]]; then
+    echo "错误：LOG_RETENTION_DAYS 必须是非负整数，收到的是: ${LOG_RETENTION_DAYS}" >&2
+    exit 1
+fi
 mkdir -p "$LOG_DIR"
 
 # 防止两次 deploy.sh 并发跑：不仅日志文件名按秒级时间戳会撞车、互相追加写乱掉，
 # 更根本的是 git pull / docker build / up -d（触发 Flyway 迁移）本身就不允许并发
-# 执行。flock 是 Ubuntu/Debian/CentOS 生产服务器自带的 util-linux 标配命令，跟
-# deploy/backup.sh 的做法一致；本机没有也不影响功能，只是失去这层互斥保护。
-LOCK_FILE="$LOG_DIR/.deploy.lock"
-if command -v flock >/dev/null 2>&1; then
-    exec 9>"$LOCK_FILE"
-    if ! flock -n 9; then
-        echo "错误：已有另一个 deploy.sh 在运行（锁文件 $LOCK_FILE），本次退出，避免并发执行 git pull/docker build/up -d。" >&2
-        exit 1
-    fi
-fi
+# 执行。
+source deploy/lib/single_instance_lock.sh
+acquire_single_instance_lock "$LOG_DIR/.deploy.lock" "deploy.sh"
 
 LOG_FILE="$LOG_DIR/deploy_$(date +%Y-%m-%d_%H%M%S).log"
 : > "$LOG_FILE"
-tail -f "$LOG_FILE" &
+# `9>&-` 显式关掉这个后台 tail 继承到的锁文件描述符：flock 的锁绑定在"打开文件
+# 描述"上，而不是绑定在进程上，如果不关掉，一旦 deploy.sh 被 SIGKILL（人工 kill -9、
+# OOM killer）来不及走 EXIT trap 去杀这个 tail，残留的 tail 进程会一直攥着这份锁的
+# 文件描述符不放，导致锁永远不会释放，后面所有 deploy.sh 都会被误判成"已有实例在
+# 跑"，必须人工找到并杀掉这个残留进程才能恢复——这是 review 里实测会发生的问题。
+tail -f "$LOG_FILE" 9>&- &
 TAIL_PID=$!
 exec >> "$LOG_FILE" 2>&1
 
@@ -72,16 +87,6 @@ wait "$TAIL_PID" 2>/dev/null || true
 source deploy/lib/cleanup_old_files.sh
 
 log "==> 部署开始，完整日志：$LOG_FILE"
-
-PULL=1
-NO_CACHE=0
-for arg in "$@"; do
-    case "$arg" in
-        --no-pull) PULL=0 ;;
-        --no-cache) NO_CACHE=1 ;;
-        *) echo "未知参数: $arg" >&2; exit 1 ;;
-    esac
-done
 
 if [[ "$PULL" -eq 1 ]]; then
     if [[ -n "$(git status --porcelain)" ]]; then
@@ -134,8 +139,14 @@ log "==> 容器启动命令执行完成"
 log "==> 当前容器状态"
 $COMPOSE ps
 
-log "==> 清理 $LOG_RETENTION_DAYS 天之前的部署日志文件"
-cleanup_old_files "$LOG_DIR" "$LOG_RETENTION_DAYS" 'deploy_*.log'
+if [[ "$LOG_RETENTION_DAYS" -gt 0 ]]; then
+    log "==> 清理 $LOG_RETENTION_DAYS 天之前的部署日志文件"
+    # 清理旧日志纯粹是锦上添花，发生在 up -d 已经成功之后，不该因为某个旧文件
+    # 删除失败（权限变化等）就让 set -e 把这次已经成功的部署打成"异常退出"。
+    if ! cleanup_old_files "$LOG_DIR" "$LOG_RETENTION_DAYS" 'deploy_*.log'; then
+        log "警告：清理旧部署日志失败，不影响本次部署结果，建议手动检查 $LOG_DIR 的磁盘占用和权限"
+    fi
+fi
 
 echo
 log "部署完成。查看后端启动日志: $COMPOSE logs -f backend"

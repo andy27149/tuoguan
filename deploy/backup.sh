@@ -15,6 +15,7 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 source deploy/lib/cleanup_old_files.sh
+source deploy/lib/single_instance_lock.sh
 
 if docker compose version >/dev/null 2>&1; then
     COMPOSE="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
@@ -60,17 +61,8 @@ mkdir -p "$BACKUP_DIR"
 chmod 700 "$BACKUP_DIR"
 
 # 同一把锁保护 cron 定时备份和 deploy.sh 的迁移前备份不会并发争用同一个 mysqldump/
-# tar 进程（两者理论上可能撞在同一时刻）。flock 是 util-linux 的标配命令，这里用的
-# Ubuntu/Debian/CentOS 生产服务器都自带；本机没有也不影响功能，只是失去这层互斥保护。
-LOCK_FILE="$BACKUP_DIR/.backup.lock"
-if command -v flock >/dev/null 2>&1; then
-    exec 9>"$LOCK_FILE"
-    chmod 600 "$LOCK_FILE"
-    if ! flock -n 9; then
-        echo "错误：已有另一个 backup.sh 在运行（锁文件 $LOCK_FILE），本次跳过，避免并发读写同一份数据。" >&2
-        exit 1
-    fi
-fi
+# tar 进程（两者理论上可能撞在同一时刻）。
+acquire_single_instance_lock "$BACKUP_DIR/.backup.lock" "backup.sh"
 
 TIMESTAMP="$(date +%F_%H%M%S)"
 MYSQL_FILE=""
@@ -134,10 +126,6 @@ if [[ "$RETENTION_DAYS" -gt 0 ]]; then
     cleanup_old_files "$BACKUP_DIR" "$RETENTION_DAYS" "${BACKUP_FILE_PATTERNS[@]}"
 fi
 
-BACKUP_COUNT_NAME_ARGS=()
-for pattern in "${BACKUP_FILE_PATTERNS[@]}"; do
-    [[ ${#BACKUP_COUNT_NAME_ARGS[@]} -gt 0 ]] && BACKUP_COUNT_NAME_ARGS+=(-o)
-    BACKUP_COUNT_NAME_ARGS+=(-name "$pattern")
-done
-BACKUP_FILE_COUNT="$(find "$BACKUP_DIR" -maxdepth 1 -type f \( "${BACKUP_COUNT_NAME_ARGS[@]}" \) | wc -l | tr -d ' ')"
+_build_find_name_args "${BACKUP_FILE_PATTERNS[@]}"
+BACKUP_FILE_COUNT="$(find "$BACKUP_DIR" -maxdepth 1 -type f \( "${FIND_NAME_ARGS[@]}" \) | wc -l | tr -d ' ')"
 echo "==> 备份完成：$BACKUP_FILE_COUNT 个备份文件保留在 $BACKUP_DIR"
