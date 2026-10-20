@@ -52,13 +52,21 @@ for arg in "$@"; do
     esac
 done
 
-if ! [[ "$RETENTION_DAYS" =~ ^[0-9]+$ ]]; then
-    echo "错误：--retention-days 必须是非负整数，收到的是: ${RETENTION_DAYS}" >&2
+# 正则故意不接受前导零：--retention-days=08 这种值后面 `[[ ... -gt 0 ]]` 是按
+# bash 算术求值，08/09 不是合法八进制数字会直接报错，015 会被悄悄解释成十进制 13
+# 而不是用户以为的 15，跟 deploy.sh 的 LOG_RETENTION_DAYS 是同一个坑。
+if ! [[ "$RETENTION_DAYS" =~ ^(0|[1-9][0-9]*)$ ]]; then
+    echo "错误：--retention-days 必须是非负整数且不能有前导零，收到的是: ${RETENTION_DAYS}" >&2
     exit 1
 fi
 
 mkdir -p "$BACKUP_DIR"
 chmod 700 "$BACKUP_DIR"
+# 跟 deploy.sh 的 logs/ 目录是同一个考虑：这个目录理论上也可能被 root 身份（比如
+# 配成了 root 的 crontab）创建过，之后换普通用户身份跑就会权限不够——用 chown
+# 转交给 sudo 记录的真实操作者，而不是放宽目录权限（这里装的是真实学生/账单数据，
+# 更不能放宽）。
+_chown_to_invoking_user_if_root "$BACKUP_DIR"
 
 # 同一把锁保护 cron 定时备份和 deploy.sh 的迁移前备份不会并发争用同一个 mysqldump/
 # tar 进程（两者理论上可能撞在同一时刻）。
@@ -81,8 +89,12 @@ if [[ "$DO_MYSQL" -eq 1 ]]; then
     MYSQL_FILE="$BACKUP_DIR/mysql_${TIMESTAMP}${TAG}.sql.gz"
     echo "==> 备份 MySQL 到 $MYSQL_FILE"
     # 密码始终从容器自身的环境变量里取，不会出现在本机终端历史或进程列表里。
-    $COMPOSE exec -T mysql sh -c 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --all-databases' \
-        | gzip > "${MYSQL_FILE}.tmp"
+    # `9>&-` 分别加在管道两端：这两个都是可能跑很久的外部进程（mysqldump 导出一个
+    # 大库、gzip 压缩），如果 backup.sh 被 SIGKILL/OOM killer 杀掉，孤儿进程不关掉
+    # 继承来的锁文件描述符就会一直卡住锁——跟 deploy.sh 那边 run_unlocked 要解决的
+    # 是同一个问题，只是这里是管道，没法直接套 run_unlocked 这个函数包装。
+    $COMPOSE exec -T mysql sh -c 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --all-databases' 9>&- \
+        | gzip 9>&- > "${MYSQL_FILE}.tmp"
     chmod 600 "${MYSQL_FILE}.tmp"
     mv "${MYSQL_FILE}.tmp" "$MYSQL_FILE"
     echo "    完成，大小：$(du -h "$MYSQL_FILE" | cut -f1)"
@@ -94,19 +106,19 @@ if [[ "$DO_MINIO" -eq 1 ]]; then
     # 匹配（同一台机器上跑着别的项目、卷名碰巧也以 _minio_data 结尾时会选错，静默
     # 备份了完全无关的数据）。直接问 minio 容器自己挂载在 /data 的是哪个 volume，
     # 这个信息绑定到"这个 compose 项目实际在跑的容器"，不依赖任何命名约定。
-    MINIO_CONTAINER="$($COMPOSE ps -q minio)"
+    MINIO_CONTAINER="$(run_unlocked $COMPOSE ps -q minio)"
     if [[ -z "$MINIO_CONTAINER" ]]; then
         echo "错误：minio 容器当前未运行，无法确定要备份哪个 volume（备份 MinIO 需要容器处于运行状态）。" >&2
         exit 1
     fi
-    MINIO_VOLUME="$(docker inspect --format '{{ range .Mounts }}{{ if eq .Destination "/data" }}{{ .Name }}{{ end }}{{ end }}' "$MINIO_CONTAINER")"
+    MINIO_VOLUME="$(run_unlocked docker inspect --format '{{ range .Mounts }}{{ if eq .Destination "/data" }}{{ .Name }}{{ end }}{{ end }}' "$MINIO_CONTAINER")"
     if [[ -z "$MINIO_VOLUME" ]]; then
         echo "错误：找不到 minio 容器挂载在 /data 路径的 volume。" >&2
         exit 1
     fi
     MINIO_FILE="$BACKUP_DIR/minio_${TIMESTAMP}${TAG}.tar.gz"
     echo "==> 备份 MinIO（volume: ${MINIO_VOLUME}）到 $MINIO_FILE"
-    docker run --rm -v "$MINIO_VOLUME":/data -v "$BACKUP_DIR":/backup alpine \
+    run_unlocked docker run --rm -v "$MINIO_VOLUME":/data -v "$BACKUP_DIR":/backup alpine \
         tar czf "/backup/$(basename "$MINIO_FILE").tmp" -C /data .
     # 这个文件是容器里的 root 用 tar 创建的，用的是容器自己的 umask（默认 022），
     # 不会继承宿主机这边 `umask 077` 的设置，所以必须显式 chmod，不能只靠 umask。

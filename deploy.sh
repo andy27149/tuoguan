@@ -7,14 +7,14 @@
 # 每次运行的完整输出（含 docker build 的全部过程）会落盘保存到
 # logs/deploy_<时间戳>.log（可用 LOG_DIR 覆盖目录、LOG_RETENTION_DAYS 覆盖保留
 # 天数，默认 14 天，0 表示不清理）。日志文件是这个脚本自己的 stdout/stderr 直接
-# `exec >>` 追加写入，不经过任何中间进程转发；接在终端上跑的时候，另起一个
-# `tail -f` 子进程把内容镜像回终端方便实时看效果（非交互场景——比如 bootstrap.sh
-# 内部调用——不会起这个镜像进程），但它只是锦上添花的旁路——哪怕 SSH 连接意外
-# 断开、这个镜像进程先一步被杀掉，已经落盘的内容和脚本退出时 EXIT trap 打的最后
-# 一行都不会因此丢失（早期版本用 `exec > >(tee ...) 2>&1`，实测验证过 SIGHUP
-# 场景下 tee 可能先于主脚本死掉，导致 trap 自己那行诊断信息因为管道另一端已经
-# 没人读而丢失——这恰好是本脚本最需要保留的那一行，所以改成现在这种直接写文件
-# 的方式）。同一次运行同一时间只允许存在一个实例（flock），冲突时会报错退出。
+# `exec >>` 追加写入，不经过任何中间进程转发；另起一个 `tail -f` 子进程把内容
+# 镜像回原来的 stdout（不管那是真终端、还是调用方自己设置的重定向/管道），它只是
+# 锦上添花的旁路——哪怕 SSH 连接意外断开、这个镜像进程先一步被杀掉，已经落盘的
+# 内容和脚本退出时 EXIT trap 打的最后一行都不会因此丢失（早期版本用
+# `exec > >(tee ...) 2>&1`，实测验证过 SIGHUP 场景下 tee 可能先于主脚本死掉，
+# 导致 trap 自己那行诊断信息因为管道另一端已经没人读而丢失——这恰好是本脚本最
+# 需要保留的那一行，所以改成现在这种直接写文件的方式）。同一次运行同一时间只
+# 允许存在一个实例（flock），冲突时会报错退出。
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
@@ -48,25 +48,32 @@ done
 
 LOG_DIR="${LOG_DIR:-$(pwd)/logs}"
 LOG_RETENTION_DAYS="${LOG_RETENTION_DAYS:-14}"
-if ! [[ "$LOG_RETENTION_DAYS" =~ ^[0-9]+$ ]]; then
-    echo "错误：LOG_RETENTION_DAYS 必须是非负整数，收到的是: ${LOG_RETENTION_DAYS}" >&2
+# 正则故意不接受前导零（`^0[0-9]+$` 之外的形式一律拒绝）：LOG_RETENTION_DAYS=08
+# 这种值虽然看着像数字，后面 `[[ ... -gt 0 ]]` 是按 bash 算术求值，前导零会被当成
+# 八进制——08/09 不是合法八进制数字，会直接报 "value too great for base"；
+# 015 不报错但会被悄悄解释成十进制 13，而不是用户以为的 15。与其让用户遇到这种
+# 隐蔽的误判，不如直接要求不写前导零。
+if ! [[ "$LOG_RETENTION_DAYS" =~ ^(0|[1-9][0-9]*)$ ]]; then
+    echo "错误：LOG_RETENTION_DAYS 必须是非负整数且不能有前导零，收到的是: ${LOG_RETENTION_DAYS}" >&2
     exit 1
 fi
 mkdir -p "$LOG_DIR"
-# logs/ 只装非敏感的部署过程日志（真正敏感的备份数据在 deploy/backup.sh 自己管
-# 的 backups/，那边权限收紧到 700，跟这里不一样）。放宽成所有人可写，是因为这个
-# 目录可能先被 root 创建——bootstrap.sh 一次性初始化时以 root 身份运行，内部会
-# 调用一次 `./deploy.sh --no-pull`——也可能先被日常跑 deploy.sh 的普通用户创建
-# （DEPLOY.md「日常更新部署」一节写的就是不带 sudo）。不管谁先创建，换另一个身份
-# 跑都不该被目录权限卡住，这是 review 用 bootstrap.sh + DEPLOY.md 的实际流程交叉
-# 验证出来的真实问题：目录/锁文件一旦先被 root 创建成收敛权限，后续所有非 root
-# 的 deploy.sh 都会直接 Permission denied，永久失败。
-chmod 777 "$LOG_DIR" 2>/dev/null || true
 
 # 防止两次 deploy.sh 并发跑：不仅日志文件名按秒级时间戳会撞车、互相追加写乱掉，
 # 更根本的是 git pull / docker build / up -d（触发 Flyway 迁移）本身就不允许并发
 # 执行。
 source deploy/lib/single_instance_lock.sh
+
+# logs/ 目录可能先被 root 创建——bootstrap.sh 一次性初始化时以 root 身份运行，
+# 内部会调用一次 `./deploy.sh --no-pull`——也可能先被日常跑 deploy.sh 的普通
+# 用户创建（DEPLOY.md「日常更新部署」一节写的就是不带 sudo）。早期版本为了让
+# 两种身份都能用，把这个目录和锁文件权限放宽成所有人可写/可读写——但这会让任何
+# 本地非特权用户提前把锁文件换成指向任意文件（比如 /root/.ssh/authorized_keys）
+# 的符号链接，等下次 root 身份跑到这里直接截断、重新打开、chmod 成可写，变成一个
+# 本地提权原语（已用符号链接实测复现）。正确做法不是放宽权限，而是用 root 身份跑
+# 的时候把属主转给 sudo 记录的真实操作者（$SUDO_USER），权限继续收紧，详见
+# deploy/lib/single_instance_lock.sh 里 _chown_to_invoking_user_if_root 的注释。
+_chown_to_invoking_user_if_root "$LOG_DIR"
 acquire_single_instance_lock "$LOG_DIR/.deploy.lock" "deploy.sh"
 
 log() {
@@ -76,20 +83,22 @@ log() {
 LOG_FILE="$LOG_DIR/deploy_$(date +%Y-%m-%d_%H%M%S).log"
 : > "$LOG_FILE"
 
-# 只有接在真正的终端上才起 tail -f 做实时镜像——bootstrap.sh 内部调用、或者以后
-# 万一被 cron 调用时，根本没人盯着这个输出，起这个镜像进程纯粹是白白常驻一个
-# 后台进程、多一份 trap 里的 kill/wait 记账。
-TAIL_PID=""
-if [[ -t 1 ]]; then
-    # `9>&-` 显式关掉这个后台 tail 继承到的锁文件描述符：flock 的锁绑定在"打开
-    # 文件描述"上而不是绑定在进程上，如果不关掉，一旦 deploy.sh 被 SIGKILL（人工
-    # kill -9、OOM killer）来不及走 EXIT trap 去杀这个 tail，残留的 tail 进程会
-    # 一直攥着这份锁的文件描述符不放，导致锁永远不会释放，后面所有 deploy.sh 都
-    # 会被误判成"已有实例在跑"，必须人工找到并杀掉这个残留进程才能恢复——这是
-    # review 里实测会发生的问题。
-    tail -f "$LOG_FILE" 9>&- &
-    TAIL_PID=$!
-fi
+# 一律起 tail -f 做镜像，不按"是不是接在真终端上"（`[[ -t 1 ]]`）区分：这个
+# 判断区分不出"真的没人看，可以省掉这个进程"和"调用方自己把 deploy.sh 的输出
+# 重定向到了文件/管道（cron、systemd、外层包装脚本），就是要在那个目标里看到
+# 输出"——这两种情况 `-t 1` 都是 false。bootstrap.sh 内部调用 `./deploy.sh
+# --no-pull` 时也是同理，不能假设"不是交互式终端=没人关心输出"。tail 在这里
+# fork 出来的时机还在 `exec >>`（下面）改写当前 stdout 之前，所以它镜像的是
+# 调用方原本设置的那个目标，不管究竟是真终端、文件、还是管道，都能保留跟改造
+# 之前一样"调用方在哪里重定向，输出就去哪里"的行为。
+# `9>&-` 显式关掉这个后台 tail 继承到的锁文件描述符：flock 的锁绑定在"打开文件
+# 描述"上而不是绑定在进程上，如果不关掉，一旦 deploy.sh 被 SIGKILL（人工
+# kill -9、OOM killer）来不及走 EXIT trap 去杀这个 tail，残留的 tail 进程会
+# 一直攥着这份锁的文件描述符不放，导致锁永远不会释放，后面所有 deploy.sh 都
+# 会被误判成"已有实例在跑"，必须人工找到并杀掉这个残留进程才能恢复——这是
+# review 里实测会发生的问题。
+tail -f "$LOG_FILE" 9>&- &
+TAIL_PID=$!
 
 # trap 要在下面这行有风险的 `exec >>`（万一磁盘满了、文件系统变只读）之前就注册
 # 好，否则这个 exec 一失败，set -e 直接退出，TAIL_PID 对应的 tail 进程就没人去
@@ -101,30 +110,18 @@ if [[ "$rc" -eq 0 ]]; then
 else
     log "部署脚本异常退出，退出码：${rc}（如果上面没看到\"部署完成\"字样，说明流程中断/失败，需要排查）"
 fi
-if [[ -n "$TAIL_PID" ]]; then
-    kill "$TAIL_PID" 2>/dev/null || true
-    wait "$TAIL_PID" 2>/dev/null || true
-fi
+kill "$TAIL_PID" 2>/dev/null || true
+wait "$TAIL_PID" 2>/dev/null || true
 ' EXIT
 
 exec >> "$LOG_FILE" 2>&1
-
-# 前面只给 tail 加了 `9>&-`，只解决了它一个人的问题——git pull / docker build
-# （可能跑几十分钟甚至卡住）/ up -d / backup.sh 这些会 fork 外部进程的调用，一样
-# 会继承这份锁的文件描述符：deploy.sh 一旦被 SIGKILL/OOM killer 杀掉、这些子
-# 进程变成孤儿继续跑，就会复现跟 tail 完全一样的"锁永远不释放"问题，只是换了个
-# 更容易被忽略的地方。统一用这个函数包一层来关掉继承来的 fd 9，以后新增会 fork
-# 子进程的调用也套用它，不用每次都记得自己写一遍 `9>&-`。
-run_unlocked() {
-    "$@" 9>&-
-}
 
 source deploy/lib/cleanup_old_files.sh
 
 log "==> 部署开始，完整日志：$LOG_FILE"
 
 if [[ "$PULL" -eq 1 ]]; then
-    if [[ -n "$(git status --porcelain)" ]]; then
+    if [[ -n "$(run_unlocked git status --porcelain)" ]]; then
         echo "错误：工作区有未提交的改动，为避免覆盖，已取消自动 git pull。" >&2
         echo "请先 commit/stash，或使用 ./deploy.sh --no-pull 跳过拉取。" >&2
         exit 1

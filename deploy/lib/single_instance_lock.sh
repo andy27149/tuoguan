@@ -8,17 +8,30 @@
 # flock 是 Ubuntu/Debian/CentOS 生产服务器自带的 util-linux 标配命令；本机没有也
 # 不影响功能，只是失去这层互斥保护。
 #
-# 锁文件权限是 666 而不是更收敛的 600：这把锁要在两种身份下都能正常工作——
-# `bootstrap.sh`（一次性初始化，以 root 身份跑，内部会调用一次 `./deploy.sh
-# --no-pull`）和日常的 `./deploy.sh`（文档里写的是不带 sudo、以普通用户身份跑）。
-# 如果锁文件是 600 且先被 root 创建，后面普通用户再跑 deploy.sh 就会在
-# `exec 9>"$lock_file"` 这一步直接 Permission denied，把所有后续部署都卡死——
-# 这是 review 里拿 bootstrap.sh + DEPLOY.md 的实际流程交叉验证出来的真实问题。
-# 锁文件本身不装任何内容（只用来 flock），放宽权限不泄露数据。
+# 这把锁要在两种身份下都能正常工作——`bootstrap.sh`（一次性初始化，以 root 身份
+# 跑，内部会调用一次 `./deploy.sh --no-pull`）和日常的 `./deploy.sh`（文档里写的
+# 是不带 sudo、以普通用户身份跑）。早期版本为了解决这个问题，把锁文件/日志目录
+# 权限放宽成所有人可写（666/777）——但这是个真实可复现的本地提权漏洞：锁文件所在
+# 目录一旦所有人可写，任何本地非特权用户都能提前把锁文件名换成指向任意文件（比如
+# /root/.ssh/authorized_keys）的符号链接；`exec N>"$lock_file"` 和 `chmod` 默认都
+# 会跟随符号链接操作到真正的目标文件，下次 `sudo ./bootstrap.sh` 用 root 身份跑到
+# 这里，就会把攻击者选定的任意文件截断、以 root 身份重新打开、再 chmod 成所有人
+# 可写——相当于一个本地提权/任意文件篡改原语。已经用符号链接实测复现过。
+#
+# 正确的修复方式不是放宽权限，而是：谁用 root 身份创建了这把锁，就把它的属主转给
+# 真正日常操作的那个人（从 sudo 设置的 SUDO_USER 环境变量拿到），权限继续收紧在
+# 600，不给其他本地账户任何可乘之机。
 #
 # 用法：acquire_single_instance_lock <锁文件路径> <失败提示里要显示的脚本名> [冲突时的动作词，默认"退出"]
 #   acquire_single_instance_lock "$LOG_DIR/.deploy.lock" "deploy.sh"
 #   acquire_single_instance_lock "$BACKUP_DIR/.backup.lock" "backup.sh" "跳过"
+_chown_to_invoking_user_if_root() {
+    local path="$1"
+    if [[ "$EUID" -eq 0 ]] && [[ -n "${SUDO_USER:-}" ]]; then
+        chown "$SUDO_USER" "$path" 2>/dev/null || true
+    fi
+}
+
 acquire_single_instance_lock() {
     local lock_file="$1"
     local script_name="$2"
@@ -29,9 +42,21 @@ acquire_single_instance_lock() {
     fi
 
     exec 9>"$lock_file"
-    chmod 666 "$lock_file" 2>/dev/null || true
+    chmod 600 "$lock_file"
+    _chown_to_invoking_user_if_root "$lock_file"
     if ! flock -n 9; then
         echo "错误：已有另一个 ${script_name} 在运行（锁文件 ${lock_file}），本次${conflict_verb}，避免并发执行。" >&2
         exit 1
     fi
+}
+
+# fd 9 是上面这把锁用的文件描述符。执行会 fork 外部进程、且可能跑很久（甚至卡住）
+# 的命令时用这个包一层显式关掉继承来的 fd 9：flock 的锁绑定在"打开文件描述"上，
+# 如果不关，一旦调用方脚本被 SIGKILL/OOM killer 杀掉，这些子进程变成孤儿继续
+# 运行，就会一直攥着这把锁不放，导致锁永远不会释放，必须人工找到并杀掉残留进程
+# 才能恢复。deploy.sh（git pull/docker build/up -d/backup.sh）和 backup.sh
+# （mysqldump/docker run tar）两边所有符合条件的调用都应该套这个；已经用 lsof
+# 实测验证过子进程确实不再继承这个 fd。
+run_unlocked() {
+    "$@" 9>&-
 }
