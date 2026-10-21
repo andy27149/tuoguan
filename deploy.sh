@@ -58,6 +58,10 @@ if ! [[ "$LOG_RETENTION_DAYS" =~ ^(0|[1-9][0-9]*)$ ]]; then
     exit 1
 fi
 mkdir -p "$LOG_DIR"
+# 显式 chmod，不依赖运行时的 umask：如果部署账号/cron 的 umask 恰好比较宽松
+# （比如 002 甚至 000），`mkdir -p` 建出来的目录就会是组/所有人可写，重新打开下面
+# 这段注释费力关掉的符号链接攻击面。跟 deploy/backup.sh 对 BACKUP_DIR 的做法一致。
+chmod 700 "$LOG_DIR"
 
 # 防止两次 deploy.sh 并发跑：不仅日志文件名按秒级时间戳会撞车、互相追加写乱掉，
 # 更根本的是 git pull / docker build / up -d（触发 Flyway 迁移）本身就不允许并发
