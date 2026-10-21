@@ -76,8 +76,10 @@ class StorageServiceTest {
 
     @Test
     void rejectsRetryBudgetExceedingSanityCap() {
-        // 300_001ms，刚好超过 5 分钟的上限一毫秒，确认边界判断用的是 > 而不是 >=。
-        assertThatThrownBy(() -> new StorageService(minioClient, BUCKET, 3, 100_001))
+        // 真正会睡眠的次数是 (max-attempts - 1)，不是 max-attempts——所以用
+        // attempts=2, delay=300_001 让 (2-1)*300_001=300_001ms，刚好超过 5 分钟
+        // 的上限一毫秒，确认边界判断用的是 > 而不是 >=。
+        assertThatThrownBy(() -> new StorageService(minioClient, BUCKET, 2, 300_001))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("exceeds the sanity cap");
     }
@@ -86,10 +88,34 @@ class StorageServiceTest {
     void allowsRetryBudgetExactlyAtSanityCap() throws Exception {
         when(minioClient.bucketExists(any(BucketExistsArgs.class))).thenReturn(true);
 
-        // 3 * 100_000 = 300_000ms，正好等于上限，不应该被拒绝。
-        new StorageService(minioClient, BUCKET, 3, 100_000);
+        // (3-1)*150_000 = 300_000ms，正好等于上限，不应该被拒绝。
+        new StorageService(minioClient, BUCKET, 3, 150_000);
 
         verify(minioClient, times(1)).bucketExists(any(BucketExistsArgs.class));
+    }
+
+    @Test
+    void allowsLargeDelayWhenOnlyOneAttemptSinceItNeverActuallySleeps() throws Exception {
+        when(minioClient.bucketExists(any(BucketExistsArgs.class))).thenReturn(true);
+
+        // max-attempts=1 时循环只尝试一次，根本不会走到 sleep 这一步，所以哪怕
+        // delay-millis 配置得很大（单独拿出来算乘积会"看起来"远超 5 分钟上限），
+        // 也该被允许——这正是第一版用"attempts * delay"算总预算时被误判拒绝的
+        // 那种场景。
+        new StorageService(minioClient, BUCKET, 1, 10_000_000);
+
+        verify(minioClient, times(1)).bucketExists(any(BucketExistsArgs.class));
+    }
+
+    @Test
+    void rejectsHugeAttemptsEvenWithZeroDelay() {
+        // delay-millis=0 时，(attempts-1)*0 永远是 0，絶不会触发睡眠预算上限——
+        // 这正是第一版的漏洞：用一个极大的 max-attempts 配上 delay-millis=0 能
+        // 完全绕过"总等待时间"的校验，变成不停重试、瞬间打爆 MinIO。靠独立于
+        // delay-millis 的 MAX_ATTEMPTS_CEILING 挡住这种配置。
+        assertThatThrownBy(() -> new StorageService(minioClient, BUCKET, 2_000_000_000, 0))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("max-attempts");
     }
 
     @Test
