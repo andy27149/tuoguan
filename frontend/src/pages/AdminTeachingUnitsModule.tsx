@@ -77,13 +77,20 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled, onO
       .fetchTeachers()
       .then((list) => {
         setTeachers(list)
-        const firstTeacher = list.find((t) => t.role === 'TEACHER')
-        if (firstTeacher) setNewTeacherId(firstTeacher.id)
+        if (list[0]) setNewTeacherId(list[0].id)
       })
       .finally(() => setLoadingTeachers(false))
   }, [])
 
-  const teacherOptions = teachers.filter((t) => t.role === 'TEACHER')
+  // 机构管理员本人同时带班的场景真实存在（后端写接口从一开始就只按 teacherId
+  // 归属判断、不看角色，见 KanbanPage.tsx 的 ownsClass），之前这里把 ADMIN
+  // 角色的账号整个过滤掉，导致这种班级根本没法通过界面创建/转移——现在把
+  // 管理员账号也纳入可选范围，下拉里额外标注角色避免和普通教师账号混淆。
+  const teacherOptions = teachers
+  function teacherOptionLabel(t: adminApi.Teacher): string {
+    const base = t.name || t.phone
+    return t.role === 'ADMIN' ? `${base}（管理员）` : base
+  }
 
   async function handleCreate(e: FormEvent) {
     e.preventDefault()
@@ -268,7 +275,7 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled, onO
             >
               {teacherOptions.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.name || t.phone}
+                  {teacherOptionLabel(t)}
                 </option>
               ))}
             </select>
@@ -365,7 +372,7 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled, onO
                           >
                             {teacherOptions.map((t) => (
                               <option key={t.id} value={t.id}>
-                                {t.name || t.phone}
+                                {teacherOptionLabel(t)}
                               </option>
                             ))}
                           </select>
