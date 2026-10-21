@@ -19,16 +19,32 @@
 # 可写——相当于一个本地提权/任意文件篡改原语。已经用符号链接实测复现过。
 #
 # 正确的修复方式不是放宽权限，而是：谁用 root 身份创建了这把锁，就把它的属主转给
-# 真正日常操作的那个人（从 sudo 设置的 SUDO_USER 环境变量拿到），权限继续收紧在
-# 600，不给其他本地账户任何可乘之机。
+# 真正日常操作的那个人（优先从 sudo 设置的 SUDO_USER 环境变量拿到），权限继续
+# 收紧在 600，不给其他本地账户任何可乘之机。
+#
+# SUDO_USER 只覆盖"用 sudo 跑"这一种情况——如果是直接以 root 身份登录执行（比如
+# DEPLOY.md 里 backup.sh 的 cron 示例没有限定用哪个账户的 crontab，配成 root 的
+# crontab 也是可能的），不会有 SUDO_USER，这种情况退而求其次，用仓库目录本身的
+# 属主：不管 root 是怎么拿到的，这个目录通常就是真正日常操作的那个人 clone 下来
+# 的，是比"有没有设置 SUDO_USER"更通用的信号。两边的 cd 发生在调用这个函数之前，
+# 所以这里的 `.` 就是仓库根目录。
 #
 # 用法：acquire_single_instance_lock <锁文件路径> <失败提示里要显示的脚本名> [冲突时的动作词，默认"退出"]
 #   acquire_single_instance_lock "$LOG_DIR/.deploy.lock" "deploy.sh"
 #   acquire_single_instance_lock "$BACKUP_DIR/.backup.lock" "backup.sh" "跳过"
 _chown_to_invoking_user_if_root() {
     local path="$1"
-    if [[ "$EUID" -eq 0 ]] && [[ -n "${SUDO_USER:-}" ]]; then
-        chown "$SUDO_USER" "$path" 2>/dev/null || true
+
+    if [[ "$EUID" -ne 0 ]]; then
+        return 0
+    fi
+
+    local target_user="${SUDO_USER:-}"
+    if [[ -z "$target_user" ]]; then
+        target_user="$(stat -c '%U' . 2>/dev/null || true)"
+    fi
+    if [[ -n "$target_user" ]] && [[ "$target_user" != "root" ]]; then
+        chown "$target_user" "$path" 2>/dev/null || true
     fi
 }
 

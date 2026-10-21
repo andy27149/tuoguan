@@ -57,10 +57,15 @@ if ! [[ "$LOG_RETENTION_DAYS" =~ ^(0|[1-9][0-9]*)$ ]]; then
     echo "错误：LOG_RETENTION_DAYS 必须是非负整数且不能有前导零，收到的是: ${LOG_RETENTION_DAYS}" >&2
     exit 1
 fi
-mkdir -p "$LOG_DIR"
-# 显式 chmod，不依赖运行时的 umask：如果部署账号/cron 的 umask 恰好比较宽松
-# （比如 002 甚至 000），`mkdir -p` 建出来的目录就会是组/所有人可写，重新打开下面
-# 这段注释费力关掉的符号链接攻击面。跟 deploy/backup.sh 对 BACKUP_DIR 的做法一致。
+# `-m 700` 让目录在刚被创建出来的那一刻就是 700，不依赖运行时的 umask，也不给
+# "mkdir 和 chmod 是两条独立指令"留出窗口——如果部署账号/cron 的 umask 比较宽松
+# （比如 002 甚至 000），光靠事后再补一次 chmod，中间仍然有一段目录已经建好、还
+# 没来得及收紧权限的间隙，本地攻击者理论上可以抢在这个间隙里把锁文件名提前占成
+# 指向任意文件的符号链接。下面这行 chmod 不是多余：`-m` 只在目录第一次被创建时
+# 生效，如果目录是上一个版本的脚本建的、权限不对，`mkdir -p` 碰到已存在的目录
+# 不会重新应用 `-m`，还是需要显式 chmod 兜底修正。跟 deploy/backup.sh 对
+# BACKUP_DIR 的做法一致。
+mkdir -p -m 700 "$LOG_DIR"
 chmod 700 "$LOG_DIR"
 
 # 防止两次 deploy.sh 并发跑：不仅日志文件名按秒级时间戳会撞车、互相追加写乱掉，
@@ -155,7 +160,13 @@ log "==> 镜像构建完成"
 MYSQL_CONTAINER_ID="$(run_unlocked $COMPOSE ps -q mysql 2>/dev/null || true)"
 if [[ -n "$MYSQL_CONTAINER_ID" ]] && [[ "$(run_unlocked docker inspect -f '{{.State.Running}}' "$MYSQL_CONTAINER_ID" 2>/dev/null)" == "true" ]]; then
     log "==> 迁移前自动备份 MySQL（即将执行的 up -d 会触发 Flyway 迁移）"
-    run_unlocked ./deploy/backup.sh --mysql-only --tag=predeploy
+    # 不能让这一步失败把整个部署带崩——上面这段注释说的"不该因为这个失败而诡异
+    # 中止"，原本只覆盖了"mysql 没在跑"这种情况，但 backup.sh 自己也可能因为
+    # DEPLOY.md 里配的 cron 定时备份正好撞上、抢占了它自己的锁而失败退出，这种
+    # 瞬时冲突不该因为这里是裸语句、被 set -e 直接判定成整个部署失败。
+    if ! run_unlocked ./deploy/backup.sh --mysql-only --tag=predeploy; then
+        log "警告：迁移前自动备份失败（有可能是跟 cron 定时备份撞车、抢占了 backup.sh 自己的锁，也可能是备份本身出错），继续执行 up -d。建议部署完成后手动确认一下最近有没有可用的备份快照。"
+    fi
 elif [[ -n "$(run_unlocked $COMPOSE ps -aq mysql 2>/dev/null || true)" ]]; then
     # 用 `ps -aq`（包含已停止的容器）判断"这个 compose 项目是否曾经创建过 mysql
     # 容器"，而不是像上面判断 MinIO volume 时提醒过的那样去猜 volume 名字/做无

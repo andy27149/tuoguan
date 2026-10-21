@@ -60,7 +60,11 @@ if ! [[ "$RETENTION_DAYS" =~ ^(0|[1-9][0-9]*)$ ]]; then
     exit 1
 fi
 
-mkdir -p "$BACKUP_DIR"
+# 这里其实已经靠上面的 `umask 077` 保证了 mkdir 出来的目录本身就是 700，不存在
+# deploy.sh 那边 logs/ 目录曾经有过的"先用默认权限建出目录、隔了几条指令才补
+# chmod"的窗口；额外加 `-m 700` 纯粹是为了两边写法一致、不用追溯到这条 umask
+# 才能确认安全，chmod 仍然保留用于修正上一个版本脚本建的、权限不对的旧目录。
+mkdir -p -m 700 "$BACKUP_DIR"
 chmod 700 "$BACKUP_DIR"
 # 跟 deploy.sh 的 logs/ 目录是同一个考虑：这个目录理论上也可能被 root 身份（比如
 # 配成了 root 的 crontab）创建过，之后换普通用户身份跑就会权限不够——用 chown
