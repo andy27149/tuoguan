@@ -111,6 +111,13 @@ def read_sheet_rows(ws):
     return rows
 
 
+# generate_template.py 生成的教师表示例行的手机号——review 发现如果机构负责人忘记
+# 删除示例行（说明页之前没有提醒到位，已经修复，但这里再加一道代码层面的兜底），
+# 会把一个角色是"管理员"、密码是默认值的虚构账号当真实数据导入生产库。这两个号码
+# 是脚本自己生成的示例值，真实机构撞上的概率可以忽略不计，撞上了直接拦截更安全。
+EXAMPLE_TEACHER_PHONES = {"13800000001", "13800000002"}
+
+
 def load_teachers(ws, errors):
     teachers = {}  # tmp_id -> dict
     phones_seen = {}
@@ -120,6 +127,10 @@ def load_teachers(ws, errors):
         name = cell_str(row[2] if len(row) > 2 else None)
         role_cn = cell_str(row[3] if len(row) > 3 else None)
         label = f"教师表第 {idx} 行"
+
+        if phone in EXAMPLE_TEACHER_PHONES:
+            errors.append(f"{label}：手机号 {phone} 是模板自带的示例数据，"
+                           f"看起来忘记删除示例行了，请删掉这一行再导入")
 
         if not tmp_id:
             errors.append(f"{label}：缺少临时编号")
@@ -306,6 +317,21 @@ def generate_sql(teachers, units, students, admin_phone, default_password, sourc
     lines.append("CREATE PROCEDURE tuoguan_import_batch()")
     lines.append("BEGIN")
     lines.append("    DECLARE v_institution_id BIGINT;")
+    lines.append("")
+    lines.append("    -- review 发现的真实问题：不声明这个 HANDLER 的话，\"中途失败整体回滚\"")
+    lines.append("    -- 这个安全保证只在用一次性管道（mysql ... < file.sql）执行时成立——那种")
+    lines.append("    -- 方式下出错会直接断开连接，服务端对断开的会话自动回滚未提交事务。但如果")
+    lines.append("    -- 在交互式会话里 source 这个文件、中途报错后又在同一个未断开的会话里")
+    lines.append("    -- source 改好的文件重新导入，第二个文件开头的 DROP PROCEDURE 是一条 DDL，")
+    lines.append("    -- DDL 会隐式 COMMIT 当前会话里任何还开着的事务——会把第一次失败时已经")
+    lines.append("    -- 插入的半成品数据连同这次的新数据一起提交，不会有任何报错提示（已实测")
+    lines.append("    -- 复现）。显式声明这个 HANDLER 让任何未预期的 SQL 错误都先 ROLLBACK 再")
+    lines.append("    -- 重新抛出，不依赖\"连接是否断开\"这个外部条件，无论用哪种方式执行都安全。")
+    lines.append("    DECLARE EXIT HANDLER FOR SQLEXCEPTION")
+    lines.append("    BEGIN")
+    lines.append("        ROLLBACK;")
+    lines.append("        RESIGNAL;")
+    lines.append("    END;")
     lines.append("")
     lines.append("    SELECT institution_id INTO v_institution_id")
     lines.append(f"    FROM teacher WHERE phone = {sql_str(admin_phone)} AND role = 'ADMIN'")
