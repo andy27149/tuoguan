@@ -39,6 +39,11 @@ const EMPTY_NOTE: StudentNote = { rating: 0, comment: '' }
 const EMPTY_ARRIVAL = ''
 const EMPTY_LEAVE = ''
 
+// 管理员拿到的班级列表（adminApi.fetchAdminClasses）带 teacherId，老师自己的班级列表
+// （classesApi.fetchClasses）不带——用联合类型而不是单独维护一份映射，这样"这个班是不是
+// 我自己带的"这个判断可以直接查 classes 状态里已有的数据，不需要额外请求。
+type KanbanClassRoom = classesApi.ClassRoom | adminApi.AdminClassRoom
+
 interface KanbanPageProps {
   onOpenConsumption: () => void
   onOpenAdmin?: () => void
@@ -56,7 +61,7 @@ export function KanbanPage({
 }: KanbanPageProps) {
   const { logout, state } = useAuth()
   const isAdmin = state.status === 'authenticated' && state.teacher.role === 'ADMIN'
-  const [classes, setClasses] = useState<classesApi.ClassRoom[]>([])
+  const [classes, setClasses] = useState<KanbanClassRoom[]>([])
   const [activeClassId, setActiveClassId] = useState<number | null>(null)
   const [students, setStudents] = useState<studentsApi.Student[]>([])
   const [tasks, setTasks] = useState<DailyTask[]>([])
@@ -70,6 +75,18 @@ export function KanbanPage({
   const [error, setError] = useState<string | null>(null)
   const [showHelp, setShowHelp] = useState(false)
   const { toastMessage, showToast } = useToast()
+
+  // 机构管理员本人同时是某个托管班带班老师的场景（诊断：管理员的教师身份本来就是隐式的，
+  // 后端从不检查 teaching_unit.teacher_id 对应账号的 role，写接口也只按 teacherId 判断
+  // 归属，不看角色）——这里让管理员在查看"自己带的班"时，前端也跟着解除只读限制，按老师
+  // 一样展示完整操作入口。查看其它老师的班级时仍然维持原来的只读看板，不受影响。
+  function ownsClass(classId: number | null): boolean {
+    if (!isAdmin || classId === null || state.status !== 'authenticated') return false
+    const cls = classes.find((c) => c.id === classId)
+    return cls !== undefined && 'teacherId' in cls && cls.teacherId === state.teacher.id
+  }
+
+  const isReadOnlyView = isAdmin && !ownsClass(activeClassId)
 
   useEffect(() => {
     const fetchClassList = isAdmin ? adminApi.fetchAdminClasses() : classesApi.fetchClasses()
@@ -99,12 +116,15 @@ export function KanbanPage({
       setLoading(true)
       setError(null)
       try {
-        // 管理员分支只调用 adminKanbanApi 的只读接口——这是前端层面的约定，不是后端强制
-        // 的权限边界：管理员账号同时满足教师接口的鉴权条件，理论上能绕开这里调用写接口。
-        // 新增功能时不要假设「管理员等于只读」，详见 AdminKanbanController 的类注释（产品诊断 #09）。
-        // 管理员不需要实时看到谁请假——请假状态只在月度账单详情里展示，看板读
-        // 接口不返回这个字段，这里用一个空占位 Promise 保持两边解构形状一致。
-        const [studentList, taskList, dismissalStatus, noteList, arrivalList, mealList, leaveList] = isAdmin
+        // 管理员查看自己不带的班时只调用 adminKanbanApi 的只读接口——这是前端层面的约定，
+        // 不是后端强制的权限边界：管理员账号同时满足教师接口的鉴权条件，理论上能绕开这里
+        // 调用写接口。新增功能时不要假设「管理员等于只读」，详见 AdminKanbanController
+        // 的类注释（产品诊断 #09）。管理员如果恰好是这个班自己的带班老师（ownsClass 为
+        // true），则按老师一样走写接口，拿到真实可操作的数据。
+        // 管理员查看别人班级时不需要实时看到谁请假——请假状态只在月度账单详情里展示，
+        // 看板读接口不返回这个字段，这里用一个空占位 Promise 保持两边解构形状一致。
+        const [studentList, taskList, dismissalStatus, noteList, arrivalList, mealList, leaveList] = isAdmin &&
+        !ownsClass(classId)
           ? await Promise.all([
               adminKanbanApi.fetchStudents(classId),
               adminKanbanApi.listDailyTasksForClass(classId, date),
@@ -136,7 +156,9 @@ export function KanbanPage({
         setLoading(false)
       }
     },
-    [isAdmin],
+    // ownsClass 闭包用到了 classes/state，和 isAdmin 一起列进依赖，classId 由调用方传入不需要列。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isAdmin, classes],
   )
 
   useEffect(() => {
@@ -393,7 +415,7 @@ export function KanbanPage({
     const note = notesByStudent.get(student.id) ?? EMPTY_NOTE
     const arrivedAt = arrivalByStudent.get(student.id) ?? EMPTY_ARRIVAL
     const hasMeal = mealByStudent.has(student.id)
-    if (isAdmin) {
+    if (isReadOnlyView) {
       return (
         <StudentCard
           key={student.id}
@@ -465,7 +487,7 @@ export function KanbanPage({
           <h1 className="app-header__title">
             <BrandMark size={22} />
             托管班看板
-            {isAdmin && <span className="flag-chip">只读</span>}
+            {isReadOnlyView && <span className="flag-chip">只读</span>}
           </h1>
           <div className="flex gap-2">
             {!isAdmin && hasCourses && (
@@ -513,12 +535,12 @@ export function KanbanPage({
           <>
             <div className="date-row">
               <span className="date-row__date">{date}</span>
-              {!isAdmin && (
+              {!isReadOnlyView && (
                 <DismissButton dismissed={dismissed} onDismiss={handleDismiss} onUndoDismiss={handleUndoDismiss} />
               )}
             </div>
 
-            {!isAdmin && (
+            {!isReadOnlyView && (
               <>
                 <TaskTemplateManager
                   templates={templates}
