@@ -84,9 +84,19 @@ MINIO_FILE=""
 # 任何一步中途失败（比如 mysql 容器没在跑），都不能把半成品文件留在 backups/ 目录里，
 # 冒充一份"看起来存在、实际恢复出来是空库/空文件"的备份——这比完全没有备份更危险。
 # 统一写到 .tmp 后缀，成功后才 rename 成正式文件名；失败时用 trap 兜底删掉 .tmp 残留。
+#
+# 末尾显式 `return 0` 不是多余的：这个函数是 EXIT trap，在 `set -e` 下，trap 执行
+# 期间最后一条命令的退出码会变成整个脚本报给调用方的最终退出码。`--mysql-only`
+# 场景下 MINIO_FILE 始终是空字符串，`[[ -n "$MINIO_FILE" ]]` 判断为假、整条
+# `&&` 语句的退出码就是 1——哪怕前面 MySQL 备份已经完全成功，脚本最后也会报退出码
+# 1，被 deploy.sh 误判成"备份失败"直接中止部署（已经在生产环境实测复现：日志里
+# 明明打印了"完成，大小：868K"和"备份完成：N 个备份文件保留"，最后却报
+# "错误：迁移前自动备份失败（退出码 1）"）。显式 return 0 让这个函数的退出码永远
+# 不受里面这两条条件判断是真是假影响。
 cleanup_incomplete() {
     [[ -n "$MYSQL_FILE" ]] && rm -f "${MYSQL_FILE}.tmp"
     [[ -n "$MINIO_FILE" ]] && rm -f "${MINIO_FILE}.tmp"
+    return 0
 }
 trap cleanup_incomplete EXIT
 
