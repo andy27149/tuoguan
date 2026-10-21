@@ -29,3 +29,8 @@ backups/
 
 # 本地/服务器上 deploy.sh 生成的部署日志，不进仓库
 logs/
+
+# deploy.sh / deploy/backup.sh 用的单实例锁文件，固定放仓库根目录（不跟着可覆盖
+# 的 LOG_DIR/BACKUP_DIR 走，否则改了环境变量锁就形同虚设，见两个脚本里的注释）
+/.deploy.lock
+/.backup.lock

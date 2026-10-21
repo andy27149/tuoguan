@@ -46,17 +46,12 @@ for arg in "$@"; do
     esac
 done
 
+source deploy/lib/cleanup_old_files.sh
+source deploy/lib/single_instance_lock.sh
+
 LOG_DIR="${LOG_DIR:-$(pwd)/logs}"
 LOG_RETENTION_DAYS="${LOG_RETENTION_DAYS:-14}"
-# 正则故意不接受前导零（`^0[0-9]+$` 之外的形式一律拒绝）：LOG_RETENTION_DAYS=08
-# 这种值虽然看着像数字，后面 `[[ ... -gt 0 ]]` 是按 bash 算术求值，前导零会被当成
-# 八进制——08/09 不是合法八进制数字，会直接报 "value too great for base"；
-# 015 不报错但会被悄悄解释成十进制 13，而不是用户以为的 15。与其让用户遇到这种
-# 隐蔽的误判，不如直接要求不写前导零。
-if ! [[ "$LOG_RETENTION_DAYS" =~ ^(0|[1-9][0-9]*)$ ]]; then
-    echo "错误：LOG_RETENTION_DAYS 必须是非负整数且不能有前导零，收到的是: ${LOG_RETENTION_DAYS}" >&2
-    exit 1
-fi
+validate_retention_days "$LOG_RETENTION_DAYS" "LOG_RETENTION_DAYS"
 # `-m 700` 让目录在刚被创建出来的那一刻就是 700，不依赖运行时的 umask，也不给
 # "mkdir 和 chmod 是两条独立指令"留出窗口——如果部署账号/cron 的 umask 比较宽松
 # （比如 002 甚至 000），光靠事后再补一次 chmod，中间仍然有一段目录已经建好、还
@@ -64,14 +59,13 @@ fi
 # 指向任意文件的符号链接。下面这行 chmod 不是多余：`-m` 只在目录第一次被创建时
 # 生效，如果目录是上一个版本的脚本建的、权限不对，`mkdir -p` 碰到已存在的目录
 # 不会重新应用 `-m`，还是需要显式 chmod 兜底修正。跟 deploy/backup.sh 对
-# BACKUP_DIR 的做法一致。
+# BACKUP_DIR 的做法一致。chmod 失败时不直接中止（`||` 兜底）：如果这个目录是
+# 之前一次以 root 身份跑、又没能成功转交属主（比如直接以 root 登录、仓库本身也是
+# root clone 的，见 _chown_to_invoking_user_if_root 的注释），现在这个非 root
+# 用户既不是属主也不是 root，chmod 必然失败——这种情况下目录权限已经不是这个脚本
+# 能单方面纠正的了，打个警告让人知道去手动检查，总比直接把部署拦死要好。
 mkdir -p -m 700 "$LOG_DIR"
-chmod 700 "$LOG_DIR"
-
-# 防止两次 deploy.sh 并发跑：不仅日志文件名按秒级时间戳会撞车、互相追加写乱掉，
-# 更根本的是 git pull / docker build / up -d（触发 Flyway 迁移）本身就不允许并发
-# 执行。
-source deploy/lib/single_instance_lock.sh
+chmod 700 "$LOG_DIR" 2>/dev/null || echo "警告：无法修改 $LOG_DIR 的权限（不是属主也不是 root？），继续使用现有权限，建议手动检查一下属主。" >&2
 
 # logs/ 目录可能先被 root 创建——bootstrap.sh 一次性初始化时以 root 身份运行，
 # 内部会调用一次 `./deploy.sh --no-pull`——也可能先被日常跑 deploy.sh 的普通
@@ -80,10 +74,17 @@ source deploy/lib/single_instance_lock.sh
 # 本地非特权用户提前把锁文件换成指向任意文件（比如 /root/.ssh/authorized_keys）
 # 的符号链接，等下次 root 身份跑到这里直接截断、重新打开、chmod 成可写，变成一个
 # 本地提权原语（已用符号链接实测复现）。正确做法不是放宽权限，而是用 root 身份跑
-# 的时候把属主转给 sudo 记录的真实操作者（$SUDO_USER），权限继续收紧，详见
-# deploy/lib/single_instance_lock.sh 里 _chown_to_invoking_user_if_root 的注释。
+# 的时候把属主转给真实操作者，权限继续收紧，详见 deploy/lib/single_instance_
+# lock.sh 里 _chown_to_invoking_user_if_root 的注释。
 _chown_to_invoking_user_if_root "$LOG_DIR"
-acquire_single_instance_lock "$LOG_DIR/.deploy.lock" "deploy.sh"
+
+# 锁文件固定放在仓库根目录（这个脚本一开始就 `cd` 到这里了），不跟着 LOG_DIR 走：
+# LOG_DIR 是特意设计成可以被 LOG_DIR 环境变量覆盖的（比如挪到另一块盘），如果
+# 锁文件路径也跟着 LOG_DIR 变，两次用不同 LOG_DIR 启动的 deploy.sh（比如一次
+# 手动跑用默认路径、一次被套了 LOG_DIR=/data/deploy-logs 的 systemd timer/cron
+# 跑）就会分别锁住两个不同的文件，互相看不见对方、锁形同虚设——这恰好是加这把锁
+# 本来要防的并发场景。
+acquire_single_instance_lock "./.deploy.lock" "deploy.sh"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
@@ -91,6 +92,10 @@ log() {
 
 LOG_FILE="$LOG_DIR/deploy_$(date +%Y-%m-%d_%H%M%S).log"
 : > "$LOG_FILE"
+# 跟 logs/ 目录一样：这个文件也可能是 root 身份（bootstrap.sh）创建的，不转交
+# 属主的话，普通用户虽然能进 logs/ 目录、却会在 cat/tail 这份具体文件时碰到
+# Permission denied——目录权限只管能不能列目录项，单个文件自己的权限是另一回事。
+_chown_to_invoking_user_if_root "$LOG_FILE"
 
 # 一律起 tail -f 做镜像，不按"是不是接在真终端上"（`[[ -t 1 ]]`）区分：这个
 # 判断区分不出"真的没人看，可以省掉这个进程"和"调用方自己把 deploy.sh 的输出
@@ -125,8 +130,6 @@ wait "$TAIL_PID" 2>/dev/null || true
 
 exec >> "$LOG_FILE" 2>&1
 
-source deploy/lib/cleanup_old_files.sh
-
 log "==> 部署开始，完整日志：$LOG_FILE"
 
 if [[ "$PULL" -eq 1 ]]; then
@@ -160,12 +163,19 @@ log "==> 镜像构建完成"
 MYSQL_CONTAINER_ID="$(run_unlocked $COMPOSE ps -q mysql 2>/dev/null || true)"
 if [[ -n "$MYSQL_CONTAINER_ID" ]] && [[ "$(run_unlocked docker inspect -f '{{.State.Running}}' "$MYSQL_CONTAINER_ID" 2>/dev/null)" == "true" ]]; then
     log "==> 迁移前自动备份 MySQL（即将执行的 up -d 会触发 Flyway 迁移）"
-    # 不能让这一步失败把整个部署带崩——上面这段注释说的"不该因为这个失败而诡异
-    # 中止"，原本只覆盖了"mysql 没在跑"这种情况，但 backup.sh 自己也可能因为
-    # DEPLOY.md 里配的 cron 定时备份正好撞上、抢占了它自己的锁而失败退出，这种
-    # 瞬时冲突不该因为这里是裸语句、被 set -e 直接判定成整个部署失败。
-    if ! run_unlocked ./deploy/backup.sh --mysql-only --tag=predeploy; then
-        log "警告：迁移前自动备份失败（有可能是跟 cron 定时备份撞车、抢占了 backup.sh 自己的锁，也可能是备份本身出错），继续执行 up -d。建议部署完成后手动确认一下最近有没有可用的备份快照。"
+    # 只有"backup.sh 自己的锁被占用"（比如跟 DEPLOY.md 配的 cron 定时备份撞车）
+    # 这种瞬时冲突才该放过，继续往下跑——backup.sh 用固定的 LOCK_CONFLICT_EXIT_
+    # CODE（2）标识这种情况，跟其它任何原因（磁盘满、mysqldump 认证失败、备份本身
+    # 损坏……）的失败区分开。除了这个退出码之外的任何失败，都必须照常让 set -e
+    # 中止整个部署——不然就是在没有可回滚快照的情况下，盲目去跑 up -d 触发的
+    # Flyway 迁移，而上面的注释已经提到历史上出现过 V15/V17 这种破坏性迁移。
+    BACKUP_RC=0
+    run_unlocked ./deploy/backup.sh --mysql-only --tag=predeploy || BACKUP_RC=$?
+    if [[ "$BACKUP_RC" -eq "$LOCK_CONFLICT_EXIT_CODE" ]]; then
+        log "警告：迁移前自动备份跳过（backup.sh 自己的锁被占用，大概率是撞上 cron 定时备份），继续执行 up -d。建议部署完成后手动确认一下最近有没有可用的备份快照。"
+    elif [[ "$BACKUP_RC" -ne 0 ]]; then
+        echo "错误：迁移前自动备份失败（退出码 ${BACKUP_RC}），为避免在没有可回滚快照的情况下执行可能有破坏性的 Flyway 迁移，本次部署中止。" >&2
+        exit 1
     fi
 elif [[ -n "$(run_unlocked $COMPOSE ps -aq mysql 2>/dev/null || true)" ]]; then
     # 用 `ps -aq`（包含已停止的容器）判断"这个 compose 项目是否曾经创建过 mysql

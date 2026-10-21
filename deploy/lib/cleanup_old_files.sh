@@ -50,3 +50,22 @@ cleanup_old_files() {
     _build_find_name_args "$@"
     find "$dir" -maxdepth 1 -type f \( "${FIND_NAME_ARGS[@]}" \) -mtime "+$retention_days" -print -delete
 }
+
+# 校验"保留天数"这类参数必须是不带前导零的非负整数，供 deploy.sh 的
+# LOG_RETENTION_DAYS 和 backup.sh 的 --retention-days 共用——这两边原本各自写了
+# 一份一模一样的正则和报错文案，属于已经在这个文件里为 _build_find_name_args
+# 踩过的同一类重复。不接受前导零（比如 08、015）：cleanup_old_files 内部和调用方
+# 自己的 `-gt 0` 判断都是按 bash 算术求值，前导零会被当成八进制——08/09 不是
+# 合法八进制数字会直接报错，015 会被悄悄解释成十进制 13 而不是用户以为的 15。
+#
+# 用法：validate_retention_days <值> <报错信息里用来指代这个参数的名字>
+#   validate_retention_days "$LOG_RETENTION_DAYS" "LOG_RETENTION_DAYS"
+#   validate_retention_days "$RETENTION_DAYS" "--retention-days"
+validate_retention_days() {
+    local value="$1"
+    local name="$2"
+    if ! [[ "$value" =~ ^(0|[1-9][0-9]*)$ ]]; then
+        echo "错误：${name} 必须是非负整数且不能有前导零，收到的是: ${value}" >&2
+        exit 1
+    fi
+}

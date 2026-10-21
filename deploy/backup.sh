@@ -52,29 +52,30 @@ for arg in "$@"; do
     esac
 done
 
-# 正则故意不接受前导零：--retention-days=08 这种值后面 `[[ ... -gt 0 ]]` 是按
-# bash 算术求值，08/09 不是合法八进制数字会直接报错，015 会被悄悄解释成十进制 13
-# 而不是用户以为的 15，跟 deploy.sh 的 LOG_RETENTION_DAYS 是同一个坑。
-if ! [[ "$RETENTION_DAYS" =~ ^(0|[1-9][0-9]*)$ ]]; then
-    echo "错误：--retention-days 必须是非负整数且不能有前导零，收到的是: ${RETENTION_DAYS}" >&2
-    exit 1
-fi
+validate_retention_days "$RETENTION_DAYS" "--retention-days"
 
 # 这里其实已经靠上面的 `umask 077` 保证了 mkdir 出来的目录本身就是 700，不存在
 # deploy.sh 那边 logs/ 目录曾经有过的"先用默认权限建出目录、隔了几条指令才补
 # chmod"的窗口；额外加 `-m 700` 纯粹是为了两边写法一致、不用追溯到这条 umask
 # 才能确认安全，chmod 仍然保留用于修正上一个版本脚本建的、权限不对的旧目录。
+# chmod 失败时不中止（`||` 兜底）：道理跟 deploy.sh 的 logs/ 一样，如果这个目录
+# 之前一次以 root 身份跑、又没能成功转交属主，现在这个非 root 用户改不了它的权限，
+# 打警告让人知道去手动检查，比直接把备份拦死要好。
 mkdir -p -m 700 "$BACKUP_DIR"
-chmod 700 "$BACKUP_DIR"
+chmod 700 "$BACKUP_DIR" 2>/dev/null || echo "警告：无法修改 $BACKUP_DIR 的权限（不是属主也不是 root？），继续使用现有权限，建议手动检查一下属主。" >&2
 # 跟 deploy.sh 的 logs/ 目录是同一个考虑：这个目录理论上也可能被 root 身份（比如
 # 配成了 root 的 crontab）创建过，之后换普通用户身份跑就会权限不够——用 chown
-# 转交给 sudo 记录的真实操作者，而不是放宽目录权限（这里装的是真实学生/账单数据，
-# 更不能放宽）。
+# 转交给真实操作者，而不是放宽目录权限（这里装的是真实学生/账单数据，更不能
+# 放宽）。
 _chown_to_invoking_user_if_root "$BACKUP_DIR"
 
-# 同一把锁保护 cron 定时备份和 deploy.sh 的迁移前备份不会并发争用同一个 mysqldump/
-# tar 进程（两者理论上可能撞在同一时刻）。
-acquire_single_instance_lock "$BACKUP_DIR/.backup.lock" "backup.sh" "跳过"
+# 锁文件固定放在仓库根目录，不跟着 BACKUP_DIR 走：BACKUP_DIR 是特意设计成可以被
+# 环境变量覆盖的（比如挪到挂载的额外磁盘），如果锁文件路径也跟着变，两次用不同
+# BACKUP_DIR 启动的 backup.sh（比如 cron 用默认路径、deploy.sh 触发的迁移前
+# 快照又被套了别的 BACKUP_DIR）就会分别锁住两个不同的文件，互相看不见对方，
+# 这把锁保护"cron 定时备份和 deploy.sh 的迁移前备份不会并发争用同一个 mysqldump/
+# tar 进程"的初衷就落空了。
+acquire_single_instance_lock "./.backup.lock" "backup.sh" "跳过"
 
 TIMESTAMP="$(date +%F_%H%M%S)"
 MYSQL_FILE=""

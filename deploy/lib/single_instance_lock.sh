@@ -27,11 +27,23 @@
 # crontab 也是可能的），不会有 SUDO_USER，这种情况退而求其次，用仓库目录本身的
 # 属主：不管 root 是怎么拿到的，这个目录通常就是真正日常操作的那个人 clone 下来
 # 的，是比"有没有设置 SUDO_USER"更通用的信号。两边的 cd 发生在调用这个函数之前，
-# 所以这里的 `.` 就是仓库根目录。
+# 所以这里的 `.` 就是仓库根目录。`stat` 的 `-c`（GNU）和 `-f`（BSD/macOS）参数
+# 不兼容，两种都试一下——生产目标是 Linux，但本地在 macOS 上开发/调试时也不该
+# 悄悄失败。
+#
+# 如果连这个兜底都解析不出一个非 root 的属主（比如真的是以 root 身份登录、仓库
+# 本身也是 root clone 的——不符合 DEPLOY.md 文档的用法，但没法完全排除），就没有
+# 办法知道"真正日常操作的人"是谁，索性不改属主；这种情况下后面 chmod 可能会因为
+# 不是属主/root 而失败，调用方的 chmod 调用本身已经做了容错（见 deploy.sh /
+# deploy/backup.sh 里的注释），失败只是打印警告，不会让整个脚本直接崩溃。
 #
 # 用法：acquire_single_instance_lock <锁文件路径> <失败提示里要显示的脚本名> [冲突时的动作词，默认"退出"]
 #   acquire_single_instance_lock "$LOG_DIR/.deploy.lock" "deploy.sh"
 #   acquire_single_instance_lock "$BACKUP_DIR/.backup.lock" "backup.sh" "跳过"
+#
+# 冲突时的退出码固定是 2（不是通用的 1），方便调用方区分"真的失败"和"只是被
+# 另一个实例占着、属于预期内的跳过"——deploy.sh 调用 backup.sh 做迁移前快照时就是
+# 靠这个区分：锁冲突（2）只打警告继续，其它任何失败都要老老实实中止部署。
 _chown_to_invoking_user_if_root() {
     local path="$1"
 
@@ -41,12 +53,14 @@ _chown_to_invoking_user_if_root() {
 
     local target_user="${SUDO_USER:-}"
     if [[ -z "$target_user" ]]; then
-        target_user="$(stat -c '%U' . 2>/dev/null || true)"
+        target_user="$(stat -c '%U' . 2>/dev/null || stat -f '%Su' . 2>/dev/null || true)"
     fi
     if [[ -n "$target_user" ]] && [[ "$target_user" != "root" ]]; then
         chown "$target_user" "$path" 2>/dev/null || true
     fi
 }
+
+LOCK_CONFLICT_EXIT_CODE=2
 
 acquire_single_instance_lock() {
     local lock_file="$1"
@@ -57,12 +71,24 @@ acquire_single_instance_lock() {
         return 0
     fi
 
+    # `exec N>"$lock_file"` 和后面的 chmod/chown 默认都会跟随符号链接操作到真正
+    # 的目标文件——这是上几轮已经修过、也实测复现过的提权漏洞的根本原因。光把
+    # 目录权限收紧到 700 只能防住"以后"被人在这个目录里新建符号链接，防不住
+    # "目录权限收紧之前就已经存在"的残留符号链接（比如这个目录是旧版本脚本建的，
+    # 那时候权限还没收紧；或者仓库根目录本身一度是组/所有人可写的）。所以每次用
+    # 这把锁之前都显式查一下目标路径是不是符号链接，是就直接拒绝，而不是悄悄
+    # 跟着链接走下去。
+    if [[ -L "$lock_file" ]]; then
+        echo "错误：锁文件 ${lock_file} 是一个符号链接，出于安全考虑拒绝使用——正常情况下不会出现这个文件，请检查是否有人篡改，确认安全后手动删除它再重试。" >&2
+        exit 1
+    fi
+
     exec 9>"$lock_file"
-    chmod 600 "$lock_file"
+    chmod 600 "$lock_file" 2>/dev/null || echo "警告：无法修改锁文件 ${lock_file} 的权限（不是属主也不是 root？），继续使用现有权限。" >&2
     _chown_to_invoking_user_if_root "$lock_file"
     if ! flock -n 9; then
         echo "错误：已有另一个 ${script_name} 在运行（锁文件 ${lock_file}），本次${conflict_verb}，避免并发执行。" >&2
-        exit 1
+        exit "$LOCK_CONFLICT_EXIT_CODE"
     fi
 }
 
