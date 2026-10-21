@@ -23,22 +23,29 @@ public class StorageService {
     // 反向代理，MinIO 还没就绪时 nginx 会直接返回 502。这里原本没有重试，一旦撞上
     // 这个窗口就直接抛异常，Spring 容器初始化失败、整个 JVM 启动崩溃退出——哪怕
     // MinIO 只是比 backend 晚几秒钟就绪。加上重试，给 MinIO 一点缓冲时间，而不是
-    // 一次探测失败就让整个应用起不来。
-    private static final int ENSURE_BUCKET_MAX_ATTEMPTS = 10;
-    private static final long ENSURE_BUCKET_RETRY_DELAY_MILLIS = 3000;
-
+    // 一次探测失败就让整个应用起不来。次数/间隔通过构造函数传入（来自
+    // application.yml 的 minio.startup-retry.*，可用环境变量覆盖），不写死在
+    // 代码里——生产环境如果发现这个窗口比预期更长，不需要改代码重新构建镜像。
     private final MinioClient minioClient;
     private final String bucket;
+    private final int ensureBucketMaxAttempts;
+    private final long ensureBucketRetryDelayMillis;
 
-    public StorageService(MinioClient minioClient, String bucket) {
+    public StorageService(MinioClient minioClient, String bucket, int ensureBucketMaxAttempts,
+                           long ensureBucketRetryDelayMillis) {
         this.minioClient = minioClient;
         this.bucket = bucket;
+        this.ensureBucketMaxAttempts = ensureBucketMaxAttempts;
+        this.ensureBucketRetryDelayMillis = ensureBucketRetryDelayMillis;
         ensureBucketExists();
     }
 
     private void ensureBucketExists() {
+        // 最终抛出的异常只把最后一次失败设为 cause——前面几次失败就算原因跟最后一次
+        // 不一样（比如先是"连接被拒绝"，MinIO 起来了之后又因为别的原因失败），也不该
+        // 在事后排查时彻底丢掉，挂成 suppressed exception 让它们在堆栈里仍然可见。
         Exception lastFailure = null;
-        for (int attempt = 1; attempt <= ENSURE_BUCKET_MAX_ATTEMPTS; attempt++) {
+        for (int attempt = 1; attempt <= ensureBucketMaxAttempts; attempt++) {
             try {
                 boolean exists = minioClient.bucketExists(BucketExistsArgs.builder().bucket(bucket).build());
                 if (!exists) {
@@ -49,23 +56,28 @@ public class StorageService {
                 }
                 return;
             } catch (Exception e) {
+                if (lastFailure != null) {
+                    e.addSuppressed(lastFailure);
+                }
                 lastFailure = e;
-                if (attempt < ENSURE_BUCKET_MAX_ATTEMPTS) {
+                if (attempt < ensureBucketMaxAttempts) {
                     log.warn("连接 MinIO 确认 bucket 失败（第 {}/{} 次尝试，{} 秒后重试）：bucket={}, 原因={}",
-                            attempt, ENSURE_BUCKET_MAX_ATTEMPTS, ENSURE_BUCKET_RETRY_DELAY_MILLIS / 1000, bucket,
+                            attempt, ensureBucketMaxAttempts, ensureBucketRetryDelayMillis / 1000, bucket,
                             e.getMessage());
                     try {
-                        Thread.sleep(ENSURE_BUCKET_RETRY_DELAY_MILLIS);
+                        Thread.sleep(ensureBucketRetryDelayMillis);
                     } catch (InterruptedException interrupted) {
                         Thread.currentThread().interrupt();
+                        // 中断时也要带上目前为止真正的 MinIO 失败原因，而不是只报
+                        // "被中断了"——不然排查的人看不出中断之前到底是什么在失败。
                         throw new IllegalStateException(
-                                "Interrupted while retrying MinIO bucket check: " + bucket, interrupted);
+                                "Interrupted while retrying MinIO bucket check: " + bucket, lastFailure);
                     }
                 }
             }
         }
         throw new IllegalStateException(
-                "Failed to ensure MinIO bucket exists after " + ENSURE_BUCKET_MAX_ATTEMPTS + " attempts: " + bucket,
+                "Failed to ensure MinIO bucket exists after " + ensureBucketMaxAttempts + " attempts: " + bucket,
                 lastFailure);
     }
 

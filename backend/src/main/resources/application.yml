@@ -40,3 +40,9 @@ minio:
   access-key: ${MINIO_ACCESS_KEY:minio_admin}
   secret-key: ${MINIO_SECRET_KEY:minio_change_me}
   bucket: ${MINIO_BUCKET:avatars}
+  startup-retry:
+    # backend 启动时确认 bucket 存在这一步，生产环境实测过 MinIO/nginx 偶尔没那么快
+    # 就绪（StorageService 里有完整背景）。做成可配置而不是写死：如果这个窗口比当前
+    # 设的 10 次 × 3 秒 = 最长 30 秒还长，改环境变量就行，不用改代码重新构建镜像。
+    max-attempts: ${MINIO_STARTUP_RETRY_MAX_ATTEMPTS:10}
+    delay-millis: ${MINIO_STARTUP_RETRY_DELAY_MILLIS:3000}

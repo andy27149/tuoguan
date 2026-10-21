@@ -20,7 +20,10 @@ public class StorageConfig {
     }
 
     @Bean
-    public StorageService storageService(MinioClient minioClient, @Value("${minio.bucket}") String bucket) {
-        return new StorageService(minioClient, bucket);
+    public StorageService storageService(MinioClient minioClient,
+                                          @Value("${minio.bucket}") String bucket,
+                                          @Value("${minio.startup-retry.max-attempts}") int startupRetryMaxAttempts,
+                                          @Value("${minio.startup-retry.delay-millis}") long startupRetryDelayMillis) {
+        return new StorageService(minioClient, bucket, startupRetryMaxAttempts, startupRetryDelayMillis);
     }
 }

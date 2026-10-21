@@ -41,6 +41,13 @@ public abstract class IntegrationTestBase {
         registry.add("minio.access-key", MINIO::getUserName);
         registry.add("minio.secret-key", MINIO::getPassword);
         registry.add("minio.bucket", () -> "avatars-test");
+        // StorageService 启动时确认 bucket 存在会重试，次数/间隔从这两个属性读取
+        // （见 application.yml 里的默认值和注释）。这里这个 MinIO 容器已经在上面
+        // static 代码块里 start() 过、确认健康了才会走到这儿，正常不会触发重试，
+        // 但 @Value 没有默认值、必须要能解析到，不然整个 Spring 上下文直接起不来——
+        // 用很小的值，万一真的因为某次偶发网络抖动触发重试，也不会拖慢测试。
+        registry.add("minio.startup-retry.max-attempts", () -> "3");
+        registry.add("minio.startup-retry.delay-millis", () -> "10");
     }
 
     @Autowired
