@@ -55,8 +55,15 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      # 临时从 service_healthy 降级回 service_started（产品诊断 #61 之前的状态）：
+      # 2026-10-21 用 mc ready local 修过一次 curl 不存在的问题后，minio 的健康
+      # 检查在生产环境依然没有稳定进入 healthy、卡住了紧急部署，具体原因还没来得
+      # 及查清楚（怀疑跟 mc ready 在某些网络/启动时序下的行为有关，待确认）。先降级
+      # 成只等"容器进程起来"而不等"健康检查通过"，不再让 up -d 卡死在这里；backend
+      # 自己连 MinIO 失败时的重试/报错行为不受影响。等查清楚健康检查失败的真正原因
+      # 后应该改回 service_healthy，不要让这个临时状态长期存在。
       minio:
-        condition: service_healthy
+        condition: service_started
     environment:
       DB_HOST: mysql
       DB_PORT: 3306
