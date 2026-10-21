@@ -75,6 +75,49 @@ class StorageServiceTest {
     }
 
     @Test
+    void rejectsRetryBudgetExceedingSanityCap() {
+        // 300_001ms，刚好超过 5 分钟的上限一毫秒，确认边界判断用的是 > 而不是 >=。
+        assertThatThrownBy(() -> new StorageService(minioClient, BUCKET, 3, 100_001))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("exceeds the sanity cap");
+    }
+
+    @Test
+    void allowsRetryBudgetExactlyAtSanityCap() throws Exception {
+        when(minioClient.bucketExists(any(BucketExistsArgs.class))).thenReturn(true);
+
+        // 3 * 100_000 = 300_000ms，正好等于上限，不应该被拒绝。
+        new StorageService(minioClient, BUCKET, 3, 100_000);
+
+        verify(minioClient, times(1)).bucketExists(any(BucketExistsArgs.class));
+    }
+
+    @Test
+    void preservesBothTheMinioFailureAndTheInterruptWhenRetrySleepIsInterrupted() throws Exception {
+        IOException connectionRefused = new IOException("connection refused");
+        when(minioClient.bucketExists(any(BucketExistsArgs.class))).thenThrow(connectionRefused);
+
+        // 提前标记当前线程为"已中断"：Thread.sleep 发现这个标记会立刻抛
+        // InterruptedException（并清掉标记），不需要真的并发打断另一个线程的
+        // 时序竞态就能确定性地触发 sleepBeforeRetry 里的中断分支。
+        Thread.currentThread().interrupt();
+        try {
+            assertThatThrownBy(() -> new StorageService(minioClient, BUCKET, 5, 10_000))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("Interrupted")
+                    .hasCause(connectionRefused)
+                    .satisfies(e -> assertThat(e.getSuppressed())
+                            .hasAtLeastOneElementOfType(InterruptedException.class));
+            assertThat(Thread.currentThread().isInterrupted())
+                    .as("中断标记应该被恢复，不能被这段代码悄悄吞掉")
+                    .isTrue();
+        } finally {
+            // 清掉中断标记，避免影响同一个线程里后面的测试。
+            Thread.interrupted();
+        }
+    }
+
+    @Test
     void throwsAfterExhaustingAllAttemptsWithLastFailureAsCauseAndEarlierOnesSuppressed() throws Exception {
         IOException first = new IOException("connection refused");
         IOException second = new IOException("connection refused");

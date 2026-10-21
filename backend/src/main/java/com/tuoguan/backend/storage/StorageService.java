@@ -26,6 +26,13 @@ public class StorageService {
     // 一次探测失败就让整个应用起不来。次数/间隔通过构造函数传入（来自
     // application.yml 的 minio.startup-retry.*，可用环境变量覆盖），不写死在
     // 代码里——生产环境如果发现这个窗口比预期更长，不需要改代码重新构建镜像。
+    // 两个重试参数的乘积（总的最长等待时间）设一个上限：这两个值是从
+    // application.yml/环境变量读的，就是为了方便以后调，但"方便调"也意味着容易被
+    // 误配成一个夸张的数字（比如把 delay-millis 的单位当成秒填、或者 max-attempts
+    // 多打一个 0）——真出现这种配置失误时，应该让它在启动阶段就快速、明确地报错，
+    // 而不是让 Spring 容器初始化卡住一段不合理的时长（几分钟甚至更久）才报错。
+    private static final long MAX_TOTAL_RETRY_BUDGET_MILLIS = 300_000; // 5 分钟
+
     private final MinioClient minioClient;
     private final String bucket;
     private final int ensureBucketMaxAttempts;
@@ -46,6 +53,16 @@ public class StorageService {
         if (ensureBucketRetryDelayMillis < 0) {
             throw new IllegalArgumentException(
                     "minio.startup-retry.delay-millis must be >= 0, got: " + ensureBucketRetryDelayMillis);
+        }
+        // 用 long 相乘，避免 int * long 虽然结果类型是 long、但如果误写成两个 int
+        // 相乘会在乘法本身那一步就先溢出的坑。
+        long totalBudgetMillis = (long) ensureBucketMaxAttempts * ensureBucketRetryDelayMillis;
+        if (totalBudgetMillis > MAX_TOTAL_RETRY_BUDGET_MILLIS) {
+            throw new IllegalArgumentException(
+                    "minio.startup-retry.max-attempts (" + ensureBucketMaxAttempts + ") * delay-millis ("
+                            + ensureBucketRetryDelayMillis + ") = " + totalBudgetMillis
+                            + "ms exceeds the sanity cap of " + MAX_TOTAL_RETRY_BUDGET_MILLIS
+                            + "ms; check for a unit mix-up (seconds vs. milliseconds) or a typo'd extra digit.");
         }
         this.minioClient = minioClient;
         this.bucket = bucket;
@@ -94,9 +111,13 @@ public class StorageService {
             Thread.sleep(ensureBucketRetryDelayMillis);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
-            // 中断时也要带上目前为止真正的 MinIO 失败原因，而不是只报
-            // "被中断了"——不然排查的人看不出中断之前到底是什么在失败。
-            throw new IllegalStateException("Interrupted while retrying MinIO bucket check: " + bucket, lastFailure);
+            // cause 带上目前为止真正的 MinIO 失败原因，而不是只报"被中断了"——不然
+            // 排查的人看不出中断之前到底是什么在失败；中断本身（在哪个瞬间、什么
+            // 线程被谁打断）也不该整个丢掉，挂成 suppressed，两条线索都留在堆栈里。
+            IllegalStateException ex = new IllegalStateException(
+                    "Interrupted while retrying MinIO bucket check: " + bucket, lastFailure);
+            ex.addSuppressed(interrupted);
+            throw ex;
         }
     }
 
