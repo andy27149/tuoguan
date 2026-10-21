@@ -14,6 +14,8 @@
 # 环境变量覆盖成其他路径（比如挂载了额外磁盘或异地同步工具监听的目录）。
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
+source deploy/lib/cleanup_old_files.sh
+source deploy/lib/single_instance_lock.sh
 
 if docker compose version >/dev/null 2>&1; then
     COMPOSE="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
@@ -50,26 +52,30 @@ for arg in "$@"; do
     esac
 done
 
-if ! [[ "$RETENTION_DAYS" =~ ^[0-9]+$ ]]; then
-    echo "错误：--retention-days 必须是非负整数，收到的是: ${RETENTION_DAYS}" >&2
-    exit 1
-fi
+validate_retention_days "$RETENTION_DAYS" "--retention-days"
 
-mkdir -p "$BACKUP_DIR"
-chmod 700 "$BACKUP_DIR"
+# 这里其实已经靠上面的 `umask 077` 保证了 mkdir 出来的目录本身就是 700，不存在
+# deploy.sh 那边 logs/ 目录曾经有过的"先用默认权限建出目录、隔了几条指令才补
+# chmod"的窗口；额外加 `-m 700` 纯粹是为了两边写法一致、不用追溯到这条 umask
+# 才能确认安全，chmod 仍然保留用于修正上一个版本脚本建的、权限不对的旧目录。
+# chmod 失败时不中止（`||` 兜底）：道理跟 deploy.sh 的 logs/ 一样，如果这个目录
+# 之前一次以 root 身份跑、又没能成功转交属主，现在这个非 root 用户改不了它的权限，
+# 打警告让人知道去手动检查，比直接把备份拦死要好。
+mkdir -p -m 700 "$BACKUP_DIR"
+chmod 700 "$BACKUP_DIR" 2>/dev/null || echo "警告：无法修改 $BACKUP_DIR 的权限（不是属主也不是 root？），继续使用现有权限，建议手动检查一下属主。" >&2
+# 跟 deploy.sh 的 logs/ 目录是同一个考虑：这个目录理论上也可能被 root 身份（比如
+# 配成了 root 的 crontab）创建过，之后换普通用户身份跑就会权限不够——用 chown
+# 转交给真实操作者，而不是放宽目录权限（这里装的是真实学生/账单数据，更不能
+# 放宽）。
+_chown_to_invoking_user_if_root "$BACKUP_DIR"
 
-# 同一把锁保护 cron 定时备份和 deploy.sh 的迁移前备份不会并发争用同一个 mysqldump/
-# tar 进程（两者理论上可能撞在同一时刻）。flock 是 util-linux 的标配命令，这里用的
-# Ubuntu/Debian/CentOS 生产服务器都自带；本机没有也不影响功能，只是失去这层互斥保护。
-LOCK_FILE="$BACKUP_DIR/.backup.lock"
-if command -v flock >/dev/null 2>&1; then
-    exec 9>"$LOCK_FILE"
-    chmod 600 "$LOCK_FILE"
-    if ! flock -n 9; then
-        echo "错误：已有另一个 backup.sh 在运行（锁文件 $LOCK_FILE），本次跳过，避免并发读写同一份数据。" >&2
-        exit 1
-    fi
-fi
+# 锁文件固定放在仓库根目录，不跟着 BACKUP_DIR 走：BACKUP_DIR 是特意设计成可以被
+# 环境变量覆盖的（比如挪到挂载的额外磁盘），如果锁文件路径也跟着变，两次用不同
+# BACKUP_DIR 启动的 backup.sh（比如 cron 用默认路径、deploy.sh 触发的迁移前
+# 快照又被套了别的 BACKUP_DIR）就会分别锁住两个不同的文件，互相看不见对方，
+# 这把锁保护"cron 定时备份和 deploy.sh 的迁移前备份不会并发争用同一个 mysqldump/
+# tar 进程"的初衷就落空了。
+acquire_single_instance_lock "./.backup.lock" "backup.sh" "跳过"
 
 TIMESTAMP="$(date +%F_%H%M%S)"
 MYSQL_FILE=""
@@ -88,8 +94,12 @@ if [[ "$DO_MYSQL" -eq 1 ]]; then
     MYSQL_FILE="$BACKUP_DIR/mysql_${TIMESTAMP}${TAG}.sql.gz"
     echo "==> 备份 MySQL 到 $MYSQL_FILE"
     # 密码始终从容器自身的环境变量里取，不会出现在本机终端历史或进程列表里。
-    $COMPOSE exec -T mysql sh -c 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --all-databases' \
-        | gzip > "${MYSQL_FILE}.tmp"
+    # `9>&-` 分别加在管道两端：这两个都是可能跑很久的外部进程（mysqldump 导出一个
+    # 大库、gzip 压缩），如果 backup.sh 被 SIGKILL/OOM killer 杀掉，孤儿进程不关掉
+    # 继承来的锁文件描述符就会一直卡住锁——跟 deploy.sh 那边 run_unlocked 要解决的
+    # 是同一个问题，只是这里是管道，没法直接套 run_unlocked 这个函数包装。
+    $COMPOSE exec -T mysql sh -c 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --all-databases' 9>&- \
+        | gzip 9>&- > "${MYSQL_FILE}.tmp"
     chmod 600 "${MYSQL_FILE}.tmp"
     mv "${MYSQL_FILE}.tmp" "$MYSQL_FILE"
     echo "    完成，大小：$(du -h "$MYSQL_FILE" | cut -f1)"
@@ -101,19 +111,19 @@ if [[ "$DO_MINIO" -eq 1 ]]; then
     # 匹配（同一台机器上跑着别的项目、卷名碰巧也以 _minio_data 结尾时会选错，静默
     # 备份了完全无关的数据）。直接问 minio 容器自己挂载在 /data 的是哪个 volume，
     # 这个信息绑定到"这个 compose 项目实际在跑的容器"，不依赖任何命名约定。
-    MINIO_CONTAINER="$($COMPOSE ps -q minio)"
+    MINIO_CONTAINER="$(run_unlocked $COMPOSE ps -q minio)"
     if [[ -z "$MINIO_CONTAINER" ]]; then
         echo "错误：minio 容器当前未运行，无法确定要备份哪个 volume（备份 MinIO 需要容器处于运行状态）。" >&2
         exit 1
     fi
-    MINIO_VOLUME="$(docker inspect --format '{{ range .Mounts }}{{ if eq .Destination "/data" }}{{ .Name }}{{ end }}{{ end }}' "$MINIO_CONTAINER")"
+    MINIO_VOLUME="$(run_unlocked docker inspect --format '{{ range .Mounts }}{{ if eq .Destination "/data" }}{{ .Name }}{{ end }}{{ end }}' "$MINIO_CONTAINER")"
     if [[ -z "$MINIO_VOLUME" ]]; then
         echo "错误：找不到 minio 容器挂载在 /data 路径的 volume。" >&2
         exit 1
     fi
     MINIO_FILE="$BACKUP_DIR/minio_${TIMESTAMP}${TAG}.tar.gz"
     echo "==> 备份 MinIO（volume: ${MINIO_VOLUME}）到 $MINIO_FILE"
-    docker run --rm -v "$MINIO_VOLUME":/data -v "$BACKUP_DIR":/backup alpine \
+    run_unlocked docker run --rm -v "$MINIO_VOLUME":/data -v "$BACKUP_DIR":/backup alpine \
         tar czf "/backup/$(basename "$MINIO_FILE").tmp" -C /data .
     # 这个文件是容器里的 root 用 tar 创建的，用的是容器自己的 umask（默认 022），
     # 不会继承宿主机这边 `umask 077` 的设置，所以必须显式 chmod，不能只靠 umask。
@@ -122,11 +132,17 @@ if [[ "$DO_MINIO" -eq 1 ]]; then
     echo "    完成，大小：$(du -h "$MINIO_FILE" | cut -f1)"
 fi
 
+# 备份文件名的两种后缀模式只在这一处定义，清理和下面统计"还剩几个备份文件"都从
+# 这个数组派生，不再各自重复写一遍——以前两处分别手写过一份一样的 -name 'xxx' -o
+# -name 'yyy'，以后要是加第三种备份类型，容易改了一处忘了另一处，数量统计就会
+# 悄悄算错。
+BACKUP_FILE_PATTERNS=('mysql_*.sql.gz' 'minio_*.tar.gz')
+
 if [[ "$RETENTION_DAYS" -gt 0 ]]; then
     echo "==> 清理 $RETENTION_DAYS 天之前的备份文件"
-    find "$BACKUP_DIR" -maxdepth 1 -type f \( -name 'mysql_*.sql.gz' -o -name 'minio_*.tar.gz' \) \
-        -mtime "+$RETENTION_DAYS" -print -delete
+    cleanup_old_files "$BACKUP_DIR" "$RETENTION_DAYS" "${BACKUP_FILE_PATTERNS[@]}"
 fi
 
-BACKUP_FILE_COUNT="$(find "$BACKUP_DIR" -maxdepth 1 -type f \( -name 'mysql_*.sql.gz' -o -name 'minio_*.tar.gz' \) | wc -l | tr -d ' ')"
+_build_find_name_args "${BACKUP_FILE_PATTERNS[@]}"
+BACKUP_FILE_COUNT="$(find "$BACKUP_DIR" -maxdepth 1 -type f \( "${FIND_NAME_ARGS[@]}" \) | wc -l | tr -d ' ')"
 echo "==> 备份完成：$BACKUP_FILE_COUNT 个备份文件保留在 $BACKUP_DIR"

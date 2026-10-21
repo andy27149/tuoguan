@@ -175,6 +175,17 @@ cd tuoguan
 
 数据库 schema 变更由 Flyway 在 backend 容器启动时自动执行迁移，不需要额外手动操作。
 
+每次运行的完整输出（含 docker build 全过程）会落盘保存到 `logs/deploy_<时间戳>.log`，
+不管 SSH 连接中途有没有断开都能看到完整记录，排查部署问题时直接看这份文件即可：
+
+```bash
+LOG_DIR=/data/deploy-logs ./deploy.sh      # 改用别的目录存日志，默认是仓库根目录下的 logs/
+LOG_RETENTION_DAYS=30 ./deploy.sh          # 自动清理这个天数之前的旧日志，默认 14 天，0 表示不清理
+```
+
+同一时间只允许一个 `./deploy.sh` 实例运行（跟 `deploy/backup.sh` 一样用 `flock`），
+重复执行会报错退出，见下方"常见问题排查"。
+
 ---
 
 ## 五、备份与恢复
@@ -340,6 +351,21 @@ Flyway 社区版不支持 down migration（没有"自动回滚到上一个版本
   应该能拿到 MinIO 的响应而不是连接失败）。
 - **`./deploy.sh` 提示工作区有未提交改动，拒绝 `git pull`**：说明服务器上有本地改动，
   按前面"日常更新部署"一节的说明处理，或者临时用 `./deploy.sh --no-pull`。
+- **`./deploy.sh` 提示"已有另一个 deploy.sh 在运行"，但确认并没有别的部署在跑**：先用
+  `ps aux | grep deploy.sh` 和 `ps aux | grep "tail -f.*logs/deploy_"` 确认是不是真的有
+  残留进程（比如上一次部署被 `kill -9`/断电中断，子进程变成了孤儿还在跑），找到就手动
+  `kill` 掉。**下次要强制中断卡住的 `deploy.sh` 时，建议用 `pkill -9 -P <deploy.sh 的
+  pid>` 连它的子进程一起杀**（或者 `kill -9 -<进程组id>` 杀整个进程组），而不是只
+  `kill -9` 它自己那一个 pid——`deploy.sh` 被单独杀掉时，正在跑的 `docker build`/
+  `up -d`/`backup.sh` 子进程不会跟着一起死，会继续作为孤儿进程跑完，而这段时间内锁
+  已经随 `deploy.sh` 一起释放了，如果这时候又手动发起一次新的部署，就会和那个还没
+  跑完的孤儿子进程并发操作同一份代码/容器/数据库（这是刻意的取舍：比起锁可能被一个
+  卡死的孤儿进程永久占住、所有后续部署都失败，更倾向于锁一定会释放，但这意味着强制
+  中断时操作者需要自己保证不在孤儿子进程跑完之前又发起新部署）。
+  如果上面都没发现残留进程、还是报这个错，检查一下 `logs/.deploy.lock` 的属主和权限
+  （`ls -l logs/.deploy.lock`）——正常应该是 `-rw-------`（600）、属主是实际跑部署的
+  那个账号；如果看到它是所有人可读写的，说明权限被不正常地改动过，需要排查，而不是
+  当成正常状态。
 - **`docker compose build` 报 `dial tcp ...: connect: connection refused`（拉取
   `registry-1.docker.io` 镜像失败）**：国内服务器直连 Docker Hub 经常被拒，配置一个
   registry mirror 即可（阿里云/腾讯云等云厂商控制台里也能领一个账号专属的加速地址，
