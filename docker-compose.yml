@@ -32,9 +32,19 @@ services:
       - minio_data:/data
     # 产品诊断 #61：之前 minio 没有 healthcheck，backend 对它的 depends_on 只能用
     # service_started（"进程起了"），没法等它真的能响应请求——MinIO 官方自带的
-    # /minio/health/live 探活端点，镜像里恰好带了 curl，直接用。
+    # /minio/health/live 探活端点，本来想直接用 curl 探测。
+    #
+    # 2026-10-21 生产环境实测复现：cgr.dev/chainguard/minio:latest 这个镜像实际
+    # 上不带 curl 也不带 wget（本地用 `docker run --entrypoint sh ... -c
+    # "command -v curl"` 验证过，两个都返回"不存在"），用 curl 做健康检查每次都会
+    # 因为"command not found"而失败，容器永远进不了 healthy 状态，backend 的
+    # depends_on 条件卡死，up -d 直接报 "dependency failed to start: container
+    # tuoguan-minio-1 is unhealthy" 而中止——不是 MinIO 本身有问题，是健康检查
+    # 命令自己在这个镜像里就跑不起来。改用镜像里确实自带的 mc（MinIO 官方客户端）
+    # 的 `mc ready local` 子命令，本地用真实容器验证过：服务没起来时返回非零，
+    # 起来之后返回 0，比探测 HTTP 端点更贴近"这个 MinIO 实例本身是否可用"的语义。
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD", "mc", "ready", "local"]
       interval: 5s
       timeout: 5s
       retries: 20
