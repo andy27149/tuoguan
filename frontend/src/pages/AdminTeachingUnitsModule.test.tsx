@@ -237,4 +237,37 @@ describe('AdminTeachingUnitsModule', () => {
 
     expect(await screen.findByText('暂无托管班')).toBeInTheDocument()
   })
+
+  // 机构管理员本人同时带班的场景真实存在（见 KanbanPage.tsx 的 ownsClass），
+  // 负责教师下拉框之前把 ADMIN 角色账号整个过滤掉，导致这种班级没法通过界面
+  // 创建或转移——这里验证管理员账号现在会出现在下拉里（带角色标注），且可以
+  // 被选中并成功创建/转移班级。
+  it('includes admin accounts in the 负责教师 dropdown, labeled to distinguish them from teachers', async () => {
+    vi.mocked(adminApi.fetchTeachers).mockResolvedValue([
+      ...TEACHERS,
+      { id: 3, phone: '13900000003', name: '张管理员', role: 'ADMIN', mustChangePassword: false },
+    ])
+    vi.mocked(unitApi.createTeachingUnit).mockResolvedValue(CLASS_ROOM)
+    render(<AdminTeachingUnitsModule custodyEnabled offCampusEnabled />)
+    await screen.findByText('一班')
+
+    const select = screen.getByLabelText('负责教师') as HTMLSelectElement
+    const optionLabels = Array.from(select.options).map((o) => o.text)
+    expect(optionLabels).toContain('张管理员（管理员）')
+    expect(optionLabels).toContain('王老师')
+
+    fireEvent.change(screen.getByPlaceholderText('托管班名称'), { target: { value: '五年级托管班' } })
+    fireEvent.change(select, { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: '创建' }))
+
+    await waitFor(() =>
+      expect(unitApi.createTeachingUnit).toHaveBeenCalledWith({
+        billingMode: 'MONTHLY',
+        name: '五年级托管班',
+        teacherId: 3,
+        lessonDurationMinutes: undefined,
+        pricePerLesson: undefined,
+      }),
+    )
+  })
 })
