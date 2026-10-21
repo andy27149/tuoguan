@@ -33,6 +33,20 @@ public class StorageService {
 
     public StorageService(MinioClient minioClient, String bucket, int ensureBucketMaxAttempts,
                            long ensureBucketRetryDelayMillis) {
+        // 两个重试参数来自 application.yml，配置出错应该在这里就立刻、清楚地报出来，
+        // 而不是留到 ensureBucketExists 内部才表现成一个莫名其妙的行为：次数 <= 0
+        // 会让下面的循环体一次都不执行，MinIO 连通性检查形同虚设却悄悄"成功"退出
+        // 构造函数（如果本来就该存在的 bucket 已经存在的话）；负数间隔会让
+        // Thread.sleep 直接抛出不相关的 IllegalArgumentException，把设计好的、带
+        // 完整失败原因的异常链路绕过去。
+        if (ensureBucketMaxAttempts < 1) {
+            throw new IllegalArgumentException(
+                    "minio.startup-retry.max-attempts must be >= 1, got: " + ensureBucketMaxAttempts);
+        }
+        if (ensureBucketRetryDelayMillis < 0) {
+            throw new IllegalArgumentException(
+                    "minio.startup-retry.delay-millis must be >= 0, got: " + ensureBucketRetryDelayMillis);
+        }
         this.minioClient = minioClient;
         this.bucket = bucket;
         this.ensureBucketMaxAttempts = ensureBucketMaxAttempts;
@@ -61,24 +75,29 @@ public class StorageService {
                 }
                 lastFailure = e;
                 if (attempt < ensureBucketMaxAttempts) {
-                    log.warn("连接 MinIO 确认 bucket 失败（第 {}/{} 次尝试，{} 秒后重试）：bucket={}, 原因={}",
-                            attempt, ensureBucketMaxAttempts, ensureBucketRetryDelayMillis / 1000, bucket,
-                            e.getMessage());
-                    try {
-                        Thread.sleep(ensureBucketRetryDelayMillis);
-                    } catch (InterruptedException interrupted) {
-                        Thread.currentThread().interrupt();
-                        // 中断时也要带上目前为止真正的 MinIO 失败原因，而不是只报
-                        // "被中断了"——不然排查的人看不出中断之前到底是什么在失败。
-                        throw new IllegalStateException(
-                                "Interrupted while retrying MinIO bucket check: " + bucket, lastFailure);
-                    }
+                    // 日志里直接打毫秒数，不要换算成秒——换算成秒再用整数除法会把
+                    // 500ms 这种配置值截断显示成"0 秒后重试"，跟代码实际的 sleep
+                    // 时长对不上，误导照着日志排查 MinIO 就绪窗口的人。
+                    log.warn("连接 MinIO 确认 bucket 失败（第 {}/{} 次尝试，{} 毫秒后重试）：bucket={}, 原因={}",
+                            attempt, ensureBucketMaxAttempts, ensureBucketRetryDelayMillis, bucket, e.getMessage());
+                    sleepBeforeRetry(lastFailure);
                 }
             }
         }
         throw new IllegalStateException(
                 "Failed to ensure MinIO bucket exists after " + ensureBucketMaxAttempts + " attempts: " + bucket,
                 lastFailure);
+    }
+
+    private void sleepBeforeRetry(Exception lastFailure) {
+        try {
+            Thread.sleep(ensureBucketRetryDelayMillis);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            // 中断时也要带上目前为止真正的 MinIO 失败原因，而不是只报
+            // "被中断了"——不然排查的人看不出中断之前到底是什么在失败。
+            throw new IllegalStateException("Interrupted while retrying MinIO bucket check: " + bucket, lastFailure);
+        }
     }
 
     public String uploadAvatar(Long institutionId, Long studentId, String contentType, byte[] content) {

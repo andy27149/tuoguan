@@ -61,6 +61,20 @@ class StorageServiceTest {
     }
 
     @Test
+    void rejectsNonPositiveMaxAttempts() {
+        assertThatThrownBy(() -> new StorageService(minioClient, BUCKET, 0, 1))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("max-attempts");
+    }
+
+    @Test
+    void rejectsNegativeRetryDelay() {
+        assertThatThrownBy(() -> new StorageService(minioClient, BUCKET, 5, -1))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("delay-millis");
+    }
+
+    @Test
     void throwsAfterExhaustingAllAttemptsWithLastFailureAsCauseAndEarlierOnesSuppressed() throws Exception {
         IOException first = new IOException("connection refused");
         IOException second = new IOException("connection refused");
