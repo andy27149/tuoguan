@@ -22,6 +22,15 @@ services:
     # 商业版 AIStor。改用 cgr.dev/chainguard/minio——这是 Chainguard 维护的同一套
     # MinIO server 二进制的发行分支，多架构、不需要登录、持续在更新，命令行参数和原来
     # 的 minio/minio 完全兼容，不需要改任何应用代码。
+    #
+    # 重要：minio/minio 官方镜像以 root 身份运行，cgr.dev/chainguard/minio 固定用
+    # uid=65532（"nonroot"）运行——如果 minio_data 这个 volume 里已经有旧镜像写
+    # 过的数据（属主是 root 或别的 uid），新容器对这些旧文件没有写权限，启动时会在
+    # `.minio.sys/tmp` 这步直接 "file access denied" 崩溃重启，详见 DEPLOY.md
+    # 「常见问题排查」。2026-10-21 在生产环境实测复现过，手动
+    # `chown -R 65532:65532 <volume 的宿主机实际路径>` 后解决，之后新建的 volume
+    # （比如全新部署、或者以后再换一个用别的 uid 运行的镜像）都要重新检查这一点，
+    # 不是改一次所有环境都一劳永逸。
     image: cgr.dev/chainguard/minio:latest
     restart: unless-stopped
     command: server /data --console-address ":9001"
@@ -55,15 +64,16 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
-      # 临时从 service_healthy 降级回 service_started（产品诊断 #61 之前的状态）：
-      # 2026-10-21 用 mc ready local 修过一次 curl 不存在的问题后，minio 的健康
-      # 检查在生产环境依然没有稳定进入 healthy、卡住了紧急部署，具体原因还没来得
-      # 及查清楚（怀疑跟 mc ready 在某些网络/启动时序下的行为有关，待确认）。先降级
-      # 成只等"容器进程起来"而不等"健康检查通过"，不再让 up -d 卡死在这里；backend
-      # 自己连 MinIO 失败时的重试/报错行为不受影响。等查清楚健康检查失败的真正原因
-      # 后应该改回 service_healthy，不要让这个临时状态长期存在。
+      # 2026-10-21 这里曾经临时降级成 service_started，当时以为是 mc ready local
+      # 健康检查本身的问题——后来查明真正原因是 minio_data 这个 volume 里的数据
+      # 是旧的 minio/minio 镜像（root 身份）写的，换成 cgr.dev/chainguard/minio
+      # （固定用 uid=65532 的 nonroot 用户运行）之后，新进程对旧数据没有写权限，
+      # 启动时 `rename .minio.sys/tmp -> tmp-old/...` 直接报 "file access denied"
+      # 崩溃重启，跟健康检查命令本身无关。服务器上手动 `chown -R 65532:65532` 了
+      # volume 的实际数据目录后，minio 能正常启动、健康检查也能正常通过，这里改
+      # 回 service_healthy，恢复"真正等 MinIO 能响应请求才启动 backend"的保证。
       minio:
-        condition: service_started
+        condition: service_healthy
     environment:
       DB_HOST: mysql
       DB_PORT: 3306

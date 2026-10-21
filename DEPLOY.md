@@ -384,6 +384,32 @@ Flyway 社区版不支持 down migration（没有"自动回滚到上一个版本
   的 `moby-engine`）缺 compose v2 插件。`deploy.sh` 已经会自动识别并退回使用 `docker-compose`
   v1（如果已安装）；如果 v1 也没有，装一个即可（`pip3 install docker-compose` 或参考
   `bootstrap.sh` 里下载 v2 插件二进制的做法）。
+- **`up -d` 报 `dependency failed to start: container tuoguan-minio-1 is unhealthy`，
+  或者 `docker-compose ps` 里 minio/backend 一直 `Restarting`**：先看 minio 自己的
+  日志（`docker-compose logs --tail 200 minio`），大概率是这一条：
+
+  ```
+  FATAL Unable to initialize backend: Unable to write to the backend
+  > Please ensure MinIO binary has write permissions for the backend
+  ```
+
+  **根因（2026-10-21 生产环境实测复现过）**：`minio_data` 这个 volume 里的数据是
+  旧的 `minio/minio` 官方镜像（root 身份）写的，当前用的 `cgr.dev/chainguard/minio`
+  固定用 `uid=65532`（"nonroot"）运行，新进程对旧数据没有写权限，启动时在
+  `.minio.sys/tmp` 这步直接 "file access denied" 崩溃，然后不停重启——跟健康检查
+  命令本身、跟内存是否够用都没关系，纯粹是这个 volume 的文件属主不对。
+  **修复方式**（一次性，改完之后不会再复发，除非以后又换一个用别的 uid 运行的
+  镜像）：
+  ```bash
+  cd tuoguan
+  docker-compose stop minio
+  docker volume inspect tuoguan_minio_data --format '{{ .Mountpoint }}'
+  # 用上面这条拿到的实际路径，不要直接照抄：
+  sudo chown -R 65532:65532 <上面输出的路径>
+  docker-compose up -d minio
+  ```
+  backend 本身这期间会因为连不上 minio 反复重启（`StorageService` 启动时会重试最多
+  10 次、每次间隔 3 秒），minio 修好之后 backend 会自己恢复，不需要额外操作。
 - **前端构建报 `sh: tsc: not found`（`npm run build` 阶段失败）**：根因不是
   `package.json`/`typescript` 配置问题（`npm ci` 默认会把 `dependencies` 和
   `devDependencies` 都装上，`typescript` 放在 devDependencies 完全没问题）。
