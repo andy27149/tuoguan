@@ -38,7 +38,7 @@ jobs:
       # 切换 Node 版本之前先用 runner 当前默认的 Node 调一次 pnpm 来解析缓存路径——
       # 如果这里还配成 Node 20，那次提前调用会直接报 ERR_UNKNOWN_BUILTIN_MODULE
       # 崩掉（实测踩过），所以 node-version 必须先满足 pnpm 11 的要求。
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: "11"
 
