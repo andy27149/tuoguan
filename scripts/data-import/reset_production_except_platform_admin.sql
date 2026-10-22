@@ -65,16 +65,29 @@ BEGIN
     -- 重跑这个脚本时开头的 DROP PROCEDURE）会隐式 COMMIT 当前还开着的事务。
     -- 显式声明这个 HANDLER 让任何未预期的错误都先 ROLLBACK 再重新抛出，
     -- 不依赖"连接是否断开"这个外部条件。
+    --
+    -- review 发现的真实问题：FOREIGN_KEY_CHECKS 是非事务性的会话变量，
+    -- ROLLBACK 不会把它改回去。如果中途失败发生在 SET FOREIGN_KEY_CHECKS=0
+    -- 和重新置 1 之间，这条连接后续任何语句都会在 FK 检查关闭的状态下执行。
+    -- 本脚本设计上假定一次性管道执行、连接随即关闭（不受影响），但这里显式
+    -- 在 HANDLER 里也重置一遍，纯防御性加固，零副作用（非事务性变量，重复
+    -- SET 不会被当前失败的事务影响）。
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
+        SET FOREIGN_KEY_CHECKS = 1;
         ROLLBACK;
         RESIGNAL;
     END;
 
-    -- ---------- 安全阀：目标超级管理员必须存在且角色正确，否则一行都不删 ----------
+    -- ---------- 安全阀：目标超级管理员必须存在、角色正确、且不属于任何机构，否则一行都不删 ----------
+    -- review 发现的真实问题：只检查 phone+role 不够——平台超管"不属于任何
+    -- 机构"这个不变量目前只由应用层 SeedService.seedPlatformAdmin() 的约定
+    -- 维持，数据库层面没有 CHECK 约束强制。这里补上 institution_id IS NULL
+    -- 这道校验，避免万一这行数据因为某种历史原因挂了机构，清空机构表后留下
+    -- 一个指向已删除机构的悬挂外键值。
     SELECT COUNT(*) INTO v_count
     FROM teacher
-    WHERE phone = '13842805660' AND role = 'PLATFORM_ADMIN';
+    WHERE phone = '13842805660' AND role = 'PLATFORM_ADMIN' AND institution_id IS NULL;
 
     IF v_count <> 1 THEN
         -- MySQL 的 SIGNAL MESSAGE_TEXT 最长 128 字符，超长会在 SIGNAL 这一步
