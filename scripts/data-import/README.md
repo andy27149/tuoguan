@@ -42,11 +42,16 @@
 
    ```bash
    docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T mysql \
-     mysql -uroot -p"$MYSQL_ROOT_PASSWORD" <数据库名> < import.sql
+     mysql --default-character-set=utf8mb4 -uroot -p"$MYSQL_ROOT_PASSWORD" <数据库名> < import.sql
    ```
 
    必须用支持 `DELIMITER` 的 `mysql` 命令行客户端（上面这条命令或者登录后 `source`
-   文件路径都可以），**不要加 `--force` 参数**。
+   文件路径都可以），**不要加 `--force` 参数**。**`--default-character-set=utf8mb4`
+   这个参数不能漏**——2026-10-22 实测复现过：缺了这个参数，`mysql` 客户端会用
+   自己的默认连接字符集（不是 utf8mb4）去解释这份已经是 UTF-8 编码的 SQL 文件，
+   把所有中文姓名/机构名双重编码成乱码**真实写进数据库**（不是终端显示问题，
+   `HEX()` 读出来的字节就是错的），且整个导入过程不会报任何错误，不会被数据库
+   约束拦下来。MySQL 服务端默认字符集本身是对的，问题完全出在客户端这一側。
 
 6. **执行结果只有两种**：
    - 顺利执行完，没有任何 `ERROR` 输出——说明全部数据已经写入，老师可以用手机号 +
@@ -106,3 +111,12 @@
 - `generate_template.py`：生成空白的 Excel 模板。
 - `import_to_sql.py`：把填好的模板转换成 SQL。
 - `requirements.txt`：Python 依赖。
+- `reset_production_except_platform_admin.sql`：2026-10-22 首个试用机构（力达
+  托管）试用期结束、需要清空旧数据重新导入时写的一次性清库脚本——清空生产库
+  里除平台超级管理员以外的所有数据，并重建机构 + 第一个管理员账号，供这次的
+  批量导入脚本锚定机构。**这是一次性脚本，手机号/机构名都是硬编码的那一次
+  具体数据，不是可以直接套用到别的机构的通用工具**——以后如果再遇到类似"某
+  机构清空重来"的需求，照着这个文件的结构改一份新的即可，不要直接复用。
+- `build_lida_tuoguan_data.py`：同上，一次性脚本，把力达托管那次的完整数据
+  （教师/教学单元/学生/课外课报名关系）写成 `import_to_sql.py`能读的 Excel，
+  同样不是通用工具，只是为了让审查时能逐行对照原始聊天记录数据。
