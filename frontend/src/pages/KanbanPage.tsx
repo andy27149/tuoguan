@@ -10,6 +10,7 @@ import * as mealApi from '../api/meal'
 import * as leaveApi from '../api/leave'
 import * as adminApi from '../api/admin'
 import * as adminKanbanApi from '../api/adminKanban'
+import * as courseApi from '../api/course'
 import type { DailyTask } from '../api/dailyTasks'
 import { todayDateString } from '../kanban/date'
 import { groupBySchoolClass } from '../kanban/schoolClass'
@@ -87,6 +88,21 @@ export function KanbanPage({
   }
 
   const isReadOnlyView = isAdmin && !ownsClass(activeClassId)
+
+  // 同样的双重身份场景也能发生在课外课上：管理员本人被挂为某个课外课的负责教师时，
+  // 后端 /courses 接口（CourseController，见产品诊断同一条）只按 principal.teacherId()
+  // 过滤，对管理员账号同样完全可用——缺的只是入口。这里单独查一次"我自己名下有没有
+  // 课外课"，跟 ownsClass 不一样的是它和当前查看哪个班无关，是账号级别的、决定header
+  // 里"消课"入口要不要出现。普通老师完全不受影响，继续用上层传下来的 hasCourses。
+  const [hasOwnCourses, setHasOwnCourses] = useState(false)
+  useEffect(() => {
+    if (!isAdmin) return
+    courseApi
+      .fetchMyCourses()
+      .then((list) => setHasOwnCourses(list.length > 0))
+      .catch(() => setHasOwnCourses(false))
+  }, [isAdmin])
+  const showConsumptionEntry = isAdmin ? hasOwnCourses : hasCourses
 
   useEffect(() => {
     const fetchClassList = isAdmin ? adminApi.fetchAdminClasses() : classesApi.fetchClasses()
@@ -490,7 +506,7 @@ export function KanbanPage({
             {isReadOnlyView && <span className="flag-chip">只读</span>}
           </h1>
           <div className="flex gap-2">
-            {!isAdmin && hasCourses && (
+            {showConsumptionEntry && (
               <button type="button" onClick={onOpenConsumption} className="logout-btn">
                 消课
               </button>
