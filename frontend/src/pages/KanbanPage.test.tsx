@@ -12,6 +12,7 @@ import * as mealApi from '../api/meal'
 import * as leaveApi from '../api/leave'
 import * as adminApi from '../api/admin'
 import * as adminKanbanApi from '../api/adminKanban'
+import * as courseApi from '../api/course'
 
 const logout = vi.fn()
 
@@ -36,6 +37,7 @@ vi.mock('../api/meal')
 vi.mock('../api/leave')
 vi.mock('../api/admin')
 vi.mock('../api/adminKanban')
+vi.mock('../api/course')
 
 describe('KanbanPage', () => {
   beforeEach(() => {
@@ -73,6 +75,7 @@ describe('KanbanPage as institution admin', () => {
     vi.resetAllMocks()
     authState.teacher = { id: 42, phone: '13900000042', institutionId: 1, role: 'ADMIN' }
     vi.mocked(templatesApi.fetchTaskTemplates).mockResolvedValue([])
+    vi.mocked(courseApi.fetchMyCourses).mockResolvedValue([])
     vi.mocked(adminKanbanApi.fetchStudents).mockResolvedValue([])
     vi.mocked(adminKanbanApi.listDailyTasksForClass).mockResolvedValue([])
     vi.mocked(adminKanbanApi.fetchDismissalStatus).mockResolvedValue({ dismissed: false })
@@ -116,5 +119,36 @@ describe('KanbanPage as institution admin', () => {
     expect(await screen.findByRole('button', { name: '放学' })).toBeInTheDocument()
     expect(studentsApi.fetchStudents).toHaveBeenCalledWith(1)
     expect(adminKanbanApi.fetchStudents).not.toHaveBeenCalled()
+  })
+
+  // 管理员本人同时是某个课外课负责教师的场景同样存在（CourseController 的 /courses
+  // 系列接口也是纯按 teacherId 过滤，不看角色）：header 里"消课"入口之前写死了
+  // !isAdmin，导致这种场景下管理员压根进不去课外消课页。这里锁定修复后的行为：
+  // 入口按管理员是否真的名下有课外课来决定，不再是角色一刀切。
+  it('does not show the 消课 entry when the admin owns no courses', async () => {
+    vi.mocked(adminApi.fetchAdminClasses).mockResolvedValue([
+      { id: 1, name: '五年级托管班', teacherId: 42, teacherName: '管理员兼老师', teacherPhone: '13900000042' },
+    ])
+
+    render(<KanbanPage onOpenConsumption={vi.fn()} />)
+    await screen.findByText('托管班看板')
+
+    expect(screen.queryByRole('button', { name: '消课' })).not.toBeInTheDocument()
+  })
+
+  it('shows the 消课 entry when the admin personally owns a course', async () => {
+    vi.mocked(adminApi.fetchAdminClasses).mockResolvedValue([
+      { id: 1, name: '五年级托管班', teacherId: 42, teacherName: '管理员兼老师', teacherPhone: '13900000042' },
+    ])
+    vi.mocked(courseApi.fetchMyCourses).mockResolvedValue([
+      { id: 5, name: '管理员兼任课外课', pricePerLesson: 60, lessonDurationMinutes: 60, active: true },
+    ])
+    const onOpenConsumption = vi.fn()
+
+    render(<KanbanPage onOpenConsumption={onOpenConsumption} />)
+    const button = await screen.findByRole('button', { name: '消课' })
+
+    fireEvent.click(button)
+    expect(onOpenConsumption).toHaveBeenCalled()
   })
 })
