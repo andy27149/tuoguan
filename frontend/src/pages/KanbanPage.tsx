@@ -86,14 +86,18 @@ export function KanbanPage({
   const [viewMode, setViewMode] = useState<'overview' | 'list'>('list')
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null)
   // 每个班级只在第一次加载完成时按人数套一次默认视图，之后老师手动切换的选择
-  // 在同一个班级内保留，不会被这个 effect 覆盖掉；切到另一个班级才重新判断。
+  // 在同一个班级内保留，不会被覆盖掉；切到另一个班级才重新判断。
+  //
+  // review 发现的真实 bug：这里原来是一个单独的 useEffect，依赖
+  // [activeClassId, loading, students]——切班级时 activeClassId 先变，但
+  // loading/students 要等 loadClassData 的异步请求跑完才会更新，这个 effect
+  // 会先用"上一个班级"的 students 算出一个默认值、并且提前把
+  // appliedDefaultForClassId 标记成新班级的 id，等真实数据到了反而因为这个
+  // 标记已经存在而被跳过——用两个班反复切换验证过，新班级永远套用的是切换
+  // 前那个班的人数判断出的默认值。现在改成直接在 loadClassData 内部、拿到
+  // 这个 classId 真正对应的学生数据那一刻去判断，不存在"用旧数据判断新班级"
+  // 这个时间窗口。
   const appliedDefaultForClassId = useRef<number | null>(null)
-  useEffect(() => {
-    if (activeClassId === null || loading) return
-    if (appliedDefaultForClassId.current === activeClassId) return
-    setViewMode(students.length > OVERVIEW_DEFAULT_THRESHOLD ? 'overview' : 'list')
-    appliedDefaultForClassId.current = activeClassId
-  }, [activeClassId, loading, students])
 
   // 机构管理员本人同时是某个托管班带班老师的场景（诊断：管理员的教师身份本来就是隐式的，
   // 后端从不检查 teaching_unit.teacher_id 对应账号的 role，写接口也只按 teacherId 判断
@@ -177,7 +181,12 @@ export function KanbanPage({
               mealApi.fetchMeals(classId, date),
               leaveApi.fetchLeaves(classId, date),
             ])
-        setStudents(studentList.filter((s) => s.enrolled))
+        const enrolledStudents = studentList.filter((s) => s.enrolled)
+        setStudents(enrolledStudents)
+        if (appliedDefaultForClassId.current !== classId) {
+          setViewMode(enrolledStudents.length > OVERVIEW_DEFAULT_THRESHOLD ? 'overview' : 'list')
+          appliedDefaultForClassId.current = classId
+        }
         setTasks(taskList)
         setDismissed(dismissalStatus.dismissed)
         setNotesByStudent(new Map(noteList.map((n) => [n.studentId, { rating: n.rating, comment: n.comment }])))

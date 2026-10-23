@@ -110,6 +110,33 @@ describe('KanbanPage', () => {
     expect(screen.queryByText('今日评价')).not.toBeInTheDocument()
   })
 
+  // review 发现的真实 bug：默认视图原来是切 activeClassId 之后一个单独的
+  // useEffect 去算的，那个 effect 会在新班级的学生数据还没加载完之前，先拿
+  // "上一个班级"的 students 算出一个默认值并提前标记"已经给这个新班级套过
+  // 默认值了"，导致新班级永远沿用切换前那个班的默认视图、真实数据到了也不会
+  // 重新纠正。这里锁定两个方向都要切对：大班切小班、小班切大班。
+  it('recomputes the default view per class when switching between classes, not based on the previous class', async () => {
+    vi.mocked(classesApi.fetchClasses).mockResolvedValue([
+      { id: 1, name: '小班' },
+      { id: 2, name: '大班' },
+    ])
+    vi.mocked(studentsApi.fetchStudents).mockImplementation((classId) =>
+      Promise.resolve(makeStudents(classId === 1 ? 3 : 11)),
+    )
+
+    render(<KanbanPage onOpenConsumption={vi.fn()} />)
+    // 先进来的是小班（3人），应该默认列表。
+    await screen.findByRole('tab', { name: '☰ 列表', selected: true })
+
+    fireEvent.click(screen.getByRole('tab', { name: '大班' }))
+    await screen.findByRole('tab', { name: '▦ 总览', selected: true })
+    expect(document.body.querySelector('.overview-grid')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: '小班' }))
+    await screen.findByRole('tab', { name: '☰ 列表', selected: true })
+    expect(document.body.querySelector('.overview-grid')).not.toBeInTheDocument()
+  })
+
   it('manually switching to 总览 and tapping a student opens the quick action popup wired to the real handlers', async () => {
     vi.mocked(classesApi.fetchClasses).mockResolvedValue([{ id: 1, name: '一年级托管班' }])
     vi.mocked(studentsApi.fetchStudents).mockResolvedValue(makeStudents(2))
