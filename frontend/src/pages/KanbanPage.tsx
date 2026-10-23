@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import * as classesApi from '../api/classes'
 import * as studentsApi from '../api/students'
 import * as templatesApi from '../api/taskTemplates'
@@ -15,6 +15,8 @@ import type { DailyTask } from '../api/dailyTasks'
 import { todayDateString } from '../kanban/date'
 import { groupBySchoolClass } from '../kanban/schoolClass'
 import { StudentCard } from '../components/StudentCard'
+import { StudentOverviewGrid } from '../components/StudentOverviewGrid'
+import { StudentQuickActionPopup } from '../components/StudentQuickActionPopup'
 import { AssignTaskBar } from '../components/AssignTaskBar'
 import { CompleteAllTasksButton } from '../components/CompleteAllTasksButton'
 import { DismissButton } from '../components/DismissButton'
@@ -39,6 +41,10 @@ const EMPTY_NOTE: StudentNote = { rating: 0, comment: '' }
 
 const EMPTY_ARRIVAL = ''
 const EMPTY_LEAVE = ''
+
+// 超过这个人数，切班级时默认打开总览视图而不是逐张卡片的列表视图——大班级
+// 翻半天才能找到一个学生，总览网格按头像+姓名紧凑排布，点进去再操作。
+const OVERVIEW_DEFAULT_THRESHOLD = 10
 
 // 管理员拿到的班级列表（adminApi.fetchAdminClasses）带 teacherId，老师自己的班级列表
 // （classesApi.fetchClasses）不带——用联合类型而不是单独维护一份映射，这样"这个班是不是
@@ -76,6 +82,22 @@ export function KanbanPage({
   const [error, setError] = useState<string | null>(null)
   const [showHelp, setShowHelp] = useState(false)
   const { toastMessage, showToast } = useToast()
+
+  const [viewMode, setViewMode] = useState<'overview' | 'list'>('list')
+  const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null)
+  // 每个班级只在第一次加载完成时按人数套一次默认视图，之后老师手动切换的选择
+  // 在同一个班级内保留，不会被覆盖掉；切到另一个班级才重新判断。
+  //
+  // review 发现的真实 bug：这里原来是一个单独的 useEffect，依赖
+  // [activeClassId, loading, students]——切班级时 activeClassId 先变，但
+  // loading/students 要等 loadClassData 的异步请求跑完才会更新，这个 effect
+  // 会先用"上一个班级"的 students 算出一个默认值、并且提前把
+  // appliedDefaultForClassId 标记成新班级的 id，等真实数据到了反而因为这个
+  // 标记已经存在而被跳过——用两个班反复切换验证过，新班级永远套用的是切换
+  // 前那个班的人数判断出的默认值。现在改成直接在 loadClassData 内部、拿到
+  // 这个 classId 真正对应的学生数据那一刻去判断，不存在"用旧数据判断新班级"
+  // 这个时间窗口。
+  const appliedDefaultForClassId = useRef<number | null>(null)
 
   // 机构管理员本人同时是某个托管班带班老师的场景（诊断：管理员的教师身份本来就是隐式的，
   // 后端从不检查 teaching_unit.teacher_id 对应账号的 role，写接口也只按 teacherId 判断
@@ -159,7 +181,12 @@ export function KanbanPage({
               mealApi.fetchMeals(classId, date),
               leaveApi.fetchLeaves(classId, date),
             ])
-        setStudents(studentList.filter((s) => s.enrolled))
+        const enrolledStudents = studentList.filter((s) => s.enrolled)
+        setStudents(enrolledStudents)
+        if (appliedDefaultForClassId.current !== classId) {
+          setViewMode(enrolledStudents.length > OVERVIEW_DEFAULT_THRESHOLD ? 'overview' : 'list')
+          appliedDefaultForClassId.current = classId
+        }
         setTasks(taskList)
         setDismissed(dismissalStatus.dismissed)
         setNotesByStudent(new Map(noteList.map((n) => [n.studentId, { rating: n.rating, comment: n.comment }])))
@@ -180,6 +207,7 @@ export function KanbanPage({
   useEffect(() => {
     if (activeClassId !== null) {
       loadClassData(activeClassId)
+      setSelectedStudentId(null)
     }
   }, [activeClassId, loadClassData])
 
@@ -556,6 +584,32 @@ export function KanbanPage({
               )}
             </div>
 
+            {students.length > 0 && (
+              <div className="view-switch-row">
+                <div className="view-switch" role="tablist" aria-label="展示方式">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={viewMode === 'overview'}
+                    onClick={() => setViewMode('overview')}
+                  >
+                    ▦ 总览
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={viewMode === 'list'}
+                    onClick={() => setViewMode('list')}
+                  >
+                    ☰ 列表
+                  </button>
+                </div>
+                <span className="view-switch-hint">
+                  {students.length} 人 · 超过 {OVERVIEW_DEFAULT_THRESHOLD} 人默认进入总览
+                </span>
+              </div>
+            )}
+
             {!isReadOnlyView && (
               <>
                 <TaskTemplateManager
@@ -579,7 +633,32 @@ export function KanbanPage({
               </>
             )}
 
-            {schoolClassGroups.length > 1 ? (
+            {viewMode === 'overview' ? (
+              <>
+                <div className="overview-legend">
+                  <span>
+                    <i className="is-default" />
+                    未到
+                  </span>
+                  <span>
+                    <i className="is-arrived" />
+                    已到
+                  </span>
+                  <span>
+                    <i className="is-leave" />
+                    请假
+                  </span>
+                  <span>🍚 已用餐</span>
+                </div>
+                <StudentOverviewGrid
+                  students={students}
+                  arrivalByStudent={arrivalByStudent}
+                  mealByStudent={mealByStudent}
+                  leaveByStudent={leaveByStudent}
+                  onSelect={setSelectedStudentId}
+                />
+              </>
+            ) : schoolClassGroups.length > 1 ? (
               <div className="school-class-columns">
                 {schoolClassGroups.map((group, i) => (
                   <div key={group.schoolClassName ?? `__unassigned_${i}`} className="school-class-column">
@@ -598,6 +677,47 @@ export function KanbanPage({
           </>
         )}
       </main>
+
+      {selectedStudentId !== null &&
+        (() => {
+          const student = students.find((s) => s.id === selectedStudentId)
+          if (!student) return null
+          const note = notesByStudent.get(student.id) ?? EMPTY_NOTE
+          const arrivedAt = arrivalByStudent.get(student.id) ?? EMPTY_ARRIVAL
+          const hasMeal = mealByStudent.has(student.id)
+          return (
+            <StudentQuickActionPopup
+              student={student}
+              tasks={tasksByStudent.get(student.id) ?? []}
+              dismissed={dismissed}
+              templates={templates}
+              rating={note.rating}
+              comment={note.comment}
+              arrivedAt={arrivedAt}
+              hasMeal={hasMeal}
+              leaveReason={isReadOnlyView ? EMPTY_LEAVE : leaveByStudent.get(student.id) ?? EMPTY_LEAVE}
+              date={date}
+              readOnly={isReadOnlyView}
+              onClose={() => setSelectedStudentId(null)}
+              onToggleTask={isReadOnlyView ? undefined : handleToggleTask}
+              onDeleteTask={isReadOnlyView ? undefined : handleDeleteTask}
+              onAddFromTemplate={isReadOnlyView ? undefined : handleAddFromTemplate}
+              onAddCustom={isReadOnlyView ? undefined : handleAddCustom}
+              onUploadAvatar={isReadOnlyView ? undefined : handleUploadAvatar}
+              onSetRating={isReadOnlyView ? undefined : handleSetRating}
+              onSetComment={isReadOnlyView ? undefined : handleSetComment}
+              onSetArrival={isReadOnlyView ? undefined : handleSetArrival}
+              onClearArrival={isReadOnlyView ? undefined : handleClearArrival}
+              onSetMeal={isReadOnlyView ? undefined : handleSetMeal}
+              onClearMeal={isReadOnlyView ? undefined : handleClearMeal}
+              onSetLeave={isReadOnlyView ? undefined : handleSetLeave}
+              onClearLeave={isReadOnlyView ? undefined : handleClearLeave}
+              onShowToast={showToast}
+              statsFetchFn={isReadOnlyView ? adminKanbanApi.fetchMonthlyStats : undefined}
+              shareLinkFetchFn={isReadOnlyView ? adminKanbanApi.fetchShareLink : undefined}
+            />
+          )
+        })()}
 
       <Toast message={toastMessage} />
       {showHelp && <HelpModal role="teacher" onClose={() => setShowHelp(false)} />}
