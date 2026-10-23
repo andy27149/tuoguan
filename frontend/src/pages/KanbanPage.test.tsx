@@ -97,9 +97,13 @@ describe('KanbanPage', () => {
     vi.mocked(studentsApi.fetchStudents).mockResolvedValue(makeStudents(11))
 
     render(<KanbanPage onOpenConsumption={vi.fn()} />)
-    await screen.findByText('11 人 · 超过 10 人默认进入总览')
+    // viewMode 的 state 初始值是 'list'，真正按人数判断的默认值是加载完数据后
+    // 一个单独的 effect 才应用的——等人数提示文案出现不能保证那个 effect 已经
+    // 跑完（提示文案本身和 viewMode 无关，首次渲染就会出现），这是 CI 上真实
+    // 跑出来的一次竞态失败，不是环境偶发问题。改成直接等 tab 的 aria-selected
+    // 状态本身变成 true，这个条件只有 effect 真正跑完才会成立。
+    await screen.findByRole('tab', { name: '▦ 总览', selected: true })
 
-    expect(screen.getByRole('tab', { name: '▦ 总览' })).toHaveAttribute('aria-selected', 'true')
     expect(document.body.querySelector('.overview-grid')).toBeInTheDocument()
     // 总览模式下不应该把 35 张完整卡片一次性渲染出来，今日评价这类列表视图
     // 才有的内容在总览下不应该出现。
