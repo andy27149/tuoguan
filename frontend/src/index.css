@@ -538,6 +538,229 @@
     gap: 16px;
   }
 
+  /* ---------- 总览视图：大班级（>10人）默认展示，点头像弹快捷操作 ---------- */
+
+  .view-switch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .view-switch {
+    display: inline-flex;
+    padding: 3px;
+    border-radius: var(--radius-pill);
+    background: rgba(120, 120, 128, 0.12);
+  }
+  .view-switch button {
+    border: none;
+    background: transparent;
+    padding: 7px 16px;
+    border-radius: var(--radius-pill);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+  }
+  .view-switch button[aria-selected="true"] {
+    background: #fff;
+    color: var(--ink);
+    box-shadow: 0 2px 6px rgba(31, 41, 68, 0.14);
+  }
+  .view-switch-hint {
+    font-size: 12px;
+    color: var(--ink-faint);
+  }
+
+  .overview-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    padding: 10px 14px;
+    border-radius: 16px;
+    background: var(--glass);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    font-size: 12px;
+    color: var(--ink-mid);
+  }
+  .overview-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .overview-legend i {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    display: inline-block;
+    border: 2.5px solid;
+    background: #fff;
+  }
+  .overview-legend i.is-default { border-color: var(--ink-faint); }
+  .overview-legend i.is-arrived { border-color: #07c160; }
+  .overview-legend i.is-leave { border-color: var(--warn); }
+
+  .overview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+    gap: 14px 6px;
+    padding: 16px 10px;
+    background: var(--glass);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    border-radius: var(--card-radius);
+    box-shadow: 0 10px 28px var(--glass-shadow);
+  }
+
+  .student-chip {
+    border: none;
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 2px 0;
+    border-radius: 14px;
+  }
+  .student-chip:hover { background: rgba(0, 0, 0, 0.025); }
+
+  .chip-avatar-wrap { position: relative; width: 52px; height: 52px; flex-shrink: 0; }
+  .chip-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--accent-gradient);
+    color: #fff;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 2.5px solid var(--ink-faint);
+    box-shadow: 0 4px 10px rgba(79, 134, 247, 0.28);
+  }
+  .chip-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .student-chip[data-status="arrived"] .chip-avatar {
+    border-color: #07c160;
+    box-shadow: 0 0 0 3px rgba(7, 193, 96, 0.14), 0 4px 10px rgba(7, 193, 96, 0.22);
+  }
+  .student-chip[data-status="leave"] .chip-avatar {
+    border-color: var(--warn);
+    box-shadow: 0 0 0 3px rgba(255, 149, 0, 0.14), 0 4px 10px rgba(255, 149, 0, 0.2);
+  }
+  .chip-meal-badge {
+    position: absolute;
+    right: -2px;
+    bottom: -2px;
+    width: 19px;
+    height: 19px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid var(--canvas);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    box-shadow: 0 2px 6px rgba(31, 41, 68, 0.18);
+  }
+  .chip-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-mid);
+    max-width: 68px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* 学生快捷操作弹层，复用 .share-overlay/.share-modal 的玻璃弹窗外壳。
+     "返回"/快捷按钮/"更多"按钮和完整卡片头像哪个出现由组件按 stage 条件渲染
+     决定（不是纯 CSS display:none），这里只负责已经渲染出来的那些元素长什么样。 */
+  .student-popup .popup-back {
+    position: absolute;
+    top: 16px;
+    left: 18px;
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent-1);
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .popup-head {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    text-align: center;
+    margin-top: 8px;
+  }
+  .popup-head .chip-avatar { width: 64px; height: 64px; font-size: 24px; border-width: 3px; }
+  .popup-name { font-family: var(--font-display); font-weight: 800; font-size: 17px; }
+  .popup-sub { font-size: 12px; color: var(--ink-faint); margin-top: 2px; }
+
+  .quick-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 18px;
+  }
+  .quick-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.025);
+    border-radius: 16px;
+    padding: 12px 14px;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink-mid);
+  }
+  .quick-action-btn .qa-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    box-shadow: 0 2px 6px rgba(31, 41, 68, 0.1);
+    flex-shrink: 0;
+  }
+  .quick-action-btn .qa-state { margin-left: auto; font-size: 12px; color: var(--ink-faint); font-weight: 600; }
+  .quick-action-btn.is-active { background: rgba(7, 193, 96, 0.08); border-color: rgba(7, 193, 96, 0.28); }
+  .quick-action-btn.is-active .qa-state { color: #07c160; }
+  .quick-action-btn.is-warn.is-active { background: rgba(255, 149, 0, 0.1); border-color: rgba(255, 149, 0, 0.3); }
+  .quick-action-btn.is-warn.is-active .qa-state { color: #9a5b00; }
+  .quick-action-btn:disabled { opacity: 0.45; }
+
+  .more-btn {
+    margin-top: 16px;
+    width: 100%;
+    border: 1px dashed rgba(0, 0, 0, 0.16);
+    background: transparent;
+    border-radius: 14px;
+    padding: 11px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  /* 留出顶部空间，避开弹层自己悬浮的"返回"/"×"按钮，不和 StudentCard 内部
+     右上角的 progress-ring 打架。 */
+  .full-card-body { margin-top: 26px; }
+
   .student-empty, .task-empty, .templates-empty {
     display: flex;
     flex-direction: column;

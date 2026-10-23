@@ -66,6 +66,68 @@ describe('KanbanPage', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: '关闭' }))
     expect(screen.queryByRole('dialog', { name: '帮助' })).not.toBeInTheDocument()
   })
+
+  // 大班级（35人那种真实场景）翻半天找不到学生是这次改动的起因：超过10人默认
+  // 进总览网格，10人及以下维持原来逐张卡片的列表，默认值算错会让小班级也被
+  // 不必要地推进总览、或者大班级反而还要手动点一下才能用上总览。
+  function makeStudents(count: number) {
+    return Array.from({ length: count }, (_, i) => ({
+      id: i + 1,
+      name: `学生${i + 1}`,
+      schoolClassName: null,
+      enrolled: true,
+      avatarUrl: null,
+      enrolledCourseNames: [],
+    }))
+  }
+
+  it('defaults to list view when the class has 10 or fewer students', async () => {
+    vi.mocked(classesApi.fetchClasses).mockResolvedValue([{ id: 1, name: '一年级托管班' }])
+    vi.mocked(studentsApi.fetchStudents).mockResolvedValue(makeStudents(10))
+
+    render(<KanbanPage onOpenConsumption={vi.fn()} />)
+    await screen.findByText('学生1')
+
+    expect(screen.getByRole('tab', { name: '☰ 列表' })).toHaveAttribute('aria-selected', 'true')
+    expect(document.body.querySelector('.overview-grid')).not.toBeInTheDocument()
+  })
+
+  it('defaults to overview view when the class has more than 10 students', async () => {
+    vi.mocked(classesApi.fetchClasses).mockResolvedValue([{ id: 1, name: '五年级托管班' }])
+    vi.mocked(studentsApi.fetchStudents).mockResolvedValue(makeStudents(11))
+
+    render(<KanbanPage onOpenConsumption={vi.fn()} />)
+    await screen.findByText('11 人 · 超过 10 人默认进入总览')
+
+    expect(screen.getByRole('tab', { name: '▦ 总览' })).toHaveAttribute('aria-selected', 'true')
+    expect(document.body.querySelector('.overview-grid')).toBeInTheDocument()
+    // 总览模式下不应该把 35 张完整卡片一次性渲染出来，今日评价这类列表视图
+    // 才有的内容在总览下不应该出现。
+    expect(screen.queryByText('今日评价')).not.toBeInTheDocument()
+  })
+
+  it('manually switching to 总览 and tapping a student opens the quick action popup wired to the real handlers', async () => {
+    vi.mocked(classesApi.fetchClasses).mockResolvedValue([{ id: 1, name: '一年级托管班' }])
+    vi.mocked(studentsApi.fetchStudents).mockResolvedValue(makeStudents(2))
+    vi.mocked(arrivalApi.setArrival).mockResolvedValue(undefined)
+
+    render(<KanbanPage onOpenConsumption={vi.fn()} />)
+    await screen.findByText('学生1')
+
+    fireEvent.click(screen.getByRole('tab', { name: '▦ 总览' }))
+    fireEvent.click(screen.getByRole('button', { name: '学生1' }))
+
+    const arrivalBtn = await screen.findByRole('button', { name: /到了.*点击打卡/ })
+    fireEvent.click(arrivalBtn)
+
+    // 日期用当前系统日期算出来（todayDateString()），这里不写死具体日期避免
+    // 测试在别的日子跑就失败，只核对格式和学生 id/打卡时间。
+    expect(arrivalApi.setArrival).toHaveBeenCalledWith(
+      1,
+      expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      expect.stringMatching(/^\d{2}:\d{2}$/),
+    )
+  })
 })
 
 // 机构管理员本人同时是某个托管班带班老师的场景：管理员查看自己带的班时应该和老师一样
