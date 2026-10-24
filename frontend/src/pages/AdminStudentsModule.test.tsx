@@ -7,7 +7,12 @@ import * as unitApi from '../api/unit'
 vi.mock('../api/course')
 vi.mock('../api/unit')
 
-function makeStudents(count: number, idOffset = 100, teacherName: string | null = null): courseApi.AdminStudent[] {
+function makeStudents(
+  count: number,
+  idOffset = 100,
+  teacherName: string | null = null,
+  teacherId: number | null = teacherName ? 999 : null,
+): courseApi.AdminStudent[] {
   return Array.from({ length: count }, (_, i) => {
     const n = i + 1
     return {
@@ -18,7 +23,9 @@ function makeStudents(count: number, idOffset = 100, teacherName: string | null 
       classRoomName: null,
       offCampusOnly: true,
       enrolled: true,
+      teacherId,
       teacherName,
+      teacherPhone: teacherName ? '13900000999' : null,
       enrolledCourseNames: [],
       enrolledCourseIds: [],
     }
@@ -34,7 +41,9 @@ const STUDENTS: courseApi.AdminStudent[] = [
     classRoomName: '托管一班',
     offCampusOnly: false,
     enrolled: true,
+    teacherId: 3,
     teacherName: '王老师',
+    teacherPhone: '13900000003',
     enrolledCourseNames: ['书法课'],
     enrolledCourseIds: [30],
   },
@@ -46,7 +55,9 @@ const STUDENTS: courseApi.AdminStudent[] = [
     classRoomName: null,
     offCampusOnly: true,
     enrolled: true,
+    teacherId: null,
     teacherName: null,
+    teacherPhone: null,
     enrolledCourseNames: [],
     enrolledCourseIds: [],
   },
@@ -58,7 +69,9 @@ const STUDENTS: courseApi.AdminStudent[] = [
     classRoomName: '托管一班',
     offCampusOnly: false,
     enrolled: true,
+    teacherId: 3,
     teacherName: '王老师',
+    teacherPhone: '13900000003',
     enrolledCourseNames: [],
     enrolledCourseIds: [],
   },
@@ -227,7 +240,9 @@ describe('AdminStudentsModule', () => {
       classRoomName: null,
       offCampusOnly: true,
       enrolled: true,
+      teacherId: null,
       teacherName: null,
+      teacherPhone: null,
       enrolledCourseNames: [],
       enrolledCourseIds: [],
     })
@@ -252,7 +267,9 @@ describe('AdminStudentsModule', () => {
       classRoomName: '托管一班',
       offCampusOnly: false,
       enrolled: true,
+      teacherId: 3,
       teacherName: '王老师',
+      teacherPhone: '13900000003',
       enrolledCourseNames: [],
       enrolledCourseIds: [],
     })
@@ -279,7 +296,9 @@ describe('AdminStudentsModule', () => {
       classRoomName: null,
       offCampusOnly: true,
       enrolled: true,
+      teacherId: null,
       teacherName: null,
+      teacherPhone: null,
       enrolledCourseNames: ['书法课'],
       enrolledCourseIds: [30],
     })
@@ -430,11 +449,138 @@ describe('AdminStudentsModule', () => {
     render(<AdminStudentsModule />)
     await screen.findByText('小明')
 
-    fireEvent.change(screen.getByLabelText('托管教师筛选'), { target: { value: '王老师' } })
+    fireEvent.change(screen.getByLabelText('托管教师筛选'), { target: { value: '3' } })
 
     expect(screen.getByText('小明')).toBeInTheDocument()
     expect(screen.getByText('小刚')).toBeInTheDocument()
     expect(screen.queryByText('小红')).not.toBeInTheDocument()
+  })
+
+  it('filters students by 托管班级', async () => {
+    render(<AdminStudentsModule />)
+    await screen.findByText('小明')
+
+    fireEvent.change(screen.getByLabelText('托管班级筛选'), { target: { value: '20' } })
+
+    expect(screen.getByText('小明')).toBeInTheDocument()
+    expect(screen.getByText('小刚')).toBeInTheDocument()
+    expect(screen.queryByText('小红')).not.toBeInTheDocument()
+  })
+
+  // 真实场景：力达托管机构 3 年级和 4 年级的托管班老师恰好都叫"刘老师"，手机号不同。
+  // 之前按姓名字符串去重会把两人合并成一个选项，选中后把两个班的学生都筛出来——
+  // 这里锁定下拉选项按 teacherId 区分、展示"姓名（手机号）"，并且筛选能分清两人。
+  it('keeps two same-named teachers as distinct filter options and filters by the correct one', async () => {
+    const sameNameStudents: courseApi.AdminStudent[] = [
+      {
+        id: 10,
+        name: '小刘甲',
+        schoolClassName: null,
+        classRoomId: 40,
+        classRoomName: '3年级托管班',
+        offCampusOnly: false,
+        enrolled: true,
+        teacherId: 101,
+        teacherName: '刘老师',
+        teacherPhone: '13800012051',
+        enrolledCourseNames: [],
+        enrolledCourseIds: [],
+      },
+      {
+        id: 11,
+        name: '小刘乙',
+        schoolClassName: null,
+        classRoomId: 41,
+        classRoomName: '4年级托管班',
+        offCampusOnly: false,
+        enrolled: true,
+        teacherId: 102,
+        teacherName: '刘老师',
+        teacherPhone: '13800012052',
+        enrolledCourseNames: [],
+        enrolledCourseIds: [],
+      },
+    ]
+    vi.mocked(courseApi.fetchAdminStudents).mockResolvedValue(sameNameStudents)
+    render(<AdminStudentsModule />)
+    await screen.findByText('小刘甲')
+
+    const teacherSelect = screen.getByLabelText('托管教师筛选') as HTMLSelectElement
+    const optionLabels = Array.from(teacherSelect.options).map((o) => o.textContent)
+    expect(optionLabels).toContain('刘老师（13800012051）')
+    expect(optionLabels).toContain('刘老师（13800012052）')
+
+    fireEvent.change(teacherSelect, { target: { value: '101' } })
+    expect(screen.getByText('小刘甲')).toBeInTheDocument()
+    expect(screen.queryByText('小刘乙')).not.toBeInTheDocument()
+  })
+
+  // 用来锁定默认排序：按托管班升序、再按姓名排序，纯课外课学生（没有托管班）排最后。
+  it('sorts the default view by 托管班级 ascending, then by student name, with off-campus students last', async () => {
+    const sortStudents: courseApi.AdminStudent[] = [
+      {
+        id: 1,
+        name: 'C同学',
+        schoolClassName: null,
+        classRoomId: 2,
+        classRoomName: '2班',
+        offCampusOnly: false,
+        enrolled: true,
+        teacherId: null,
+        teacherName: null,
+        teacherPhone: null,
+        enrolledCourseNames: [],
+        enrolledCourseIds: [],
+      },
+      {
+        id: 2,
+        name: 'B同学',
+        schoolClassName: null,
+        classRoomId: 1,
+        classRoomName: '1班',
+        offCampusOnly: false,
+        enrolled: true,
+        teacherId: null,
+        teacherName: null,
+        teacherPhone: null,
+        enrolledCourseNames: [],
+        enrolledCourseIds: [],
+      },
+      {
+        id: 3,
+        name: 'A同学',
+        schoolClassName: null,
+        classRoomId: 1,
+        classRoomName: '1班',
+        offCampusOnly: false,
+        enrolled: true,
+        teacherId: null,
+        teacherName: null,
+        teacherPhone: null,
+        enrolledCourseNames: [],
+        enrolledCourseIds: [],
+      },
+      {
+        id: 4,
+        name: 'Z纯课外',
+        schoolClassName: null,
+        classRoomId: null,
+        classRoomName: null,
+        offCampusOnly: true,
+        enrolled: true,
+        teacherId: null,
+        teacherName: null,
+        teacherPhone: null,
+        enrolledCourseNames: [],
+        enrolledCourseIds: [],
+      },
+    ]
+    vi.mocked(courseApi.fetchAdminStudents).mockResolvedValue(sortStudents)
+    render(<AdminStudentsModule />)
+    await screen.findByText('A同学')
+
+    const cells = screen.getAllByText(/^[A-Z](同学|纯课外)$/)
+    expect(cells.map((c) => c.textContent)).toEqual(['A同学', 'B同学', 'C同学', 'Z纯课外'])
   })
 
   it('filters students by fuzzy, case-insensitive name search', async () => {
@@ -453,7 +599,7 @@ describe('AdminStudentsModule', () => {
     await screen.findByText('小明')
 
     fireEvent.change(screen.getByLabelText('身份筛选'), { target: { value: 'CUSTODY' } })
-    fireEvent.change(screen.getByLabelText('托管教师筛选'), { target: { value: '王老师' } })
+    fireEvent.change(screen.getByLabelText('托管教师筛选'), { target: { value: '3' } })
     fireEvent.change(screen.getByLabelText('姓名搜索'), { target: { value: '刚' } })
 
     expect(screen.queryByText('小明')).not.toBeInTheDocument()
@@ -464,9 +610,9 @@ describe('AdminStudentsModule', () => {
     render(<AdminStudentsModule />)
     await screen.findByText('小明')
 
-    // 小红是纯课外学生，teacherName 恒为 null，这个组合必然匹配不到任何人。
+    // 小红是纯课外学生，teacherId 恒为 null，这个组合必然匹配不到任何人。
     fireEvent.change(screen.getByLabelText('身份筛选'), { target: { value: 'OFF_CAMPUS_ONLY' } })
-    fireEvent.change(screen.getByLabelText('托管教师筛选'), { target: { value: '王老师' } })
+    fireEvent.change(screen.getByLabelText('托管教师筛选'), { target: { value: '3' } })
 
     expect(screen.queryByText('小明')).not.toBeInTheDocument()
     expect(screen.queryByText('小红')).not.toBeInTheDocument()
@@ -482,7 +628,7 @@ describe('AdminStudentsModule', () => {
 
     const teacherSelect = screen.getByLabelText('托管教师筛选') as HTMLSelectElement
     const optionLabels = Array.from(teacherSelect.options).map((o) => o.textContent)
-    expect(optionLabels).toContain('王老师')
+    expect(optionLabels).toContain('王老师（13900000003）')
   })
 
   it('removes a student from the current filtered view after an edit changes them out of the active identity filter', async () => {
@@ -490,7 +636,15 @@ describe('AdminStudentsModule', () => {
     // 筛选下应该从列表里消失，而不是继续显示一个已经不符合筛选条件的学生。
     const updatedStudents = STUDENTS.map((s) =>
       s.id === 2
-        ? { ...s, classRoomId: 20, classRoomName: '托管一班', offCampusOnly: false, teacherName: '王老师' }
+        ? {
+            ...s,
+            classRoomId: 20,
+            classRoomName: '托管一班',
+            offCampusOnly: false,
+            teacherId: 3,
+            teacherName: '王老师',
+            teacherPhone: '13900000003',
+          }
         : s,
     )
     vi.mocked(courseApi.fetchAdminStudents).mockResolvedValueOnce(STUDENTS).mockResolvedValueOnce(updatedStudents)
@@ -561,7 +715,7 @@ describe('AdminStudentsModule', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '下一页' }))
     await screen.findByText('学生021')
-    fireEvent.change(screen.getByLabelText('托管教师筛选'), { target: { value: '赵老师' } })
+    fireEvent.change(screen.getByLabelText('托管教师筛选'), { target: { value: '999' } })
     expect(await screen.findByText('学生001')).toBeInTheDocument()
   })
 

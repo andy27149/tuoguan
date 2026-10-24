@@ -19,7 +19,9 @@ export function AdminStudentsModule() {
 
   type IdentityFilter = 'ALL' | 'CUSTODY' | 'OFF_CAMPUS_ONLY'
   const [identityFilter, setIdentityFilter] = useState<IdentityFilter>('ALL')
+  // 存教师 id 而不是姓名字符串：两个老师同名时姓名无法区分身份，筛选必须按真实身份比对。
   const [teacherFilter, setTeacherFilter] = useState('')
+  const [classRoomFilter, setClassRoomFilter] = useState('')
   const [nameQuery, setNameQuery] = useState('')
 
   const PAGE_SIZE = 20
@@ -65,24 +67,50 @@ export function AdminStudentsModule() {
       .catch(() => setOffCampusCourses([]))
   }, [])
 
+  // 按 teacherId 去重而不是姓名字符串：同名不同人的两个老师（比如三年级和四年级
+  // 各一个"刘老师"）之前会被 Set<string> 合并成一个选项，选中后把两个人的学生都
+  // 筛出来——这里用"姓名（手机号）"展示，保证选项和真实教师一一对应。
   const teacherOptions = useMemo(() => {
-    const names = new Set<string>()
+    const byId = new Map<number, { id: number; label: string }>()
     students.forEach((s) => {
-      if (s.teacherName) names.add(s.teacherName)
+      if (s.teacherId != null && s.teacherName && !byId.has(s.teacherId)) {
+        byId.set(s.teacherId, {
+          id: s.teacherId,
+          label: s.teacherPhone ? `${s.teacherName}（${s.teacherPhone}）` : s.teacherName,
+        })
+      }
     })
-    return Array.from(names).sort((a, b) => a.localeCompare(b))
+    return Array.from(byId.values()).sort((a, b) => a.label.localeCompare(b.label))
   }, [students])
+
+  const classRoomOptions = useMemo(
+    () => classRooms.slice().sort((a, b) => a.name.localeCompare(b.name)),
+    [classRooms],
+  )
 
   const filteredStudents = useMemo(() => {
     const query = nameQuery.trim().toLowerCase()
-    return students.filter((s) => {
-      if (identityFilter === 'CUSTODY' && s.offCampusOnly) return false
-      if (identityFilter === 'OFF_CAMPUS_ONLY' && !s.offCampusOnly) return false
-      if (teacherFilter && s.teacherName !== teacherFilter) return false
-      if (query && !s.name.toLowerCase().includes(query)) return false
-      return true
-    })
-  }, [students, identityFilter, teacherFilter, nameQuery])
+    return students
+      .filter((s) => {
+        if (identityFilter === 'CUSTODY' && s.offCampusOnly) return false
+        if (identityFilter === 'OFF_CAMPUS_ONLY' && !s.offCampusOnly) return false
+        if (teacherFilter && String(s.teacherId) !== teacherFilter) return false
+        if (classRoomFilter && String(s.classRoomId) !== classRoomFilter) return false
+        if (query && !s.name.toLowerCase().includes(query)) return false
+        return true
+      })
+      // 默认排序：按托管班升序，纯课外课学生（没有托管班）排在最后；同一托管班内
+      // 再按学生姓名排序。只在这个页面做前端排序，不改共用的后端 StudentOverviewOrder
+      // （账单管理也在用，用户没有要求改那边的排序口径）。
+      .slice()
+      .sort((a, b) => {
+        if (a.classRoomName == null && b.classRoomName == null) return a.name.localeCompare(b.name)
+        if (a.classRoomName == null) return 1
+        if (b.classRoomName == null) return -1
+        const cmp = a.classRoomName.localeCompare(b.classRoomName)
+        return cmp !== 0 ? cmp : a.name.localeCompare(b.name)
+      })
+  }, [students, identityFilter, teacherFilter, classRoomFilter, nameQuery])
 
   const totalPages = Math.max(1, Math.ceil(filteredStudents.length / PAGE_SIZE))
   const currentPageClamped = Math.min(currentPage, totalPages)
@@ -98,6 +126,11 @@ export function AdminStudentsModule() {
 
   function handleTeacherFilterChange(value: string) {
     setTeacherFilter(value)
+    setCurrentPage(1)
+  }
+
+  function handleClassRoomFilterChange(value: string) {
+    setClassRoomFilter(value)
     setCurrentPage(1)
   }
 
@@ -242,8 +275,24 @@ export function AdminStudentsModule() {
             >
               <option value="">全部</option>
               {teacherOptions.map((t) => (
-                <option key={t} value={t}>
-                  {t}
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="text-xs font-semibold text-[#5d5480]">
+            托管班级
+            <select
+              aria-label="托管班级筛选"
+              value={classRoomFilter}
+              onChange={(e) => handleClassRoomFilterChange(e.target.value)}
+              className="mt-1 block rounded-lg border border-panel-border px-2.5 py-1.5 text-sm text-panel-ink"
+            >
+              <option value="">全部</option>
+              {classRoomOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
                 </option>
               ))}
             </select>

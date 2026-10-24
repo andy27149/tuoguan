@@ -73,6 +73,40 @@ class AdminStudentControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$[?(@.name=='小外')].offCampusOnly").value(true));
     }
 
+    // 真实场景（力达托管机构实际数据）：3年级和4年级的托管班负责老师恰好都叫
+    // "刘老师"，但手机号不同——前端"学生总览"页的教师筛选下拉框之前只按
+    // teacherName 字符串去重，两个人会被合并成一个选项，选中后把两个班的学生
+    // 都筛出来。这里锁定响应体里 teacherId/teacherPhone 能正确区分这两位同名
+    // 老师，不是只有 teacherName 一个字段。
+    @Test
+    void returnsTeacherIdAndPhoneToDisambiguateTeachersWithTheSameName() throws Exception {
+        Long institutionId = institutionDao.insert("管理端学生测试机构-同名老师");
+        teacherDao.insert(new Teacher(null, institutionId, "13800012050",
+                passwordEncoder.encode("password"), Role.ADMIN, false, null));
+        Long teacherAId = teacherDao.insert(new Teacher(null, institutionId, "13800012051",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long teacherBId = teacherDao.insert(new Teacher(null, institutionId, "13800012052",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        teacherDao.updateName(teacherAId, "刘老师");
+        teacherDao.updateName(teacherBId, "刘老师");
+        Long classRoomAId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherAId, "3年级托管班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long classRoomBId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherBId, "4年级托管班",
+                BillingMode.MONTHLY, null, null, true, null));
+        studentDao.insert(new Student(null, institutionId, classRoomAId, "小刘甲", "3年级1班", true, null, null));
+        studentDao.insert(new Student(null, institutionId, classRoomBId, "小刘乙", "4年级1班", true, null, null));
+        String token = login("13800012050", "password");
+
+        mockMvc.perform(get("/api/admin/students")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[?(@.name=='小刘甲')].teacherId").value(teacherAId.intValue()))
+                .andExpect(jsonPath("$[?(@.name=='小刘甲')].teacherPhone").value("13800012051"))
+                .andExpect(jsonPath("$[?(@.name=='小刘乙')].teacherId").value(teacherBId.intValue()))
+                .andExpect(jsonPath("$[?(@.name=='小刘乙')].teacherPhone").value("13800012052"));
+    }
+
     @Test
     void doesNotLeakStudentsFromOtherInstitutions() throws Exception {
         Long institutionAId = institutionDao.insert("管理端学生测试机构B1");
