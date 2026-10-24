@@ -23,7 +23,9 @@ export interface UnpaidBillSummary {
 }
 
 export interface TeacherStudentCount {
+  teacherId: number
   teacherName: string
+  teacherPhone: string | null
   studentCount: number
 }
 

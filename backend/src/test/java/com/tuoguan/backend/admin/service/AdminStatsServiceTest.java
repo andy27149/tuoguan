@@ -100,7 +100,37 @@ class AdminStatsServiceTest extends IntegrationTestBase {
 
         assertThat(summary.totalCount()).isEqualTo(1);
         assertThat(summary.custodyCount()).isEqualTo(1);
-        assertThat(summary.byTeacher()).containsExactly(new TeacherStudentCount("老师", 1));
+        assertThat(summary.byTeacher()).containsExactly(new TeacherStudentCount(teacherId, "老师", "13600006004", 1));
+    }
+
+    // 真实场景（力达托管机构实际数据）：3 年级和 4 年级的托管班负责老师恰好都叫
+    // "刘老师"，但手机号不同——首页"在读规模"卡片的"按老师分布"统计之前只按
+    // teacherName 分组展示，两条统计行会渲染成一模一样、无法区分的"刘老师"。
+    // 这里锁定响应体里每条统计行都带着能唯一区分身份的 teacherId/teacherPhone。
+    @Test
+    void keepsTwoSameNamedTeachersDistinguishableByIdAndPhone() {
+        Long institutionId = institutionDao.insert("在读规模测试机构G-同名老师");
+        Long teacherAId = teacherDao.insert(new Teacher(null, institutionId, "13600006006", "刘老师",
+                passwordEncoder.encode("password"), Role.TEACHER, false, null));
+        Long teacherBId = teacherDao.insert(new Teacher(null, institutionId, "13600006007", "刘老师",
+                passwordEncoder.encode("password"), Role.TEACHER, false, null));
+        Long classAId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherAId, "3年级托管班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long classBId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherBId, "4年级托管班",
+                BillingMode.MONTHLY, null, null, true, null));
+
+        studentDao.insert(new Student(null, institutionId, classAId, "小刘甲", "3年级1班", true, null, null));
+        studentDao.insert(new Student(null, institutionId, classAId, "小刘甲2", "3年级1班", true, null, null));
+        studentDao.insert(new Student(null, institutionId, classBId, "小刘乙", "4年级1班", true, null, null));
+
+        EnrollmentSummary summary = adminStatsService.getEnrollmentSummary(institutionId);
+
+        assertThat(summary.byTeacher())
+                .extracting(TeacherStudentCount::teacherId, TeacherStudentCount::teacherPhone,
+                        TeacherStudentCount::studentCount)
+                .containsExactlyInAnyOrder(
+                        tuple(teacherAId, "13600006006", 2),
+                        tuple(teacherBId, "13600006007", 1));
     }
 
     @Test
