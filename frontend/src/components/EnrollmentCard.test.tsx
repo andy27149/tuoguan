@@ -16,8 +16,8 @@ describe('EnrollmentCard', () => {
       custodyCount: 18,
       offCampusOnlyCount: 14,
       byTeacher: [
-        { teacherName: '李琦', studentCount: 12 },
-        { teacherName: '王老师', studentCount: 6 },
+        { teacherId: 1, teacherName: '李琦', teacherPhone: '13900000011', studentCount: 12 },
+        { teacherId: 2, teacherName: '王老师', teacherPhone: '13900000022', studentCount: 6 },
       ],
     })
 
@@ -31,6 +31,34 @@ describe('EnrollmentCard', () => {
     expect(screen.getByText('12 人')).toBeInTheDocument()
     expect(screen.getByText('王老师')).toBeInTheDocument()
     expect(screen.getByText('6 人')).toBeInTheDocument()
+  })
+
+  // 真实场景：力达托管机构 3 年级和 4 年级的托管班老师恰好都叫"刘老师"，手机号不同。
+  // 之前用 teacherName 当 React key 并且只显示姓名，会渲染出两行一模一样、分不清
+  // 谁是谁的"刘老师"，还会触发 React 的重复 key 警告。这里锁定：撞名时才加手机号
+  // 消歧，不撞名的老师（上面那条用例）保持只显示姓名，不被打扰。
+  it('disambiguates two same-named teachers with their phone number, without warning about duplicate keys', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(adminOverviewApi.fetchEnrollmentSummary).mockResolvedValue({
+      totalCount: 3,
+      custodyCount: 3,
+      offCampusOnlyCount: 0,
+      byTeacher: [
+        { teacherId: 101, teacherName: '刘老师', teacherPhone: '13800012051', studentCount: 2 },
+        { teacherId: 102, teacherName: '刘老师', teacherPhone: '13800012052', studentCount: 1 },
+      ],
+    })
+
+    render(<EnrollmentCard />)
+    await screen.findByText('3')
+
+    expect(screen.getByText('刘老师（13800012051）')).toBeInTheDocument()
+    expect(screen.getByText('刘老师（13800012052）')).toBeInTheDocument()
+    expect(screen.queryByText('刘老师')).not.toBeInTheDocument()
+    expect(
+      consoleError.mock.calls.some((args) => String(args[0]).includes('same key')),
+    ).toBe(false)
+    consoleError.mockRestore()
   })
 
   it('sizes the two proportion-bar segments from the counts', async () => {

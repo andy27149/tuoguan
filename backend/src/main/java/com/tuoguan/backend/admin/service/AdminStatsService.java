@@ -64,10 +64,15 @@ public class AdminStatsService {
                 .filter(unit -> unit != null)
                 .collect(Collectors.groupingBy(TeachingUnit::teacherId, Collectors.counting()));
 
+        // 按 teacherId（分组的 key，本来就唯一）带出 teacherId/teacherPhone，而不是只给姓名——
+        // 两个不同老师恰好同名时（真实场景：力达托管 3 年级和 4 年级都有一个"刘老师"），前端才能
+        // 把这两条统计行区分开，而不是渲染出两行一模一样、无法分辨的"刘老师"。
         List<TeacherStudentCount> byTeacher = studentCountByTeacherId.entrySet().stream()
-                .map(entry -> new TeacherStudentCount(
-                        teacherDao.findById(entry.getKey()).map(Teacher::name).orElse("-"),
-                        entry.getValue().intValue()))
+                .map(entry -> {
+                    Teacher teacher = teacherDao.findById(entry.getKey()).orElse(null);
+                    return new TeacherStudentCount(entry.getKey(), teacher != null ? teacher.name() : "-",
+                            teacher != null ? teacher.phone() : null, entry.getValue().intValue());
+                })
                 .sorted(Comparator.comparingInt(TeacherStudentCount::studentCount).reversed())
                 .toList();
 

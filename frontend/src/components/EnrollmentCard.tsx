@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { fetchEnrollmentSummary, type EnrollmentSummary } from '../api/adminOverview'
+import { fetchEnrollmentSummary, type EnrollmentSummary, type TeacherStudentCount } from '../api/adminOverview'
 import { LOAD_FAILURE_MESSAGE } from '../constants'
 
 export function EnrollmentCard() {
@@ -55,8 +55,8 @@ export function EnrollmentCard() {
             ) : (
               <div className="space-y-1.5 text-sm text-[#5d5480]">
                 {summary.byTeacher.map((entry) => (
-                  <div key={entry.teacherName} className="flex items-center justify-between">
-                    <span>{entry.teacherName}</span>
+                  <div key={entry.teacherId} className="flex items-center justify-between">
+                    <span>{teacherLabel(entry, summary.byTeacher)}</span>
                     <span className="font-medium text-panel-ink">{entry.studentCount} 人</span>
                   </div>
                 ))}
@@ -71,4 +71,15 @@ export function EnrollmentCard() {
 
 function pct(count: number, total: number): number {
   return total > 0 ? Math.round((count / total) * 100) : 0
+}
+
+// 两个不同老师恰好同名时（比如力达托管 3 年级和 4 年级都有一个"刘老师"），只显示姓名
+// 会让这个列表出现两行一模一样、分不清谁是谁的"刘老师"——只在真的撞名时才加手机号，
+// 避免绝大多数不撞名的情况下列表被手机号弄得很啰嗦。
+function teacherLabel(entry: TeacherStudentCount, all: TeacherStudentCount[]): string {
+  const sameName = all.filter((t) => t.teacherName === entry.teacherName)
+  if (sameName.length > 1 && entry.teacherPhone) {
+    return `${entry.teacherName}（${entry.teacherPhone}）`
+  }
+  return entry.teacherName
 }
