@@ -60,7 +60,9 @@ export interface AdminStudent {
   classRoomName: string | null
   offCampusOnly: boolean
   enrolled: boolean
+  teacherId: number | null
   teacherName: string | null
+  teacherPhone: string | null
   enrolledCourseNames: string[]
   enrolledCourseIds: number[]
 }

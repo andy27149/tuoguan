@@ -154,8 +154,11 @@ public class AdminStudentService {
     }
 
     private AdminStudentResponse toResponse(Student student, TeachingUnit classRoom) {
-        String teacherName = classRoom != null
-                ? teacherDao.findById(classRoom.teacherId()).map(Teacher::name).orElse(null) : null;
+        // 前端"学生总览"页的托管教师筛选下拉框之前只按 teacherName 字符串去重/匹配，
+        // 同名不同人的两个老师（比如三年级和四年级各一个"刘老师"）会被合并成一个选项、
+        // 选中后把两个人的学生都筛出来——这里把 teacherId/teacherPhone 一并带出去，
+        // 让前端能用真正的身份区分，而不是靠姓名字符串。
+        Teacher teacher = classRoom != null ? teacherDao.findById(classRoom.teacherId()).orElse(null) : null;
         List<StudentUnitEnrollment> activeEnrollments = enrollmentDao.findAllByStudentId(student.id()).stream()
                 .filter(StudentUnitEnrollment::active)
                 .toList();
@@ -168,8 +171,9 @@ public class AdminStudentService {
                 .toList();
         return new AdminStudentResponse(student.id(), student.name(), student.schoolClassName(),
                 student.teachingUnitId(), classRoom != null ? classRoom.name() : null,
-                student.teachingUnitId() == null, student.enrolled(), teacherName, enrolledCourseNames,
-                enrolledCourseIds);
+                student.teachingUnitId() == null, student.enrolled(),
+                teacher != null ? teacher.id() : null, teacher != null ? teacher.name() : null,
+                teacher != null ? teacher.phone() : null, enrolledCourseNames, enrolledCourseIds);
     }
 
     private AdminStudentResponse toResponse(Student student, Map<Long, TeachingUnit> unitsById) {
