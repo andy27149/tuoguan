@@ -374,7 +374,9 @@ describe('AdminBillingModule', () => {
       return screen.getAllByRole('row').slice(1).map((row) => (row.textContent?.includes('甲') ? '甲' : '乙'))
     }
 
-    expect(studentOrder()).toEqual(['甲', '乙'])
+    // 两人同班（一班），默认排序现在按姓名排——跟"学生总览"页一致，不再是原始
+    // 接口返回顺序。
+    expect(studentOrder()).toEqual(['乙', '甲'])
 
     fireEvent.change(screen.getByLabelText('排序'), { target: { value: 'overdue' } })
     expect(studentOrder()).toEqual(['乙', '甲'])
@@ -383,7 +385,91 @@ describe('AdminBillingModule', () => {
     expect(studentOrder()).toEqual(['乙', '甲'])
 
     fireEvent.change(screen.getByLabelText('排序'), { target: { value: 'default' } })
-    expect(studentOrder()).toEqual(['甲', '乙'])
+    expect(studentOrder()).toEqual(['乙', '甲'])
+  })
+
+  // 默认排序跟"学生总览"页保持一致：按托管班级升序，再按学生姓名排序，纯课外课
+  // 学生（没有托管班）排最后——不再是后端接口返回的原始顺序。
+  it('sorts the default view by 托管班级 ascending then student name, with off-campus students last', async () => {
+    const rows: billingApi.BillOverviewRow[] = [
+      { ...ROWS[0], studentId: 1, studentName: 'C同学', classRoomId: 2, className: '2班' },
+      { ...ROWS[0], studentId: 2, studentName: 'B同学', classRoomId: 1, className: '1班' },
+      { ...ROWS[0], studentId: 3, studentName: 'A同学', classRoomId: 1, className: '1班' },
+      { ...ROWS[0], studentId: 4, studentName: 'Z纯课外', classRoomId: null, className: '—' },
+    ]
+    vi.mocked(billingApi.fetchBillOverview).mockResolvedValue(rows)
+    render(<AdminBillingModule />)
+    await screen.findByText('A同学')
+
+    const cells = screen.getAllByText(/^[A-Z](同学|纯课外)$/)
+    expect(cells.map((c) => c.textContent)).toEqual(['A同学', 'B同学', 'C同学', 'Z纯课外'])
+  })
+
+  it('renders pagination controls reflecting the total filtered count and a page size of 20', async () => {
+    render(<AdminBillingModule />)
+    await screen.findByText('小明')
+
+    expect(screen.getByText('共 2 条 · 第 1 页 / 共 1 页')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '上一页' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '下一页' })).toBeDisabled()
+  })
+
+  it('shows only 20 rows on the first page, advancing to the rest via the pagination control', async () => {
+    const rows: billingApi.BillOverviewRow[] = Array.from({ length: 25 }, (_, i) => ({
+      ...ROWS[0],
+      studentId: 100 + i,
+      studentName: `学生${String(i + 1).padStart(3, '0')}`,
+    }))
+    vi.mocked(billingApi.fetchBillOverview).mockResolvedValue(rows)
+    render(<AdminBillingModule />)
+    await screen.findByText('学生001')
+
+    expect(screen.getByText('学生020')).toBeInTheDocument()
+    expect(screen.queryByText('学生021')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '下一页' }))
+
+    expect(await screen.findByText('学生021')).toBeInTheDocument()
+    expect(screen.getByText('学生025')).toBeInTheDocument()
+    expect(screen.queryByText('学生001')).not.toBeInTheDocument()
+  })
+
+  it('resets to page 1 when a filter changes, even if the current page was not page 1', async () => {
+    const rows: billingApi.BillOverviewRow[] = Array.from({ length: 25 }, (_, i) => ({
+      ...ROWS[0],
+      studentId: 100 + i,
+      studentName: `学生${String(i + 1).padStart(3, '0')}`,
+    }))
+    vi.mocked(billingApi.fetchBillOverview).mockResolvedValue(rows)
+    render(<AdminBillingModule />)
+    await screen.findByText('学生001')
+
+    fireEvent.click(screen.getByRole('button', { name: '下一页' }))
+    await screen.findByText('学生021')
+
+    fireEvent.change(screen.getByPlaceholderText('搜索学生姓名'), { target: { value: '学生' } })
+
+    expect(await screen.findByText('学生001')).toBeInTheDocument()
+    expect(screen.getByText('共 25 条 · 第 1 页 / 共 2 页')).toBeInTheDocument()
+  })
+
+  it('resets to page 1 when the sort option changes', async () => {
+    const rows: billingApi.BillOverviewRow[] = Array.from({ length: 25 }, (_, i) => ({
+      ...ROWS[0],
+      studentId: 100 + i,
+      studentName: `学生${String(i + 1).padStart(3, '0')}`,
+    }))
+    vi.mocked(billingApi.fetchBillOverview).mockResolvedValue(rows)
+    render(<AdminBillingModule />)
+    await screen.findByText('学生001')
+
+    fireEvent.click(screen.getByRole('button', { name: '下一页' }))
+    await screen.findByText('学生021')
+
+    fireEvent.change(screen.getByLabelText('排序'), { target: { value: 'amount' } })
+
+    expect(await screen.findByText('学生001')).toBeInTheDocument()
+    expect(screen.getByText('共 25 条 · 第 1 页 / 共 2 页')).toBeInTheDocument()
   })
 
 })
