@@ -6,6 +6,7 @@ import { currentMonthString, shiftMonthString } from '../kanban/date'
 import { FeeManagementModal } from '../components/FeeManagementModal'
 import { BillDetailModal } from '../components/BillDetailModal'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { Pagination } from '../components/Pagination'
 import { RollCallResultModal } from '../components/RollCallResultModal'
 import { Toast } from '../components/Toast'
 import { useToast } from '../hooks/useToast'
@@ -52,16 +53,41 @@ export function AdminBillingModule({ billTuitionInAdvance = false }: AdminBillin
   const [loadingRows, setLoadingRows] = useState(true)
   const [rowsError, setRowsError] = useState<string | null>(null)
 
+  const PAGE_SIZE = 20
+  const [currentPage, setCurrentPage] = useState(1)
+
   const sortedRows = useMemo(() => {
-    if (sortBy === 'default') return rows
-    const withBills = rows.filter((r) => r.billId !== null)
-    const withoutBills = rows.filter((r) => r.billId === null)
-    const sorted =
-      sortBy === 'overdue'
-        ? [...withBills].sort((a, b) => b.overdueDays - a.overdueDays)
-        : [...withBills].sort((a, b) => (b.totalAmount ?? 0) - (a.totalAmount ?? 0))
-    return [...sorted, ...withoutBills]
+    if (sortBy === 'overdue' || sortBy === 'amount') {
+      const withBills = rows.filter((r) => r.billId !== null)
+      const withoutBills = rows.filter((r) => r.billId === null)
+      const sorted =
+        sortBy === 'overdue'
+          ? [...withBills].sort((a, b) => b.overdueDays - a.overdueDays)
+          : [...withBills].sort((a, b) => (b.totalAmount ?? 0) - (a.totalAmount ?? 0))
+      return [...sorted, ...withoutBills]
+    }
+    // 默认排序：跟"学生总览"页保持一致——按托管班级升序，再按学生姓名排序，
+    // 纯课外课学生（没有托管班，classRoomId 为 null）排在最后。
+    return [...rows].sort((a, b) => {
+      if (a.classRoomId == null && b.classRoomId == null) return a.studentName.localeCompare(b.studentName)
+      if (a.classRoomId == null) return 1
+      if (b.classRoomId == null) return -1
+      const cmp = a.className.localeCompare(b.className)
+      return cmp !== 0 ? cmp : a.studentName.localeCompare(b.studentName)
+    })
   }, [rows, sortBy])
+
+  const totalPages = Math.max(1, Math.ceil(sortedRows.length / PAGE_SIZE))
+  const currentPageClamped = Math.min(currentPage, totalPages)
+  const pageItems = useMemo(
+    () => sortedRows.slice((currentPageClamped - 1) * PAGE_SIZE, currentPageClamped * PAGE_SIZE),
+    [sortedRows, currentPageClamped],
+  )
+
+  function handleSortChange(value: SortOption) {
+    setSortBy(value)
+    setCurrentPage(1)
+  }
 
   const [managingStudent, setManagingStudent] = useState<{
     studentId: number
@@ -103,6 +129,7 @@ export function AdminBillingModule({ billTuitionInAdvance = false }: AdminBillin
   }
 
   useEffect(() => {
+    setCurrentPage(1)
     loadRows()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month, classFilter, studentName])
@@ -213,7 +240,7 @@ export function AdminBillingModule({ billTuitionInAdvance = false }: AdminBillin
             排序
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              onChange={(e) => handleSortChange(e.target.value as SortOption)}
               className="ml-2 rounded-lg border border-panel-border px-2 py-1 text-sm"
             >
               {(Object.keys(SORT_LABEL) as SortOption[]).map((option) => (
@@ -261,7 +288,7 @@ export function AdminBillingModule({ billTuitionInAdvance = false }: AdminBillin
               </tr>
             </thead>
             <tbody>
-              {sortedRows.map((row) => (
+              {pageItems.map((row) => (
                 <tr key={`${row.studentId}-${row.yearMonth}`} className="border-b border-panel-border hover:bg-[#faf7ff]">
                   <td className="px-4 py-3 font-medium text-panel-ink">{row.studentName}</td>
                   <td className="px-4 py-3 text-panel-ink">{row.className}</td>
@@ -332,6 +359,14 @@ export function AdminBillingModule({ billTuitionInAdvance = false }: AdminBillin
               )}
             </tbody>
           </table>
+        )}
+        {!loadingRows && (
+          <Pagination
+            page={currentPageClamped}
+            totalPages={totalPages}
+            totalItems={sortedRows.length}
+            onPageChange={setCurrentPage}
+          />
         )}
       </div>
 
