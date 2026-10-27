@@ -35,28 +35,35 @@ function buildDefaultSteps(monthlyUnits: unitApi.TeachingUnit[]): StepRow[] {
     .map((u) => ({ unit: u, grade: parseGrade(u.name) }))
     .filter((x): x is { unit: unitApi.TeachingUnit; grade: number } => x.grade !== null)
     .sort((a, b) => a.grade - b.grade)
-  if (graded.length === 0) return []
 
-  const steps: StepRow[] = graded.slice(0, -1).map((cur, i) => ({
-    key: `default-${cur.unit.id}`,
-    sourceId: cur.unit.id,
-    outcome: 'MOVE_TO_UNIT',
-    targetId: graded[i + 1].unit.id,
-  }))
-  const highest = graded[graded.length - 1].unit
-  // 最高年级没有更高一级可以晋升，必须由管理员显式选择归宿，不给隐式默认，
-  // 避免这批学生的去向被悄悄漏掉。
-  steps.push({ key: `default-${highest.id}`, sourceId: highest.id, outcome: null, targetId: null })
-  return steps
+  return graded.map((cur, i) => {
+    const next = graded[i + 1]
+    // 没有更高一级可以晋升（最高年级），或者和下一个班级解析出相同的年级数字
+    // （比如同年级的平行班，无法判断谁该转进谁），都不给隐式默认，必须由
+    // 管理员显式选择归宿，避免这批学生的去向被悄悄漏掉或误串联。
+    if (next && next.grade > cur.grade) {
+      return { key: `default-${cur.unit.id}`, sourceId: cur.unit.id, outcome: 'MOVE_TO_UNIT', targetId: next.unit.id }
+    }
+    return { key: `default-${cur.unit.id}`, sourceId: cur.unit.id, outcome: null, targetId: null }
+  })
 }
 
 export function AnnualPromotionWizard({ monthlyUnits, onClose }: AnnualPromotionWizardProps) {
   const [screen, setScreen] = useState<'build' | 'confirm' | 'result'>('build')
   const [steps, setSteps] = useState<StepRow[]>(() => buildDefaultSteps(monthlyUnits))
   const [students, setStudents] = useState<courseApi.AdminStudent[]>([])
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [result, setResult] = useState<unitApi.AnnualPromotionResult | null>(null)
   const nextKey = useRef(0)
 
-  useEscapeToClose(onClose)
+  // 提交请求进行中关闭弹窗会让组件 unmount：操作已经在后端生效，但管理员永远
+  // 看不到实际迁移结果的反馈，所以提交期间（×/Esc/点击遮罩）一律忽略关闭。
+  function handleClose() {
+    if (!submitting) onClose()
+  }
+
+  useEscapeToClose(handleClose)
 
   useEffect(() => {
     courseApi.fetchAdminStudents().then(setStudents).catch(() => setStudents([]))
@@ -93,6 +100,26 @@ export function AnnualPromotionWizard({ monthlyUnits, onClose }: AnnualPromotion
     }) &&
     new Set(steps.map((s) => s.sourceId)).size === steps.length
 
+  async function handleSubmit() {
+    setSubmitting(true)
+    setSubmitError(null)
+    try {
+      const res = await unitApi.runAnnualPromotion(
+        steps.map((s) => ({
+          sourceTeachingUnitId: s.sourceId!,
+          outcome: s.outcome!,
+          targetTeachingUnitId: s.outcome === 'MOVE_TO_UNIT' ? s.targetId : null,
+        })),
+      )
+      setResult(res)
+      setScreen('result')
+    } catch (err) {
+      setSubmitError(err instanceof ApiError ? err.message : '执行失败，请重试')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   return (
     <>
       {screen !== 'result' &&
@@ -100,7 +127,7 @@ export function AnnualPromotionWizard({ monthlyUnits, onClose }: AnnualPromotion
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
             onClick={(e) => {
-              if (e.target === e.currentTarget) onClose()
+              if (e.target === e.currentTarget) handleClose()
             }}
           >
             <div
@@ -112,8 +139,9 @@ export function AnnualPromotionWizard({ monthlyUnits, onClose }: AnnualPromotion
               <button
                 type="button"
                 aria-label="关闭"
-                onClick={onClose}
-                className="absolute right-3 top-3 rounded-lg px-1.5 py-0.5 text-xl leading-none text-panel-muted hover:bg-[#faf7ff] hover:text-panel-ink"
+                onClick={handleClose}
+                disabled={submitting}
+                className="absolute right-3 top-3 rounded-lg px-1.5 py-0.5 text-xl leading-none text-panel-muted hover:bg-[#faf7ff] hover:text-panel-ink disabled:opacity-40"
               >
                 ×
               </button>
@@ -138,8 +166,10 @@ export function AnnualPromotionWizard({ monthlyUnits, onClose }: AnnualPromotion
                   steps={steps}
                   unitById={unitById}
                   enrolledCount={enrolledCount}
+                  submitting={submitting}
+                  error={submitError}
                   onBack={() => setScreen('build')}
-                  onSuccess={() => setScreen('result')}
+                  onConfirm={handleSubmit}
                 />
               )}
             </div>
@@ -147,9 +177,7 @@ export function AnnualPromotionWizard({ monthlyUnits, onClose }: AnnualPromotion
           document.body,
         )}
 
-      {screen === 'result' && (
-        <ResultModalHost steps={steps} unitById={unitById} enrolledCount={enrolledCount} onClose={onClose} />
-      )}
+      {screen === 'result' && result && <ResultModalHost result={result} onClose={onClose} />}
     </>
   )
 }
@@ -281,34 +309,14 @@ interface ConfirmScreenProps {
   steps: StepRow[]
   unitById: Map<number, unitApi.TeachingUnit>
   enrolledCount: (unitId: number | null) => number
+  submitting: boolean
+  error: string | null
   onBack: () => void
-  onSuccess: () => void
+  onConfirm: () => void
 }
 
-function ConfirmScreen({ steps, unitById, enrolledCount, onBack, onSuccess }: ConfirmScreenProps) {
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
+function ConfirmScreen({ steps, unitById, enrolledCount, submitting, error, onBack, onConfirm }: ConfirmScreenProps) {
   const total = steps.reduce((sum, s) => sum + enrolledCount(s.sourceId), 0)
-
-  async function handleConfirm() {
-    setSubmitting(true)
-    setError(null)
-    try {
-      await unitApi.runAnnualPromotion(
-        steps.map((s) => ({
-          sourceTeachingUnitId: s.sourceId!,
-          outcome: s.outcome!,
-          targetTeachingUnitId: s.outcome === 'MOVE_TO_UNIT' ? s.targetId : null,
-        })),
-      )
-      onSuccess()
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : '执行失败，请重试')
-    } finally {
-      setSubmitting(false)
-    }
-  }
 
   return (
     <div className="mt-3 flex min-h-0 flex-1 flex-col">
@@ -342,7 +350,7 @@ function ConfirmScreen({ steps, unitById, enrolledCount, onBack, onSuccess }: Co
         </button>
         <button
           type="button"
-          onClick={handleConfirm}
+          onClick={onConfirm}
           disabled={submitting}
           className="rounded-full bg-panel-primary px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
         >
@@ -354,23 +362,18 @@ function ConfirmScreen({ steps, unitById, enrolledCount, onBack, onSuccess }: Co
 }
 
 interface ResultModalHostProps {
-  steps: StepRow[]
-  unitById: Map<number, unitApi.TeachingUnit>
-  enrolledCount: (unitId: number | null) => number
+  result: unitApi.AnnualPromotionResult
   onClose: () => void
 }
 
-function ResultModalHost({ steps, unitById, enrolledCount, onClose }: ResultModalHostProps) {
-  const total = steps.reduce((sum, s) => sum + enrolledCount(s.sourceId), 0)
-  const summaries = steps.map((s) => {
-    const source = unitById.get(s.sourceId!)
-    const target = s.outcome === 'MOVE_TO_UNIT' ? unitById.get(s.targetId!) : null
-    const destination = s.outcome === 'MOVE_TO_UNIT' ? `「${target?.name}」` : OUTCOME_LABEL[s.outcome!]
-    return `「${source?.name}」→${destination}（${enrolledCount(s.sourceId)}人）`
+// 展示的人数/步骤摘要直接来自后端返回的权威结果，不用前端的学生快照重新计算——
+// 管理员在向导里停留期间花名册可能已经变化，只有后端实际执行时读到的人数才准确。
+function ResultModalHost({ result, onClose }: ResultModalHostProps) {
+  const summaries = result.steps.map((s) => {
+    const destination = s.outcome === 'MOVE_TO_UNIT' ? `「${s.targetTeachingUnitName}」` : OUTCOME_LABEL[s.outcome]
+    return `「${s.sourceTeachingUnitName}」→${destination}（${s.movedCount}人）`
   })
-  const message = `已完成 ${steps.length} 个步骤，共迁移 ${total} 名学生：${summaries.join('、')}`
+  const message = `已完成 ${result.steps.length} 个步骤，共迁移 ${result.totalMovedCount} 名学生：${summaries.join('、')}`
 
-  return (
-    <RollCallResultModal type="success" title="学年晋级完成" message={message} onClose={onClose} />
-  )
+  return <RollCallResultModal type="success" title="学年晋级完成" message={message} onClose={onClose} />
 }

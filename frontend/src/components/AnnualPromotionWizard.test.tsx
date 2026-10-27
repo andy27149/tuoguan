@@ -159,6 +159,77 @@ describe('AnnualPromotionWizard', () => {
     expect(await screen.findByRole('dialog', { name: '学年晋级完成' })).toBeInTheDocument()
   })
 
+  it('renders the result summary from the backend response, not a recomputed count from the (possibly stale) local roster snapshot', async () => {
+    vi.mocked(courseApi.fetchAdminStudents).mockResolvedValue([student(1, 1, true), student(2, 2, true)])
+    vi.mocked(unitApi.runAnnualPromotion).mockResolvedValue({
+      totalMovedCount: 5,
+      steps: [
+        {
+          sourceTeachingUnitId: 1,
+          sourceTeachingUnitName: '1年级托管班',
+          outcome: 'MOVE_TO_UNIT',
+          targetTeachingUnitId: 2,
+          targetTeachingUnitName: '2年级托管班',
+          movedCount: 3,
+        },
+        {
+          sourceTeachingUnitId: 2,
+          sourceTeachingUnitName: '2年级托管班',
+          outcome: 'OFF_CAMPUS',
+          targetTeachingUnitId: null,
+          targetTeachingUnitName: null,
+          movedCount: 2,
+        },
+      ],
+    })
+    const units = [unit(1, '1年级托管班'), unit(2, '2年级托管班')]
+    render(<AnnualPromotionWizard monthlyUnits={units} onClose={vi.fn()} />)
+
+    fireEvent.change(screen.getAllByLabelText('归宿')[1], { target: { value: 'OFF_CAMPUS' } })
+    fireEvent.click(screen.getByRole('button', { name: '下一步' }))
+    fireEvent.click(screen.getByRole('button', { name: '确认执行' }))
+
+    expect(
+      await screen.findByText(
+        '已完成 2 个步骤，共迁移 5 名学生：「1年级托管班」→「2年级托管班」（3人）、「2年级托管班」→转纯课外课（2人）',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('disables closing the wizard while a submission is in flight, to avoid losing the result feedback', async () => {
+    let resolveSubmit: (value: unitApi.AnnualPromotionResult) => void = () => {}
+    vi.mocked(unitApi.runAnnualPromotion).mockReturnValue(
+      new Promise((resolve) => {
+        resolveSubmit = resolve
+      }),
+    )
+    const onClose = vi.fn()
+    const units = [unit(1, '1年级托管班'), unit(2, '2年级托管班')]
+    render(<AnnualPromotionWizard monthlyUnits={units} onClose={onClose} />)
+
+    fireEvent.change(screen.getAllByLabelText('归宿')[1], { target: { value: 'DEACTIVATE' } })
+    fireEvent.click(screen.getByRole('button', { name: '下一步' }))
+    fireEvent.click(screen.getByRole('button', { name: '确认执行' }))
+
+    expect(screen.getByRole('button', { name: '关闭' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: '关闭' }))
+    expect(onClose).not.toHaveBeenCalled()
+
+    resolveSubmit({ totalMovedCount: 0, steps: [] })
+    expect(await screen.findByRole('dialog', { name: '学年晋级完成' })).toBeInTheDocument()
+  })
+
+  it('does not auto-chain two units that parse to the same grade number, such as parallel sections', () => {
+    const units = [unit(1, '3年级1班'), unit(2, '3年级2班')]
+    render(<AnnualPromotionWizard monthlyUnits={units} onClose={vi.fn()} />)
+
+    const outcomeSelects = screen.getAllByLabelText('归宿')
+    expect(outcomeSelects).toHaveLength(2)
+    expect(outcomeSelects[0]).toHaveValue('')
+    expect(outcomeSelects[1]).toHaveValue('')
+    expect(screen.queryByLabelText('目标班级')).not.toBeInTheDocument()
+  })
+
   it('stays on the confirm screen and shows an error when submission fails, re-enabling the button', async () => {
     vi.mocked(unitApi.runAnnualPromotion).mockRejectedValue(new ApiError(400, '检测到循环的晋级链'))
     const units = [unit(1, '1年级托管班'), unit(2, '2年级托管班')]
