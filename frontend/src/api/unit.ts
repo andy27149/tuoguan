@@ -53,3 +53,32 @@ export function fetchTeachingUnitDeletionImpact(id: number): Promise<TeachingUni
 export function deleteTeachingUnit(id: number): Promise<void> {
   return apiFetch<void>(`/admin/teaching-units/${id}`, { method: 'DELETE' })
 }
+
+export type AnnualPromotionOutcome = 'MOVE_TO_UNIT' | 'OFF_CAMPUS' | 'DEACTIVATE'
+
+export interface AnnualPromotionStep {
+  sourceTeachingUnitId: number
+  outcome: AnnualPromotionOutcome
+  targetTeachingUnitId?: number | null
+}
+
+export interface AnnualPromotionStepResult {
+  sourceTeachingUnitId: number
+  sourceTeachingUnitName: string
+  outcome: AnnualPromotionOutcome
+  targetTeachingUnitId: number | null
+  targetTeachingUnitName: string | null
+  movedCount: number
+}
+
+export interface AnnualPromotionResult {
+  totalMovedCount: number
+  steps: AnnualPromotionStepResult[]
+}
+
+export function runAnnualPromotion(steps: AnnualPromotionStep[]): Promise<AnnualPromotionResult> {
+  return apiFetch<AnnualPromotionResult>('/admin/teaching-units/annual-promotion', {
+    method: 'POST',
+    body: JSON.stringify({ steps }),
+  })
+}

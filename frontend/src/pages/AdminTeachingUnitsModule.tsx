@@ -5,6 +5,7 @@ import { ApiError } from '../api/client'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Toast } from '../components/Toast'
 import { useToast } from '../hooks/useToast'
+import { AnnualPromotionWizard } from '../components/AnnualPromotionWizard'
 
 interface AdminTeachingUnitsModuleProps {
   custodyEnabled: boolean
@@ -52,6 +53,8 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled, onO
   const [deletionImpact, setDeletionImpact] = useState<unitApi.TeachingUnitDeletionImpact | null>(null)
   const [deleteSubmitting, setDeleteSubmitting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  const [showPromotionWizard, setShowPromotionWizard] = useState(false)
 
   function loadUnits(tab: unitApi.BillingMode) {
     setLoadingUnits(true)
@@ -231,24 +234,39 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled, onO
 
   return (
     <div className="space-y-4 p-4">
-      {availableTabs.length > 1 && (
-        <div className="flex gap-2" role="tablist">
-          {availableTabs.map((tab) => (
+      {(availableTabs.length > 1 || activeTab === 'MONTHLY') && (
+        <div className="flex items-center justify-between gap-2">
+          {availableTabs.length > 1 ? (
+            <div className="flex gap-2" role="tablist">
+              {availableTabs.map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={
+                    activeTab === tab
+                      ? 'rounded-full bg-panel-primary px-4 py-1.5 text-sm font-medium text-white'
+                      : 'rounded-full border border-panel-border px-4 py-1.5 text-sm text-[#5d5480] hover:bg-[#faf7ff]'
+                  }
+                >
+                  {TAB_LABEL[tab]}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div />
+          )}
+          {activeTab === 'MONTHLY' && (
             <button
-              key={tab}
               type="button"
-              role="tab"
-              aria-selected={activeTab === tab}
-              onClick={() => setActiveTab(tab)}
-              className={
-                activeTab === tab
-                  ? 'rounded-full bg-panel-primary px-4 py-1.5 text-sm font-medium text-white'
-                  : 'rounded-full border border-panel-border px-4 py-1.5 text-sm text-[#5d5480] hover:bg-[#faf7ff]'
-              }
+              onClick={() => setShowPromotionWizard(true)}
+              className="rounded-full border border-panel-border px-4 py-1.5 text-sm text-[#5d5480] hover:bg-[#faf7ff]"
             >
-              {TAB_LABEL[tab]}
+              学年批量晋级
             </button>
-          ))}
+          )}
         </div>
       )}
 
@@ -532,6 +550,16 @@ export function AdminTeachingUnitsModule({ custodyEnabled, offCampusEnabled, onO
           confirming={togglingId === confirmingDeactivate.id}
           onConfirm={() => applyToggleActive(confirmingDeactivate)}
           onCancel={() => setConfirmingDeactivate(null)}
+        />
+      )}
+
+      {showPromotionWizard && (
+        <AnnualPromotionWizard
+          monthlyUnits={units}
+          onClose={() => {
+            setShowPromotionWizard(false)
+            loadUnits(activeTab)
+          }}
         />
       )}
 

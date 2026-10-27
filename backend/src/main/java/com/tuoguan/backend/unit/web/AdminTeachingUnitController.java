@@ -4,6 +4,7 @@ import com.tuoguan.backend.audit.service.AuditLogService;
 import com.tuoguan.backend.auth.security.TeacherPrincipal;
 import com.tuoguan.backend.unit.domain.BillingMode;
 import com.tuoguan.backend.unit.service.AdminTeachingUnitService;
+import com.tuoguan.backend.unit.service.AnnualPromotionService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -24,11 +25,14 @@ import java.util.List;
 public class AdminTeachingUnitController {
 
     private final AdminTeachingUnitService adminTeachingUnitService;
+    private final AnnualPromotionService annualPromotionService;
     private final AuditLogService auditLogService;
 
     public AdminTeachingUnitController(AdminTeachingUnitService adminTeachingUnitService,
+                                        AnnualPromotionService annualPromotionService,
                                         AuditLogService auditLogService) {
         this.adminTeachingUnitService = adminTeachingUnitService;
+        this.annualPromotionService = annualPromotionService;
         this.auditLogService = auditLogService;
     }
 
@@ -74,5 +78,16 @@ public class AdminTeachingUnitController {
     @PreAuthorize("hasRole('ADMIN')")
     public void delete(@AuthenticationPrincipal TeacherPrincipal principal, @PathVariable Long id) {
         adminTeachingUnitService.delete(principal.institutionId(), id);
+    }
+
+    @PostMapping("/api/admin/teaching-units/annual-promotion")
+    @PreAuthorize("hasRole('ADMIN')")
+    public AnnualPromotionResult annualPromotion(@AuthenticationPrincipal TeacherPrincipal principal,
+                                                  @Valid @RequestBody AnnualPromotionRequest request) {
+        AnnualPromotionResult result = annualPromotionService.execute(principal.institutionId(), request);
+        auditLogService.record(principal.institutionId(), principal.teacherId(), "TEACHING_UNIT_ANNUAL_PROMOTION",
+                "INSTITUTION", principal.institutionId(),
+                "共 " + result.totalMovedCount() + " 名学生，" + result.steps().size() + " 个步骤");
+        return result;
     }
 }

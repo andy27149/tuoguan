@@ -3,10 +3,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { AdminTeachingUnitsModule } from './AdminTeachingUnitsModule'
 import * as unitApi from '../api/unit'
 import * as adminApi from '../api/admin'
+import * as courseApi from '../api/course'
 import { ApiError } from '../api/client'
 
 vi.mock('../api/unit')
 vi.mock('../api/admin')
+vi.mock('../api/course')
 
 const TEACHERS: adminApi.Teacher[] = [
   { id: 1, phone: '13900000001', name: '王老师', role: 'TEACHER', mustChangePassword: false },
@@ -49,6 +51,7 @@ describe('AdminTeachingUnitsModule', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     vi.mocked(adminApi.fetchTeachers).mockResolvedValue(TEACHERS)
+    vi.mocked(courseApi.fetchAdminStudents).mockResolvedValue([])
     mockUnits([CLASS_ROOM], [COURSE])
   })
 
@@ -269,5 +272,30 @@ describe('AdminTeachingUnitsModule', () => {
         pricePerLesson: undefined,
       }),
     )
+  })
+
+  it('opens the annual promotion wizard from the 托管班 tab and refetches units after closing it', async () => {
+    render(<AdminTeachingUnitsModule custodyEnabled offCampusEnabled />)
+    await screen.findByText('一班')
+    const callsBeforeOpen = vi.mocked(unitApi.fetchTeachingUnits).mock.calls.length
+
+    fireEvent.click(screen.getByRole('button', { name: '学年批量晋级' }))
+    expect(await screen.findByRole('dialog', { name: '学年批量晋级' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '关闭' }))
+
+    await waitFor(() =>
+      expect(vi.mocked(unitApi.fetchTeachingUnits).mock.calls.length).toBeGreaterThan(callsBeforeOpen),
+    )
+  })
+
+  it('hides the 学年批量晋级 button on the 课外课 tab', async () => {
+    render(<AdminTeachingUnitsModule custodyEnabled offCampusEnabled />)
+    await screen.findByText('一班')
+
+    fireEvent.click(screen.getByRole('tab', { name: '课外课' }))
+    await screen.findByText('书法课')
+
+    expect(screen.queryByRole('button', { name: '学年批量晋级' })).not.toBeInTheDocument()
   })
 })
