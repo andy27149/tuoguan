@@ -59,4 +59,14 @@ public class CourseController {
                 .map(ConsumptionRecordResponse::from)
                 .toList();
     }
+
+    @PostMapping("/api/courses/{id}/meals/batch")
+    @ResponseStatus(HttpStatus.CREATED)
+    public BatchRecordMealResult recordBatchMeal(@AuthenticationPrincipal TeacherPrincipal principal,
+                                                  @PathVariable Long id,
+                                                  @Valid @RequestBody BatchRecordMealRequest request) {
+        int recordedCount = courseConsumptionService.recordBatchMeal(principal.teacherId(), id, request.date(),
+                request.presentStudentIds());
+        return new BatchRecordMealResult(recordedCount);
+    }
 }

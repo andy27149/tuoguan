@@ -114,6 +114,23 @@ export function recordBatchConsumption(
   })
 }
 
+export interface BatchRecordMealResult {
+  recordedCount: number
+}
+
+// 只对花名册里纯课外课的学生（offCampusOnly）生效，后端会按学生+日期去重——不管
+// 这个孩子今天报的哪门课，同一天不会被重复计一次用餐。
+export function recordBatchMeal(
+  courseId: number,
+  date: string,
+  presentStudentIds: number[],
+): Promise<BatchRecordMealResult> {
+  return apiFetch<BatchRecordMealResult>(`/courses/${courseId}/meals/batch`, {
+    method: 'POST',
+    body: JSON.stringify({ date, presentStudentIds }),
+  })
+}
+
 // 管理员端
 // 课程（教学单元）的增删改已统一收归 api/unit.ts 的 teaching-units 接口；这里只保留
 // 课外课预充值账户相关的管理员操作（对账单、充值、消课统计），维持独立不并入月度账单。

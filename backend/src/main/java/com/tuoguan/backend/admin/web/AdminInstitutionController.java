@@ -53,6 +53,13 @@ public class AdminInstitutionController {
                 request.billTuitionInAdvance());
     }
 
+    @PutMapping("/off-campus-meal-rate")
+    public InstitutionSettingsResponse updateOffCampusMealRate(@AuthenticationPrincipal TeacherPrincipal principal,
+                                                                @RequestBody UpdateOffCampusMealRateRequest request) {
+        return adminInstitutionService.updateOffCampusMealRatePerDay(principal.institutionId(),
+                request.offCampusMealRatePerDay());
+    }
+
     @PostMapping("/logo")
     public InstitutionSettingsResponse uploadLogo(@AuthenticationPrincipal TeacherPrincipal principal,
                                                    @RequestParam("file") MultipartFile file) {

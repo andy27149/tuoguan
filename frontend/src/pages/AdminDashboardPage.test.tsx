@@ -42,6 +42,7 @@ describe('AdminDashboardPage', () => {
       custodyEnabled: true,
       offCampusEnabled: true,
       billTuitionInAdvance: false,
+      offCampusMealRatePerDay: null,
     })
   })
 
@@ -63,6 +64,7 @@ describe('AdminDashboardPage', () => {
       custodyEnabled: true,
       offCampusEnabled: true,
       billTuitionInAdvance: false,
+      offCampusMealRatePerDay: null,
     })
     render(<AdminDashboardPage onBack={vi.fn()} />)
 
@@ -149,6 +151,7 @@ describe('AdminDashboardPage', () => {
       custodyEnabled: false,
       offCampusEnabled: true,
       billTuitionInAdvance: false,
+      offCampusMealRatePerDay: null,
     })
     render(<AdminDashboardPage onBack={vi.fn()} />)
 
@@ -167,6 +170,7 @@ describe('AdminDashboardPage', () => {
       custodyEnabled: false,
       offCampusEnabled: false,
       billTuitionInAdvance: false,
+      offCampusMealRatePerDay: null,
     })
     render(<AdminDashboardPage onBack={vi.fn()} />)
 

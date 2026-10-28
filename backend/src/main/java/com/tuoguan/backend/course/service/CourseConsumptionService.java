@@ -1,8 +1,10 @@
 package com.tuoguan.backend.course.service;
 
 import com.tuoguan.backend.course.dao.CourseConsumptionRecordDao;
+import com.tuoguan.backend.course.dao.CourseMealRecordDao;
 import com.tuoguan.backend.course.dao.CourseRechargeRecordDao;
 import com.tuoguan.backend.course.domain.CourseConsumptionRecord;
+import com.tuoguan.backend.course.domain.CourseMealRecord;
 import com.tuoguan.backend.course.domain.CourseRechargeRecord;
 import com.tuoguan.backend.course.web.CourseNotEnrolledException;
 import com.tuoguan.backend.course.web.CoursePriceNotConfiguredException;
@@ -31,16 +33,19 @@ public class CourseConsumptionService {
     private final StudentUnitEnrollmentDao enrollmentDao;
     private final CourseConsumptionRecordDao consumptionRecordDao;
     private final CourseRechargeRecordDao rechargeRecordDao;
+    private final CourseMealRecordDao mealRecordDao;
 
     public CourseConsumptionService(CourseService courseService, StudentDao studentDao,
                                      StudentUnitEnrollmentDao enrollmentDao,
                                      CourseConsumptionRecordDao consumptionRecordDao,
-                                     CourseRechargeRecordDao rechargeRecordDao) {
+                                     CourseRechargeRecordDao rechargeRecordDao,
+                                     CourseMealRecordDao mealRecordDao) {
         this.courseService = courseService;
         this.studentDao = studentDao;
         this.enrollmentDao = enrollmentDao;
         this.consumptionRecordDao = consumptionRecordDao;
         this.rechargeRecordDao = rechargeRecordDao;
+        this.mealRecordDao = mealRecordDao;
     }
 
     public List<CourseRosterEntry> listRosterForCourse(Long teacherId, Long courseId) {
@@ -132,5 +137,37 @@ public class CourseConsumptionService {
         log.info("课外课点名消课：institutionId={}, courseId={}, date={}, teacherId={}, 提交到={}, 实际新记={}",
                 teachingUnit.institutionId(), courseId, date, teacherId, presentStudentIds.size(), recorded.size());
         return recorded;
+    }
+
+    // 纯课外课学生此前完全没有用餐记录的入口——只对报了这门课、且没有托管班（双重身份
+    // 学生的用餐走托管看板那套，这里不重复记录/计费，避免同一天被算两次餐费）的学生生效。
+    // 按学生+日期去重（而不是按"这门课"去重）：同一个孩子今天不管报了几门课、被哪个老师
+    // 先标记，都只算一次——这是业务事实本身的语义（"今天吃没吃饭"不分课），不是实现细节。
+    public int recordBatchMeal(Long teacherId, Long courseId, LocalDate date, List<Long> presentStudentIds) {
+        TeachingUnit teachingUnit = courseService.getOwnedByTeacher(teacherId, courseId);
+
+        List<Long> eligibleStudentIds = enrollmentDao.findAllByTeachingUnitId(teachingUnit.id()).stream()
+                .filter(StudentUnitEnrollment::active)
+                .map(StudentUnitEnrollment::studentId)
+                .filter(studentId -> studentDao.findById(studentId)
+                        .map(student -> student.teachingUnitId() == null)
+                        .orElse(false))
+                .toList();
+
+        int recordedCount = 0;
+        for (Long studentId : presentStudentIds) {
+            if (!eligibleStudentIds.contains(studentId)) {
+                continue;
+            }
+            if (mealRecordDao.findByStudentIdAndDate(studentId, date).isPresent()) {
+                continue;
+            }
+            mealRecordDao.insert(new CourseMealRecord(null, teachingUnit.institutionId(), studentId, date,
+                    teacherId, null));
+            recordedCount++;
+        }
+        log.info("课外课用餐登记：institutionId={}, courseId={}, date={}, teacherId={}, 提交到={}, 实际新记={}",
+                teachingUnit.institutionId(), courseId, date, teacherId, presentStudentIds.size(), recordedCount);
+        return recordedCount;
     }
 }

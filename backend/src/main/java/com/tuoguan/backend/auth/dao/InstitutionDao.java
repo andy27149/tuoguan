@@ -2,6 +2,7 @@ package com.tuoguan.backend.auth.dao;
 
 import com.tuoguan.backend.auth.domain.Institution;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -25,4 +26,6 @@ public interface InstitutionDao {
     void updateValidUntil(Long id, LocalDate validUntil);
 
     void updateBillTuitionInAdvance(Long id, boolean billTuitionInAdvance);
+
+    void updateOffCampusMealRatePerDay(Long id, BigDecimal offCampusMealRatePerDay);
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import * as billingApi from '../api/billing'
+import * as institutionApi from '../api/institution'
 import * as unitApi from '../api/unit'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Toast } from '../components/Toast'
@@ -37,6 +38,45 @@ export function AdminPricingModule({ custodyEnabled, offCampusEnabled }: AdminPr
   const [coursePriceSubmitting, setCoursePriceSubmitting] = useState(false)
   const [coursePriceError, setCoursePriceError] = useState<string | null>(null)
 
+  // 纯课外课学生没有托管班，没有 ClassBillingRate 可用，这笔用餐费按机构统一配置
+  // 一个单价（见诊断讨论：课外课老师在消课页面顺手登记用餐）。
+  const [offCampusMealRate, setOffCampusMealRate] = useState<number | null>(null)
+  const [mealRateInput, setMealRateInput] = useState('')
+  const [loadingMealRate, setLoadingMealRate] = useState(true)
+  const [mealRateSubmitting, setMealRateSubmitting] = useState(false)
+  const [mealRateError, setMealRateError] = useState<string | null>(null)
+
+  function loadOffCampusMealRate() {
+    setLoadingMealRate(true)
+    institutionApi
+      .fetchInstitutionSettings()
+      .then((settings) => {
+        setOffCampusMealRate(settings.offCampusMealRatePerDay)
+        setMealRateInput(settings.offCampusMealRatePerDay !== null ? String(settings.offCampusMealRatePerDay) : '')
+      })
+      .catch(() => setMealRateError('加载课外课用餐单价失败，请刷新重试'))
+      .finally(() => setLoadingMealRate(false))
+  }
+
+  async function handleSaveMealRate() {
+    const rate = Number(mealRateInput)
+    if (!Number.isFinite(rate) || rate < 0) {
+      setMealRateError('请输入有效的单价')
+      return
+    }
+    setMealRateSubmitting(true)
+    setMealRateError(null)
+    try {
+      const updated = await institutionApi.updateOffCampusMealRate(rate)
+      setOffCampusMealRate(updated.offCampusMealRatePerDay)
+      showToast('已更新课外课用餐单价')
+    } catch {
+      setMealRateError('保存失败，请重试')
+    } finally {
+      setMealRateSubmitting(false)
+    }
+  }
+
   function loadRates() {
     setLoadingRates(true)
     setRatesError(null)
@@ -62,7 +102,11 @@ export function AdminPricingModule({ custodyEnabled, offCampusEnabled }: AdminPr
   }, [custodyEnabled])
 
   useEffect(() => {
-    if (offCampusEnabled) loadCourses()
+    if (offCampusEnabled) {
+      loadCourses()
+      loadOffCampusMealRate()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [offCampusEnabled])
 
   function handleStartEditCoursePrice(course: unitApi.TeachingUnit) {
@@ -372,6 +416,39 @@ export function AdminPricingModule({ custodyEnabled, offCampusEnabled }: AdminPr
               </tbody>
             </table>
           )}
+        </div>
+      )}
+
+      {offCampusEnabled && (
+        <div className="rounded-2xl border border-panel-border bg-white p-5 shadow-[0_1px_3px_rgba(36,31,61,0.06)]">
+          <h2 className="font-['Sora'] text-base font-semibold text-panel-ink">课外课用餐单价</h2>
+          <p className="mt-1 text-xs text-[#a79fc2]">
+            纯课外课学生（没有托管班）没有班级可配置单价，这笔用餐费整个机构统一一个单价；课外课老师在"课外消课"页面点名时可以顺手登记当天的用餐，账单按本月实际登记的次数乘以这个单价计算。
+          </p>
+          {loadingMealRate && <p className="mt-3 text-sm text-panel-muted">加载中...</p>}
+          {!loadingMealRate && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <label className="text-sm text-[#5d5480]">
+                单价（元/次）
+                <input
+                  aria-label="课外课用餐单价"
+                  value={mealRateInput}
+                  onChange={(e) => setMealRateInput(e.target.value)}
+                  className="ml-2 w-20 rounded-lg border border-panel-border px-2 py-1 text-sm"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={handleSaveMealRate}
+                disabled={mealRateSubmitting || !mealRateInput.trim()}
+                className="rounded-full bg-panel-primary px-4 py-1 text-sm font-medium text-white disabled:opacity-50"
+              >
+                保存
+              </button>
+              {offCampusMealRate === null && <span className="text-xs text-panel-warn">未配置</span>}
+            </div>
+          )}
+          {mealRateError && <p className="mt-2 text-sm text-panel-warn">{mealRateError}</p>}
         </div>
       )}
 
