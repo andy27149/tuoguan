@@ -330,11 +330,11 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                 .andExpect(status().isOk());
 
         for (String date : List.of("2024-01-02", "2024-01-03")) {
-            mockMvc.perform(post("/api/courses/" + courseId + "/meals/batch")
+            mockMvc.perform(patch("/api/courses/" + courseId + "/students/" + studentId + "/meal")
                             .header("Authorization", "Bearer " + teacherToken)
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"date\":\"" + date + "\",\"presentStudentIds\":[" + studentId + "]}"))
-                    .andExpect(status().isCreated());
+                            .content("{\"date\":\"" + date + "\"}"))
+                    .andExpect(status().isNoContent());
         }
 
         mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=2024-01")
@@ -366,11 +366,11 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
                 .andExpect(status().isOk());
 
         // 机构从未配置「课外课用餐单价」，但这门课的老师已经登记了一次用餐记录。
-        mockMvc.perform(post("/api/courses/" + courseId + "/meals/batch")
+        mockMvc.perform(patch("/api/courses/" + courseId + "/students/" + studentId + "/meal")
                         .header("Authorization", "Bearer " + teacherToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"date\":\"2024-01-02\",\"presentStudentIds\":[" + studentId + "]}"))
-                .andExpect(status().isCreated());
+                        .content("{\"date\":\"2024-01-02\"}"))
+                .andExpect(status().isNoContent());
 
         mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=2024-01")
                         .header("Authorization", "Bearer " + adminToken))

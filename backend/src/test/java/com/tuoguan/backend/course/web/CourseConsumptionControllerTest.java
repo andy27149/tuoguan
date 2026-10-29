@@ -22,6 +22,9 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import java.math.BigDecimal;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -247,63 +250,85 @@ class CourseConsumptionControllerTest extends IntegrationTestBase {
     }
 
     @Test
-    void batchMealRecordsOnlyForPureOffCampusStudentsSkippingDualIdentityOnes() throws Exception {
+    void setMealRecordsForAnEligiblePureOffCampusStudent() throws Exception {
         Long institutionId = institutionDao.insert("用餐登记测试机构A");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800030001",
                 passwordEncoder.encode("password"), Role.TEACHER, false, null));
         // 课程不配置单价也不影响用餐登记——用餐和课时计费是两件独立的事。
         Long courseId = courseDao.insert(new TeachingUnit(null, institutionId, teacherId, "书法课",
                 BillingMode.LESSON_COUNT, 45, null, true, null));
-        Long classRoomId = classRoomDao.insert(new TeachingUnit(null, institutionId, teacherId, "一年级1班",
-                BillingMode.MONTHLY, null, null, true, null));
-        Long offCampusStudentId = studentDao.insert(new Student(null, institutionId, null, "小外", null, true, null, null));
-        Long dualIdentityStudentId = studentDao.insert(
-                new Student(null, institutionId, classRoomId, "小托", "一年级1班", true, null, null));
-        enrollmentDao.insert(new StudentUnitEnrollment(null, institutionId, offCampusStudentId, courseId, true, null));
-        enrollmentDao.insert(new StudentUnitEnrollment(null, institutionId, dualIdentityStudentId, courseId, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, null, "小外", null, true, null, null));
+        enrollmentDao.insert(new StudentUnitEnrollment(null, institutionId, studentId, courseId, true, null));
         String token = login("13800030001", "password");
 
-        mockMvc.perform(post("/api/courses/" + courseId + "/meals/batch")
+        mockMvc.perform(patch("/api/courses/" + courseId + "/students/" + studentId + "/meal")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"date\":\"2024-01-02\",\"presentStudentIds\":["
-                                + offCampusStudentId + "," + dualIdentityStudentId + "]}"))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.recordedCount").value(1));
+                        .content("{\"date\":\"2024-01-02\"}"))
+                .andExpect(status().isNoContent());
+
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM course_meal_record WHERE student_id = ? AND meal_date = ?",
+                Integer.class, studentId, "2024-01-02");
+        assertThat(count).isEqualTo(1);
     }
 
     @Test
-    void repeatedBatchMealOnSameDaySilentlySkipsAlreadyRecordedStudents() throws Exception {
+    void setMealRejectsStudentWhoAlsoHasATeachingUnit() throws Exception {
         Long institutionId = institutionDao.insert("用餐登记测试机构B");
         Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800030002",
+                passwordEncoder.encode("password"), Role.TEACHER, false, null));
+        Long courseId = courseDao.insert(new TeachingUnit(null, institutionId, teacherId, "书法课",
+                BillingMode.LESSON_COUNT, 45, null, true, null));
+        Long classRoomId = classRoomDao.insert(new TeachingUnit(null, institutionId, teacherId, "一年级1班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long dualIdentityStudentId = studentDao.insert(
+                new Student(null, institutionId, classRoomId, "小托", "一年级1班", true, null, null));
+        enrollmentDao.insert(new StudentUnitEnrollment(null, institutionId, dualIdentityStudentId, courseId, true, null));
+        String token = login("13800030002", "password");
+
+        mockMvc.perform(patch("/api/courses/" + courseId + "/students/" + dualIdentityStudentId + "/meal")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2024-01-02\"}"))
+                .andExpect(status().isBadRequest());
+
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM course_meal_record WHERE student_id = ?", Integer.class, dualIdentityStudentId);
+        assertThat(count).isZero();
+    }
+
+    @Test
+    void settingMealTwiceOnTheSameDayIsIdempotent() throws Exception {
+        Long institutionId = institutionDao.insert("用餐登记测试机构C");
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800030003",
                 passwordEncoder.encode("password"), Role.TEACHER, false, null));
         Long courseId = courseDao.insert(new TeachingUnit(null, institutionId, teacherId, "美术课",
                 BillingMode.LESSON_COUNT, 45, null, true, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, null, "小明", null, true, null, null));
         enrollmentDao.insert(new StudentUnitEnrollment(null, institutionId, studentId, courseId, true, null));
-        String token = login("13800030002", "password");
+        String token = login("13800030003", "password");
 
-        mockMvc.perform(post("/api/courses/" + courseId + "/meals/batch")
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"date\":\"2024-01-02\",\"presentStudentIds\":[" + studentId + "]}"))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.recordedCount").value(1));
+        for (int i = 0; i < 2; i++) {
+            mockMvc.perform(patch("/api/courses/" + courseId + "/students/" + studentId + "/meal")
+                            .header("Authorization", "Bearer " + token)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"date\":\"2024-01-02\"}"))
+                    .andExpect(status().isNoContent());
+        }
 
-        mockMvc.perform(post("/api/courses/" + courseId + "/meals/batch")
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"date\":\"2024-01-02\",\"presentStudentIds\":[" + studentId + "]}"))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.recordedCount").value(0));
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM course_meal_record WHERE student_id = ? AND meal_date = ?",
+                Integer.class, studentId, "2024-01-02");
+        assertThat(count).isEqualTo(1);
     }
 
     @Test
     void mealAlreadyRecordedByAnotherCourseOnSameDayIsNotDoubleCounted() throws Exception {
-        // 同一个学生当天报了两门课，不管哪个老师先点名记了用餐，另一门课的老师再点名
-        // 都不应该把这一天的用餐重复计数——"今天吃没吃饭"是按天的事实，不是按课的事实。
-        Long institutionId = institutionDao.insert("用餐登记测试机构C");
-        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800030003",
+        // 同一个学生当天报了两门课，不管哪个老师先点用餐图标记了用餐，另一门课的老师
+        // 再点都不应该把这一天的用餐重复计数——"今天吃没吃饭"是按天的事实，不是按课的事实。
+        Long institutionId = institutionDao.insert("用餐登记测试机构D");
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800030004",
                 passwordEncoder.encode("password"), Role.TEACHER, false, null));
         Long courseAId = courseDao.insert(new TeachingUnit(null, institutionId, teacherId, "书法课",
                 BillingMode.LESSON_COUNT, 45, null, true, null));
@@ -312,41 +337,91 @@ class CourseConsumptionControllerTest extends IntegrationTestBase {
         Long studentId = studentDao.insert(new Student(null, institutionId, null, "小明", null, true, null, null));
         enrollmentDao.insert(new StudentUnitEnrollment(null, institutionId, studentId, courseAId, true, null));
         enrollmentDao.insert(new StudentUnitEnrollment(null, institutionId, studentId, courseBId, true, null));
-        String token = login("13800030003", "password");
+        String token = login("13800030004", "password");
 
-        mockMvc.perform(post("/api/courses/" + courseAId + "/meals/batch")
+        mockMvc.perform(patch("/api/courses/" + courseAId + "/students/" + studentId + "/meal")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"date\":\"2024-01-02\",\"presentStudentIds\":[" + studentId + "]}"))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.recordedCount").value(1));
-
-        mockMvc.perform(post("/api/courses/" + courseBId + "/meals/batch")
+                        .content("{\"date\":\"2024-01-02\"}"))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(patch("/api/courses/" + courseBId + "/students/" + studentId + "/meal")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"date\":\"2024-01-02\",\"presentStudentIds\":[" + studentId + "]}"))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.recordedCount").value(0));
+                        .content("{\"date\":\"2024-01-02\"}"))
+                .andExpect(status().isNoContent());
+
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM course_meal_record WHERE student_id = ? AND meal_date = ?",
+                Integer.class, studentId, "2024-01-02");
+        assertThat(count).isEqualTo(1);
     }
 
     @Test
-    void batchMealOnAnotherTeachersCourseReturnsNotFound() throws Exception {
-        Long institutionId = institutionDao.insert("用餐登记测试机构D");
-        Long ownerTeacherId = teacherDao.insert(new Teacher(null, institutionId, "13800030004",
+    void setMealOnAnotherTeachersCourseReturnsNotFound() throws Exception {
+        Long institutionId = institutionDao.insert("用餐登记测试机构E");
+        Long ownerTeacherId = teacherDao.insert(new Teacher(null, institutionId, "13800030005",
                 passwordEncoder.encode("owner-password"), Role.TEACHER, false, null));
-        teacherDao.insert(new Teacher(null, institutionId, "13800030005",
+        teacherDao.insert(new Teacher(null, institutionId, "13800030006",
                 passwordEncoder.encode("intruder-password"), Role.TEACHER, false, null));
         Long courseId = courseDao.insert(new TeachingUnit(null, institutionId, ownerTeacherId, "声乐课",
                 BillingMode.LESSON_COUNT, 45, null, true, null));
         Long studentId = studentDao.insert(new Student(null, institutionId, null, "小明", null, true, null, null));
         enrollmentDao.insert(new StudentUnitEnrollment(null, institutionId, studentId, courseId, true, null));
-        String intruderToken = login("13800030005", "intruder-password");
+        String intruderToken = login("13800030006", "intruder-password");
 
-        mockMvc.perform(post("/api/courses/" + courseId + "/meals/batch")
+        mockMvc.perform(patch("/api/courses/" + courseId + "/students/" + studentId + "/meal")
                         .header("Authorization", "Bearer " + intruderToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"date\":\"2024-01-02\",\"presentStudentIds\":[" + studentId + "]}"))
+                        .content("{\"date\":\"2024-01-02\"}"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void clearMealRemovesAnExistingRecord() throws Exception {
+        Long institutionId = institutionDao.insert("用餐登记测试机构F");
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800030007",
+                passwordEncoder.encode("password"), Role.TEACHER, false, null));
+        Long courseId = courseDao.insert(new TeachingUnit(null, institutionId, teacherId, "书法课",
+                BillingMode.LESSON_COUNT, 45, null, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, null, "小外", null, true, null, null));
+        enrollmentDao.insert(new StudentUnitEnrollment(null, institutionId, studentId, courseId, true, null));
+        String token = login("13800030007", "password");
+
+        mockMvc.perform(patch("/api/courses/" + courseId + "/students/" + studentId + "/meal")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2024-01-02\"}"))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(delete("/api/courses/" + courseId + "/students/" + studentId + "/meal")
+                        .header("Authorization", "Bearer " + token)
+                        .queryParam("date", "2024-01-02"))
+                .andExpect(status().isNoContent());
+
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM course_meal_record WHERE student_id = ? AND meal_date = ?",
+                Integer.class, studentId, "2024-01-02");
+        assertThat(count).isZero();
+    }
+
+    @Test
+    void clearMealRejectsStudentWhoAlsoHasATeachingUnit() throws Exception {
+        Long institutionId = institutionDao.insert("用餐登记测试机构G");
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13800030008",
+                passwordEncoder.encode("password"), Role.TEACHER, false, null));
+        Long courseId = courseDao.insert(new TeachingUnit(null, institutionId, teacherId, "书法课",
+                BillingMode.LESSON_COUNT, 45, null, true, null));
+        Long classRoomId = classRoomDao.insert(new TeachingUnit(null, institutionId, teacherId, "一年级1班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long dualIdentityStudentId = studentDao.insert(
+                new Student(null, institutionId, classRoomId, "小托", "一年级1班", true, null, null));
+        enrollmentDao.insert(new StudentUnitEnrollment(null, institutionId, dualIdentityStudentId, courseId, true, null));
+        String token = login("13800030008", "password");
+
+        mockMvc.perform(delete("/api/courses/" + courseId + "/students/" + dualIdentityStudentId + "/meal")
+                        .header("Authorization", "Bearer " + token)
+                        .queryParam("date", "2024-01-02"))
+                .andExpect(status().isBadRequest());
     }
 
     private String login(String phone, String password) throws Exception {

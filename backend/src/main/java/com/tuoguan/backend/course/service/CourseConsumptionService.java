@@ -10,6 +10,7 @@ import com.tuoguan.backend.course.web.CourseNotEnrolledException;
 import com.tuoguan.backend.course.web.CoursePriceNotConfiguredException;
 import com.tuoguan.backend.course.web.CourseRosterEntry;
 import com.tuoguan.backend.course.web.DuplicateConsumptionException;
+import com.tuoguan.backend.course.web.OffCampusMealNotApplicableException;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.roster.web.NotFoundException;
@@ -141,44 +142,46 @@ public class CourseConsumptionService {
     }
 
     // 纯课外课学生此前完全没有用餐记录的入口——只对报了这门课、且没有托管班（双重身份
-    // 学生的用餐走托管看板那套，这里不重复记录/计费，避免同一天被算两次餐费）的学生生效。
+    // 学生的用餐走托管看板那套，这里拒绝记录，避免同一天被算两次餐费）的学生生效。
+    // 交互上和托管看板的"用餐"图标一致：老师点一下立即生效，不是先勾选再批量确认。
     // 按学生+日期去重（而不是按"这门课"去重）：同一个孩子今天不管报了几门课、被哪个老师
     // 先标记，都只算一次——这是业务事实本身的语义（"今天吃没吃饭"不分课），不是实现细节。
-    public int recordBatchMeal(Long teacherId, Long courseId, LocalDate date, List<Long> presentStudentIds) {
+    public void setMeal(Long teacherId, Long courseId, Long studentId, LocalDate date) {
         TeachingUnit teachingUnit = courseService.getOwnedByTeacher(teacherId, courseId);
+        requireEligibleOffCampusStudent(teachingUnit, studentId);
 
-        List<Long> eligibleStudentIds = enrollmentDao.findAllByTeachingUnitId(teachingUnit.id()).stream()
-                .filter(StudentUnitEnrollment::active)
-                .map(StudentUnitEnrollment::studentId)
-                .filter(studentId -> studentDao.findById(studentId)
-                        .map(student -> student.teachingUnitId() == null)
-                        .orElse(false))
-                .toList();
-
-        int recordedCount = 0;
-        for (Long studentId : presentStudentIds) {
-            if (!eligibleStudentIds.contains(studentId)) {
-                continue;
-            }
-            if (mealRecordDao.findByStudentIdAndDate(studentId, date).isPresent()) {
-                continue;
-            }
-            try {
-                mealRecordDao.insert(new CourseMealRecord(null, teachingUnit.institutionId(), studentId, date,
-                        teacherId, null));
-                recordedCount++;
-            } catch (DataIntegrityViolationException e) {
-                // 查完"没记录"到真正插入之间存在竞态窗口：同一个学生当天报了两门课，
-                // 两个老师几乎同时点名提交，都会在上面的 isPresent() 检查里看到"还没记"。
-                // uq_course_meal_record_student_date 唯一约束兜底拦住了第二次插入，这里
-                // 按"已被并发请求记录"静默跳过，保持和"查到已存在"完全一样的去重语义，
-                // 而不是让老师看到一个莫名其妙的 500。
-                log.info("课外课用餐登记遇到并发去重：institutionId={}, studentId={}, date={}",
-                        teachingUnit.institutionId(), studentId, date);
-            }
+        if (mealRecordDao.findByStudentIdAndDate(studentId, date).isPresent()) {
+            return;
         }
-        log.info("课外课用餐登记：institutionId={}, courseId={}, date={}, teacherId={}, 提交到={}, 实际新记={}",
-                teachingUnit.institutionId(), courseId, date, teacherId, presentStudentIds.size(), recordedCount);
-        return recordedCount;
+        try {
+            mealRecordDao.insert(new CourseMealRecord(null, teachingUnit.institutionId(), studentId, date,
+                    teacherId, null));
+        } catch (DataIntegrityViolationException e) {
+            // 查完"没记录"到真正插入之间存在竞态窗口：同一个学生当天报了两门课，
+            // 两个老师几乎同时点击记用餐，都会在上面的 isPresent() 检查里看到"还没记"。
+            // uq_course_meal_record_student_date 唯一约束兜底拦住了第二次插入，这里
+            // 按"已被并发请求记录"静默视为成功，保持幂等，而不是让老师看到一个莫名
+            // 其妙的 500。
+            log.info("课外课用餐登记遇到并发去重：institutionId={}, studentId={}, date={}",
+                    teachingUnit.institutionId(), studentId, date);
+        }
+    }
+
+    public void clearMeal(Long teacherId, Long courseId, Long studentId, LocalDate date) {
+        TeachingUnit teachingUnit = courseService.getOwnedByTeacher(teacherId, courseId);
+        requireEligibleOffCampusStudent(teachingUnit, studentId);
+        mealRecordDao.delete(studentId, date);
+    }
+
+    private void requireEligibleOffCampusStudent(TeachingUnit teachingUnit, Long studentId) {
+        enrollmentDao.findByStudentIdAndTeachingUnitId(studentId, teachingUnit.id())
+                .filter(StudentUnitEnrollment::active)
+                .orElseThrow(() -> new CourseNotEnrolledException("Student not enrolled in course: " + studentId));
+        Student student = studentDao.findById(studentId)
+                .orElseThrow(() -> new NotFoundException("Student not found: " + studentId));
+        if (student.teachingUnitId() != null) {
+            throw new OffCampusMealNotApplicableException(
+                    "该学生已有托管班，用餐请在托管看板登记: " + studentId);
+        }
     }
 }

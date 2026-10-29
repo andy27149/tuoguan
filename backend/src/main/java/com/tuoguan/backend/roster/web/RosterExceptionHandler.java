@@ -10,6 +10,7 @@ import com.tuoguan.backend.course.web.CourseNotEnrolledException;
 import com.tuoguan.backend.course.web.CoursePriceNotConfiguredException;
 import com.tuoguan.backend.course.web.DuplicateConsumptionException;
 import com.tuoguan.backend.course.web.DuplicateCourseNameException;
+import com.tuoguan.backend.course.web.OffCampusMealNotApplicableException;
 import com.tuoguan.backend.kanban.web.AlreadyArrivedException;
 import com.tuoguan.backend.kanban.web.ArrivalRequiredException;
 import com.tuoguan.backend.unit.web.FeatureDisabledException;
@@ -116,6 +117,11 @@ public class RosterExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(CourseNotEnrolledException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public void handleCourseNotEnrolled() {
+    }
+
+    @ExceptionHandler(OffCampusMealNotApplicableException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public void handleOffCampusMealNotApplicable() {
     }
 
     @ExceptionHandler(CoursePriceNotConfiguredException.class)

@@ -38,11 +38,10 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
   const { toastMessage, showToast } = useToast()
 
   // 用餐登记只对纯课外课学生生效（双重身份学生的用餐走托管看板那套，这里不重复
-  // 记录/计费），跟"是否到课"完全独立，默认不勾选——不是每个孩子每天都留下用餐。
-  const [mealStudentIds, setMealStudentIds] = useState<Set<number>>(new Set())
-  const [mealSubmitting, setMealSubmitting] = useState(false)
-  const [confirmingMeal, setConfirmingMeal] = useState(false)
-  const [mealResult, setMealResult] = useState<RollCallResult | null>(null)
+  // 记录/计费）。跟托管看板的"用餐"图标一个交互：点一下立即生效、再点一下取消，
+  // 不是先勾选一批人再单独点"确认用餐"——这是两件独立的事实，不需要走消课那套
+  // 批量+二次确认的流程。
+  const [mealRecordedStudentIds, setMealRecordedStudentIds] = useState<Set<number>>(new Set())
 
   useEffect(() => {
     loadCourses()
@@ -83,7 +82,7 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
     const sorted = [...list].sort((a, b) => a.name.localeCompare(b.name))
     setRoster(sorted)
     setPresentStudentIds(new Set(sorted.map((r) => r.studentId)))
-    setMealStudentIds(new Set())
+    setMealRecordedStudentIds(new Set())
   }
 
   function balanceBadgeClass(balance: number): string {
@@ -104,16 +103,39 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
     })
   }
 
-  function toggleMeal(studentId: number) {
-    setMealStudentIds((prev) => {
+  // 乐观更新：立即翻转图标状态，接口失败再翻回去——跟托管看板 KanbanPage 的
+  // handleSetMeal/handleClearMeal 是同一套写法。
+  async function handleMealClick(studentId: number) {
+    if (activeCourseId === null) return
+    const alreadyRecorded = mealRecordedStudentIds.has(studentId)
+    setMealRecordedStudentIds((prev) => {
       const next = new Set(prev)
-      if (next.has(studentId)) {
+      if (alreadyRecorded) {
         next.delete(studentId)
       } else {
         next.add(studentId)
       }
       return next
     })
+    try {
+      if (alreadyRecorded) {
+        await courseApi.clearMeal(activeCourseId, studentId, rollCallDate)
+        showToast('已取消用餐记录')
+      } else {
+        await courseApi.setMeal(activeCourseId, studentId, rollCallDate)
+        showToast('已记录用餐')
+      }
+    } catch {
+      setMealRecordedStudentIds((prev) => {
+        const next = new Set(prev)
+        if (alreadyRecorded) {
+          next.add(studentId)
+        } else {
+          next.delete(studentId)
+        }
+        return next
+      })
+    }
   }
 
   function handleRollCallClick() {
@@ -146,36 +168,8 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
     }
   }
 
-  function handleMealClick() {
-    if (activeCourseId === null) return
-    setMealResult(null)
-    if (rollCallDate > todayDateString()) {
-      setMealResult({ type: 'warning', message: '无法对未来日期进行用餐登记！' })
-      return
-    }
-    setConfirmingMeal(true)
-  }
-
-  async function submitMeal() {
-    if (activeCourseId === null) return
-    setConfirmingMeal(false)
-    setMealSubmitting(true)
-    try {
-      const result = await courseApi.recordBatchMeal(activeCourseId, rollCallDate, Array.from(mealStudentIds))
-      setMealResult({
-        type: 'success',
-        message: result.recordedCount > 0 ? `已登记用餐，新增 ${result.recordedCount} 条记录` : '该日期已全部登记过，无新增记录',
-      })
-    } catch {
-      setMealResult({ type: 'warning', message: '登记失败，请重试' })
-    } finally {
-      setMealSubmitting(false)
-    }
-  }
-
   const activeCourse = courses.find((c) => c.id === activeCourseId) ?? null
   const unpriced = activeCourse !== null && activeCourse.pricePerLesson === null
-  const hasOffCampusStudent = roster.some((entry) => entry.offCampusOnly)
 
   return (
     <div className="min-h-screen pb-8">
@@ -227,6 +221,7 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
             <ul className="roster-grid">
               {roster.map((entry) => {
                 const present = presentStudentIds.has(entry.studentId)
+                const hasMeal = mealRecordedStudentIds.has(entry.studentId)
                 return (
                   <li key={entry.studentId}>
                     <label
@@ -252,18 +247,18 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
                       </span>
                       <span className="roster-card__actions">
                         {entry.offCampusOnly && (
-                          <label
-                            className="roster-card__meal-toggle"
-                            onClick={(e) => e.stopPropagation()}
+                          <button
+                            type="button"
+                            className={`roster-card__action-btn${hasMeal ? ' is-active' : ''}`}
+                            aria-label={`${entry.name}${hasMeal ? '已用餐，点击取消' : '用餐'}`}
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              void handleMealClick(entry.studentId)
+                            }}
                           >
-                            <input
-                              type="checkbox"
-                              aria-label={`${entry.name}用餐`}
-                              checked={mealStudentIds.has(entry.studentId)}
-                              onChange={() => toggleMeal(entry.studentId)}
-                            />
-                            用餐
-                          </label>
+                            🍚
+                          </button>
                         )}
                         <button
                           type="button"
@@ -310,20 +305,6 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
                 </button>
               </div>
             )}
-
-            {hasOffCampusStudent && (
-              <div className="rollcall-bar">
-                <span>将为选中的学生登记 {rollCallDate} 的用餐</span>
-                <button
-                  type="button"
-                  className="submit"
-                  onClick={handleMealClick}
-                  disabled={mealSubmitting || mealStudentIds.size === 0}
-                >
-                  确认用餐（{mealStudentIds.size}人）
-                </button>
-              </div>
-            )}
           </>
         )}
       </main>
@@ -344,26 +325,6 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
           type={rollCallResult.type}
           message={rollCallResult.message}
           onClose={() => setRollCallResult(null)}
-        />
-      )}
-
-      {confirmingMeal && (
-        <ConfirmDialog
-          title="确认用餐登记"
-          message={`请确认为${mealStudentIds.size}个孩子登记${rollCallDate}的用餐，此操作不可更改？`}
-          confirmLabel="确认用餐"
-          confirming={mealSubmitting}
-          onConfirm={submitMeal}
-          onCancel={() => setConfirmingMeal(false)}
-        />
-      )}
-
-      {mealResult && (
-        <RollCallResultModal
-          type={mealResult.type}
-          title={mealResult.type === 'success' ? '用餐登记成功' : '用餐登记提醒'}
-          message={mealResult.message}
-          onClose={() => setMealResult(null)}
         />
       )}
 

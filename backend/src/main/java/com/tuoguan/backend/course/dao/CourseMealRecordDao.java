@@ -13,4 +13,6 @@ public interface CourseMealRecordDao {
     Optional<CourseMealRecord> findByStudentIdAndDate(Long studentId, LocalDate date);
 
     List<CourseMealRecord> findAllByStudentIdAndDateRange(Long studentId, LocalDate start, LocalDate end);
+
+    void delete(Long studentId, LocalDate date);
 }

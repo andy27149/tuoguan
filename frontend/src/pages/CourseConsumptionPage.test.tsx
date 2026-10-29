@@ -254,77 +254,61 @@ describe('CourseConsumptionPage', () => {
     expect(screen.queryByRole('dialog', { name: '家长专属链接' })).not.toBeInTheDocument()
   })
 
-  it('shows a meal checkbox only for pure off-campus students, not for dual-identity ones', async () => {
+  it('shows a meal icon only for pure off-campus students, not for dual-identity ones', async () => {
     setup()
     await screen.findByText('小明')
 
-    expect(screen.queryByRole('checkbox', { name: '小明用餐' })).not.toBeInTheDocument()
-    expect(screen.getByRole('checkbox', { name: '小红用餐' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '小明用餐' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '小红用餐' })).toBeInTheDocument()
   })
 
-  it('defaults the meal checkbox to unchecked and submits only the selected off-campus students', async () => {
-    vi.mocked(courseApi.recordBatchMeal).mockResolvedValue({ recordedCount: 1 })
+  it('clicking the meal icon immediately records the meal and flips to the recorded state', async () => {
+    vi.mocked(courseApi.setMeal).mockResolvedValue(undefined)
     setup()
     await screen.findByText('小明')
 
-    expect(screen.getByRole('checkbox', { name: '小红用餐' })).not.toBeChecked()
-    expect(screen.getByRole('button', { name: '确认用餐（0人）' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: '小红用餐' }))
 
-    fireEvent.click(screen.getByRole('checkbox', { name: '小红用餐' }))
-    fireEvent.click(screen.getByRole('button', { name: '确认用餐（1人）' }))
-    const dialog = await screen.findByRole('dialog', { name: '确认用餐登记' })
-    fireEvent.click(within(dialog).getByRole('button', { name: '确认用餐' }))
-
-    await waitFor(() => expect(courseApi.recordBatchMeal).toHaveBeenCalledWith(1, expect.any(String), [200]))
-    expect(await screen.findByRole('dialog', { name: '用餐登记成功' })).toBeInTheDocument()
-    expect(screen.getByText('已登记用餐，新增 1 条记录')).toBeInTheDocument()
+    await waitFor(() => expect(courseApi.setMeal).toHaveBeenCalledWith(1, 200, expect.any(String)))
+    expect(await screen.findByRole('button', { name: '小红已用餐，点击取消' })).toBeInTheDocument()
+    expect(await screen.findByText('已记录用餐')).toBeInTheDocument()
   })
 
-  it('shows a reminder result when the meal submission finds nothing new to record', async () => {
-    vi.mocked(courseApi.recordBatchMeal).mockResolvedValue({ recordedCount: 0 })
+  it('clicking an already-recorded meal icon clears it immediately', async () => {
+    vi.mocked(courseApi.setMeal).mockResolvedValue(undefined)
+    vi.mocked(courseApi.clearMeal).mockResolvedValue(undefined)
     setup()
     await screen.findByText('小明')
 
-    fireEvent.click(screen.getByRole('checkbox', { name: '小红用餐' }))
-    fireEvent.click(screen.getByRole('button', { name: '确认用餐（1人）' }))
-    fireEvent.click(await screen.findByRole('button', { name: '确认用餐' }))
+    fireEvent.click(screen.getByRole('button', { name: '小红用餐' }))
+    await screen.findByRole('button', { name: '小红已用餐，点击取消' })
 
-    expect(await screen.findByText('该日期已全部登记过，无新增记录')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '小红已用餐，点击取消' }))
+
+    await waitFor(() => expect(courseApi.clearMeal).toHaveBeenCalledWith(1, 200, expect.any(String)))
+    expect(await screen.findByRole('button', { name: '小红用餐' })).toBeInTheDocument()
+    expect(await screen.findByText('已取消用餐记录')).toBeInTheDocument()
   })
 
-  it('rejects submitting a meal registration for a future date with a warning result modal', async () => {
+  it('reverts the optimistic meal update when the API call fails', async () => {
+    vi.mocked(courseApi.setMeal).mockRejectedValue(new Error('network'))
     setup()
     await screen.findByText('小明')
 
-    fireEvent.change(screen.getByLabelText('消课日期'), { target: { value: '2099-01-01' } })
-    fireEvent.click(screen.getByRole('checkbox', { name: '小红用餐' }))
-    fireEvent.click(screen.getByRole('button', { name: '确认用餐（1人）' }))
-
-    const dialog = await screen.findByRole('dialog', { name: '用餐登记提醒' })
-    expect(within(dialog).getByText('无法对未来日期进行用餐登记！')).toBeInTheDocument()
-    expect(courseApi.recordBatchMeal).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: '小红用餐' }))
+    // 乐观更新先翻成"已用餐"，接口失败后应该翻回去，而不是停留在一个和后端不一致的状态。
+    await screen.findByRole('button', { name: '小红已用餐，点击取消' })
+    expect(await screen.findByRole('button', { name: '小红用餐' })).toBeInTheDocument()
   })
 
-  it('shows a generic error when the meal submission fails', async () => {
-    vi.mocked(courseApi.recordBatchMeal).mockRejectedValue(new Error('network'))
+  it('does not toggle the attendance checkbox when clicking the meal icon', async () => {
+    vi.mocked(courseApi.setMeal).mockResolvedValue(undefined)
     setup()
     await screen.findByText('小明')
+    expect(screen.getByRole('checkbox', { name: '小红' })).toBeChecked()
 
-    fireEvent.click(screen.getByRole('checkbox', { name: '小红用餐' }))
-    fireEvent.click(screen.getByRole('button', { name: '确认用餐（1人）' }))
-    fireEvent.click(await screen.findByRole('button', { name: '确认用餐' }))
+    fireEvent.click(screen.getByRole('button', { name: '小红用餐' }))
 
-    const dialog = await screen.findByRole('dialog', { name: '用餐登记提醒' })
-    expect(within(dialog).getByText('登记失败，请重试')).toBeInTheDocument()
-  })
-
-  it('hides the meal roll-call bar entirely when the course roster has no off-campus students', async () => {
-    vi.mocked(courseApi.fetchCourseRoster).mockResolvedValue([
-      { studentId: 100, name: '小明', schoolClassName: '三年级一班', offCampusOnly: false, balance: null },
-    ])
-    setup()
-    await screen.findByText('小明')
-
-    expect(screen.queryByRole('button', { name: /确认用餐/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: '小红' })).toBeChecked()
   })
 })

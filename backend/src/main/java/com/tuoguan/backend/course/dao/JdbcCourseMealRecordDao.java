@@ -65,4 +65,10 @@ public class JdbcCourseMealRecordDao implements CourseMealRecordDao {
                         + "AND meal_date BETWEEN ? AND ? ORDER BY meal_date",
                 ROW_MAPPER, studentId, java.sql.Date.valueOf(start), java.sql.Date.valueOf(end));
     }
+
+    @Override
+    public void delete(Long studentId, LocalDate date) {
+        jdbcTemplate.update("DELETE FROM course_meal_record WHERE student_id = ? AND meal_date = ?",
+                studentId, java.sql.Date.valueOf(date));
+    }
 }
