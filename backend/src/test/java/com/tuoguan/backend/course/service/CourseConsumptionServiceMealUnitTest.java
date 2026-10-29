@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.LocalDate;
 import java.util.Optional;
@@ -24,10 +23,11 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-// 纯单元测试：覆盖 setMeal/clearMeal 的资格校验和并发去重兜底（code review 发现：
-// check-then-insert 对 uq_course_meal_record_student_date 唯一约束不是原子的，两个
-// 老师几乎同时给同一个学生记用餐会双双通过 isPresent() 检查），不经过 Spring/MySQL
-// 整条链路。
+// 纯单元测试：覆盖 setMeal/clearMeal 的资格校验（只对报了这门课、且没有托管班的
+// 学生生效）。幂等/并发安全由 CourseMealRecordDao.upsert 的原子 INSERT ... ON
+// DUPLICATE KEY UPDATE 保证（跟 kanban 模块 StudentMealRecordDao.upsert 同款写法），
+// 不需要在 service 层另外测——这正是改用 upsert 替代"先查后插+catch 唯一约束冲突"
+// 换来的好处：不再需要专门写测试验证"吞异常"这件事本身是否正确。
 @ExtendWith(MockitoExtension.class)
 class CourseConsumptionServiceMealUnitTest {
 
@@ -52,11 +52,10 @@ class CourseConsumptionServiceMealUnitTest {
     private static final Long STUDENT_ID = 100L;
     private static final LocalDate DATE = LocalDate.of(2024, 1, 2);
 
-    private TeachingUnit stubCourse() {
+    private void stubCourse() {
         TeachingUnit course = new TeachingUnit(COURSE_ID, 1L, TEACHER_ID, "书法课", BillingMode.LESSON_COUNT, 45,
                 null, true, null);
         when(courseService.getOwnedByTeacher(TEACHER_ID, COURSE_ID)).thenReturn(course);
-        return course;
     }
 
     private void stubEnrolledStudent(Long teachingUnitId) {
@@ -67,41 +66,13 @@ class CourseConsumptionServiceMealUnitTest {
     }
 
     @Test
-    void setMealInsertsWhenNotYetRecorded() {
+    void setMealUpsertsForAnEligibleOffCampusStudent() {
         stubCourse();
         stubEnrolledStudent(null);
-        when(mealRecordDao.findByStudentIdAndDate(STUDENT_ID, DATE)).thenReturn(Optional.empty());
 
         newService().setMeal(TEACHER_ID, COURSE_ID, STUDENT_ID, DATE);
 
-        verify(mealRecordDao).insert(any());
-    }
-
-    @Test
-    void setMealIsIdempotentWhenAlreadyRecorded() {
-        stubCourse();
-        stubEnrolledStudent(null);
-        when(mealRecordDao.findByStudentIdAndDate(STUDENT_ID, DATE))
-                .thenReturn(Optional.of(new com.tuoguan.backend.course.domain.CourseMealRecord(
-                        1L, 1L, STUDENT_ID, DATE, TEACHER_ID, null)));
-
-        newService().setMeal(TEACHER_ID, COURSE_ID, STUDENT_ID, DATE);
-
-        verify(mealRecordDao, never()).insert(any());
-    }
-
-    @Test
-    void concurrentDuplicateInsertIsSilentlySwallowedInsteadOfPropagatingAsAnError() {
-        stubCourse();
-        stubEnrolledStudent(null);
-        // isPresent() 检查没看到记录（另一个请求还没提交完），但真正 insert 时撞上了
-        // 另一个请求已经抢先插入成功的同一行，唯一约束抛出异常。
-        when(mealRecordDao.findByStudentIdAndDate(STUDENT_ID, DATE)).thenReturn(Optional.empty());
-        org.mockito.Mockito.doThrow(new DataIntegrityViolationException("duplicate"))
-                .when(mealRecordDao).insert(any());
-
-        newService().setMeal(TEACHER_ID, COURSE_ID, STUDENT_ID, DATE);
-        // 没有抛出异常就是通过——老师点一下用餐图标不应该看到 500。
+        verify(mealRecordDao).upsert(any());
     }
 
     @Test
@@ -111,7 +82,7 @@ class CourseConsumptionServiceMealUnitTest {
 
         assertThatThrownBy(() -> newService().setMeal(TEACHER_ID, COURSE_ID, STUDENT_ID, DATE))
                 .isInstanceOf(OffCampusMealNotApplicableException.class);
-        verify(mealRecordDao, never()).insert(any());
+        verify(mealRecordDao, never()).upsert(any());
     }
 
     @Test

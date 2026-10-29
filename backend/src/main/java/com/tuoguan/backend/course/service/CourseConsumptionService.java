@@ -19,7 +19,6 @@ import com.tuoguan.backend.unit.domain.StudentUnitEnrollment;
 import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -146,25 +145,14 @@ public class CourseConsumptionService {
     // 交互上和托管看板的"用餐"图标一致：老师点一下立即生效，不是先勾选再批量确认。
     // 按学生+日期去重（而不是按"这门课"去重）：同一个孩子今天不管报了几门课、被哪个老师
     // 先标记，都只算一次——这是业务事实本身的语义（"今天吃没吃饭"不分课），不是实现细节。
+    // 用原子的 upsert（跟 kanban 模块 StudentMealRecordDao.upsert 同款写法）而不是
+    // "先查是否存在、不存在才插入"，天然对并发安全：同一个学生当天报了两门课，两个
+    // 老师几乎同时点击记用餐，不会有竞态窗口，也不需要额外 catch 唯一约束冲突。
     public void setMeal(Long teacherId, Long courseId, Long studentId, LocalDate date) {
         TeachingUnit teachingUnit = courseService.getOwnedByTeacher(teacherId, courseId);
         requireEligibleOffCampusStudent(teachingUnit, studentId);
-
-        if (mealRecordDao.findByStudentIdAndDate(studentId, date).isPresent()) {
-            return;
-        }
-        try {
-            mealRecordDao.insert(new CourseMealRecord(null, teachingUnit.institutionId(), studentId, date,
-                    teacherId, null));
-        } catch (DataIntegrityViolationException e) {
-            // 查完"没记录"到真正插入之间存在竞态窗口：同一个学生当天报了两门课，
-            // 两个老师几乎同时点击记用餐，都会在上面的 isPresent() 检查里看到"还没记"。
-            // uq_course_meal_record_student_date 唯一约束兜底拦住了第二次插入，这里
-            // 按"已被并发请求记录"静默视为成功，保持幂等，而不是让老师看到一个莫名
-            // 其妙的 500。
-            log.info("课外课用餐登记遇到并发去重：institutionId={}, studentId={}, date={}",
-                    teachingUnit.institutionId(), studentId, date);
-        }
+        mealRecordDao.upsert(new CourseMealRecord(null, teachingUnit.institutionId(), studentId, date,
+                teacherId, null));
     }
 
     public void clearMeal(Long teacherId, Long courseId, Long studentId, LocalDate date) {

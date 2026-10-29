@@ -311,4 +311,20 @@ describe('CourseConsumptionPage', () => {
 
     expect(screen.getByRole('checkbox', { name: '小红' })).toBeChecked()
   })
+
+  it('resets the meal icon state when switching to a different date, to avoid misreporting a stale "已用餐" status', async () => {
+    // 架构 review 发现的真实漏记场景：日期选择器支持补登记过去的日期，如果用餐
+    // 状态不随日期切换重置，老师会看到上一个日期残留的"已用餐"图标，误以为新
+    // 日期也记过了从而不再点击，导致真正漏记。
+    vi.mocked(courseApi.setMeal).mockResolvedValue(undefined)
+    setup()
+    await screen.findByText('小明')
+
+    fireEvent.click(screen.getByRole('button', { name: '小红用餐' }))
+    await screen.findByRole('button', { name: '小红已用餐，点击取消' })
+
+    fireEvent.change(screen.getByLabelText('消课日期'), { target: { value: '2024-01-01' } })
+
+    expect(await screen.findByRole('button', { name: '小红用餐' })).toBeInTheDocument()
+  })
 })

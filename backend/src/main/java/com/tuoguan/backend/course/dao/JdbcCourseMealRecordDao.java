@@ -3,12 +3,8 @@ package com.tuoguan.backend.course.dao;
 import com.tuoguan.backend.course.domain.CourseMealRecord;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.support.GeneratedKeyHolder;
-import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
-import java.sql.PreparedStatement;
-import java.sql.Statement;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -34,20 +30,12 @@ public class JdbcCourseMealRecordDao implements CourseMealRecordDao {
     }
 
     @Override
-    public Long insert(CourseMealRecord record) {
-        KeyHolder keyHolder = new GeneratedKeyHolder();
-        jdbcTemplate.update(connection -> {
-            PreparedStatement ps = connection.prepareStatement(
-                    "INSERT INTO course_meal_record (institution_id, student_id, meal_date, recorded_by_teacher_id) "
-                            + "VALUES (?, ?, ?, ?)",
-                    Statement.RETURN_GENERATED_KEYS);
-            ps.setLong(1, record.institutionId());
-            ps.setLong(2, record.studentId());
-            ps.setDate(3, java.sql.Date.valueOf(record.mealDate()));
-            ps.setLong(4, record.recordedByTeacherId());
-            return ps;
-        }, keyHolder);
-        return keyHolder.getKey().longValue();
+    public void upsert(CourseMealRecord record) {
+        jdbcTemplate.update(
+                "INSERT INTO course_meal_record (institution_id, student_id, meal_date, recorded_by_teacher_id) "
+                        + "VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE meal_date = VALUES(meal_date)",
+                record.institutionId(), record.studentId(), java.sql.Date.valueOf(record.mealDate()),
+                record.recordedByTeacherId());
     }
 
     @Override

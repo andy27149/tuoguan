@@ -43,6 +43,16 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
   // 批量+二次确认的流程。
   const [mealRecordedStudentIds, setMealRecordedStudentIds] = useState<Set<number>>(new Set())
 
+  // 架构review发现的真实漏记风险：这个页面的日期选择器允许老师切到过去的日期做
+  // 补登记，但用餐状态只在切课程时重置（applyRoster），不会随日期切换而重置——
+  // 如果不清空，老师把日期从"今天"改成"昨天"（补登记昨天忘记标记的用餐），UI
+  // 还残留着"今天"点过的"已用餐"图标，老师会误以为昨天也记过了从而不再点击，
+  // 导致昨天这顿饭真的没被记录。日期一变就清空，让老师回到诚实的起点（全部未
+  // 用餐），而不是显示一个确定过时/错误的状态。
+  useEffect(() => {
+    setMealRecordedStudentIds(new Set())
+  }, [rollCallDate])
+
   useEffect(() => {
     loadCourses()
     // eslint-disable-next-line react-hooks/exhaustive-deps
