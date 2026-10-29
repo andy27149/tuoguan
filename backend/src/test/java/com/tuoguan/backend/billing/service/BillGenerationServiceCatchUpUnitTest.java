@@ -22,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 // 纯单元测试：只测 computeCourseConsumptionRows 的「补充值追溯抵扣」夹断逻辑
-// （产品诊断 #54），不经过 generateBill 整条链路，所以其余 12 个构造参数（DAO）
+// （产品诊断 #54），不经过 generateBill 整条链路，所以其余构造参数（DAO）
 // 全部传 null——computeCourseConsumptionRows 只用到 courseAccountService 和
 // teachingUnitDao 这两个依赖。
 @ExtendWith(MockitoExtension.class)
@@ -39,7 +39,7 @@ class BillGenerationServiceCatchUpUnitTest {
 
     private BillGenerationService newService() {
         return new BillGenerationService(null, courseAccountService, null, null, null, null, null, null, null, null,
-                teachingUnitDao, null, null, null, null);
+                null, teachingUnitDao, null, null, null, null);
     }
 
     private ConsumptionCoverage uncoveredConsumption(long id, String date, BigDecimal price) {

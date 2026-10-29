@@ -2121,6 +2121,15 @@
   .roster-card__action-btn:hover {
     background: rgba(0, 0, 0, 0.1);
   }
+  /* 用餐图标的"已记录"态——跟右侧出勤自绘勾选指示器用同一个绿色语汇，保持两种
+     状态开关视觉上是同一套语言，而不是两套拼在一起。 */
+  .roster-card__action-btn.is-active {
+    background: #07c160;
+    color: #fff;
+  }
+  .roster-card__action-btn.is-active:hover {
+    background: #06ad56;
+  }
 
   .roster-card__check {
     flex-shrink: 0;

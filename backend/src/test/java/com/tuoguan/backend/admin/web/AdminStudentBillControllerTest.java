@@ -305,6 +305,79 @@ class AdminStudentBillControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void pureOffCampusStudentMealIsBilledUsingInstitutionWideRate() throws Exception {
+        Long institutionId = institutionDao.insert("账单测试机构K1");
+        teacherDao.insert(new Teacher(null, institutionId, "13900013033",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900013034",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long courseId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "书法课",
+                BillingMode.LESSON_COUNT, 45, null, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, null, "学生丑", null, true, null, null));
+        String adminToken = login("13900013033", "admin-password");
+        String teacherToken = login("13900013034", "teacher-password");
+
+        mockMvc.perform(patch("/api/admin/students/" + studentId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"学生丑\",\"enrolled\":true,\"courseIds\":[" + courseId + "]}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(put("/api/admin/institution/off-campus-meal-rate")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"offCampusMealRatePerDay\":15.00}"))
+                .andExpect(status().isOk());
+
+        for (String date : List.of("2024-01-02", "2024-01-03")) {
+            mockMvc.perform(patch("/api/courses/" + courseId + "/students/" + studentId + "/meal")
+                            .header("Authorization", "Bearer " + teacherToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"date\":\"" + date + "\"}"))
+                    .andExpect(status().isNoContent());
+        }
+
+        mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=2024-01")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tuitionAmount").value(0.00))
+                .andExpect(jsonPath("$.mealAmount").value(30.00))
+                .andExpect(jsonPath("$.mealRecordDates.length()").value(2))
+                .andExpect(jsonPath("$.totalAmount").value(30.00));
+    }
+
+    @Test
+    void pureOffCampusStudentWithMealRecordsButNoInstitutionRateFailsBillGeneration() throws Exception {
+        Long institutionId = institutionDao.insert("账单测试机构K2");
+        teacherDao.insert(new Teacher(null, institutionId, "13900013035",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, "13900013036",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long courseId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "书法课",
+                BillingMode.LESSON_COUNT, 45, null, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, null, "学生寅", null, true, null, null));
+        String adminToken = login("13900013035", "admin-password");
+        String teacherToken = login("13900013036", "teacher-password");
+
+        mockMvc.perform(patch("/api/admin/students/" + studentId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"学生寅\",\"enrolled\":true,\"courseIds\":[" + courseId + "]}"))
+                .andExpect(status().isOk());
+
+        // 机构从未配置「课外课用餐单价」，但这门课的老师已经登记了一次用餐记录。
+        mockMvc.perform(patch("/api/courses/" + courseId + "/students/" + studentId + "/meal")
+                        .header("Authorization", "Bearer " + teacherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"date\":\"2024-01-02\"}"))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(post("/api/admin/students/" + studentId + "/bills/generate?month=2024-01")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void pureOffCampusStudentBillOnlyChargesConsumptionNotCoveredByPrepaidBalance() throws Exception {
         Long institutionId = institutionDao.insert("账单测试机构L");
         teacherDao.insert(new Teacher(null, institutionId, "13900013021",

@@ -86,6 +86,48 @@ class AdminInstitutionControllerTest extends IntegrationTestBase {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void adminSetsAndClearsOffCampusMealRate() throws Exception {
+        Long institutionId = institutionDao.insert("课外课用餐单价测试机构A");
+        teacherDao.insert(new Teacher(null, institutionId, "13700005004",
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        String token = login("13700005004", "admin-password");
+
+        mockMvc.perform(put("/api/admin/institution/off-campus-meal-rate")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"offCampusMealRatePerDay\":12.50}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.offCampusMealRatePerDay").value(12.50));
+
+        Institution withRate = institutionDao.findById(institutionId).orElseThrow();
+        assertThat(withRate.offCampusMealRatePerDay()).isEqualByComparingTo(new java.math.BigDecimal("12.50"));
+
+        mockMvc.perform(put("/api/admin/institution/off-campus-meal-rate")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"offCampusMealRatePerDay\":null}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.offCampusMealRatePerDay").doesNotExist());
+
+        Institution cleared = institutionDao.findById(institutionId).orElseThrow();
+        assertThat(cleared.offCampusMealRatePerDay()).isNull();
+    }
+
+    @Test
+    void nonAdminTeacherIsForbiddenFromUpdatingOffCampusMealRate() throws Exception {
+        Long institutionId = institutionDao.insert("课外课用餐单价测试机构B");
+        teacherDao.insert(new Teacher(null, institutionId, "13700005005",
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        String token = login("13700005005", "teacher-password");
+
+        mockMvc.perform(put("/api/admin/institution/off-campus-meal-rate")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"offCampusMealRatePerDay\":12.50}"))
+                .andExpect(status().isForbidden());
+    }
+
     private String login(String phone, String password) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

@@ -2,10 +2,22 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { AdminPricingModule } from './AdminPricingModule'
 import * as billingApi from '../api/billing'
+import * as institutionApi from '../api/institution'
 import * as unitApi from '../api/unit'
 
 vi.mock('../api/billing')
+vi.mock('../api/institution')
 vi.mock('../api/unit')
+
+const INSTITUTION_SETTINGS: institutionApi.InstitutionSettings = {
+  id: 1,
+  name: '测试机构',
+  logoUrl: null,
+  custodyEnabled: true,
+  offCampusEnabled: true,
+  billTuitionInAdvance: false,
+  offCampusMealRatePerDay: 12,
+}
 
 const RATES: billingApi.ClassBillingRateRow[] = [
   { classRoomId: 20, className: '一班', tuitionRatePerMonth: 300, mealRatePerDay: 10 },
@@ -42,6 +54,7 @@ describe('AdminPricingModule', () => {
     vi.resetAllMocks()
     vi.mocked(billingApi.fetchAllClassBillingRates).mockResolvedValue(RATES)
     vi.mocked(unitApi.fetchTeachingUnits).mockResolvedValue(COURSES)
+    vi.mocked(institutionApi.fetchInstitutionSettings).mockResolvedValue(INSTITUTION_SETTINGS)
   })
 
   it('shows the pricing card when custody is enabled', async () => {
@@ -136,6 +149,73 @@ describe('AdminPricingModule', () => {
 
     expect(screen.queryByText('课外课定价')).not.toBeInTheDocument()
     expect(unitApi.fetchTeachingUnits).not.toHaveBeenCalled()
+  })
+
+  it('shows the institution-wide off-campus meal rate and lets the admin update it', async () => {
+    vi.mocked(institutionApi.updateOffCampusMealRate).mockResolvedValue({
+      ...INSTITUTION_SETTINGS,
+      offCampusMealRatePerDay: 18,
+    })
+    render(<AdminPricingModule custodyEnabled={false} offCampusEnabled />)
+
+    expect(await screen.findByText('课外课用餐单价')).toBeInTheDocument()
+    expect(screen.getByLabelText('课外课用餐单价')).toHaveValue('12')
+
+    fireEvent.change(screen.getByLabelText('课外课用餐单价'), { target: { value: '18' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+
+    await waitFor(() => expect(institutionApi.updateOffCampusMealRate).toHaveBeenCalledWith(18))
+  })
+
+  it('lets the admin clear a configured off-campus meal rate back to "未配置"', async () => {
+    vi.mocked(institutionApi.updateOffCampusMealRate).mockResolvedValue({
+      ...INSTITUTION_SETTINGS,
+      offCampusMealRatePerDay: null,
+    })
+    render(<AdminPricingModule custodyEnabled={false} offCampusEnabled />)
+    const heading = await screen.findByText('课外课用餐单价')
+    const card = heading.closest('div') as HTMLElement
+
+    expect(within(card).queryByText('未配置')).not.toBeInTheDocument()
+    fireEvent.click(within(card).getByRole('button', { name: '清除配置' }))
+
+    await waitFor(() => expect(institutionApi.updateOffCampusMealRate).toHaveBeenCalledWith(null))
+    expect(await within(card).findByText('未配置')).toBeInTheDocument()
+    expect(within(card).queryByRole('button', { name: '清除配置' })).not.toBeInTheDocument()
+  })
+
+  it('does not show a clear button for the meal rate when it is already unconfigured', async () => {
+    vi.mocked(institutionApi.fetchInstitutionSettings).mockResolvedValue({
+      ...INSTITUTION_SETTINGS,
+      offCampusMealRatePerDay: null,
+    })
+    render(<AdminPricingModule custodyEnabled={false} offCampusEnabled />)
+    await screen.findByText('课外课用餐单价')
+
+    expect(screen.queryByRole('button', { name: '清除配置' })).not.toBeInTheDocument()
+  })
+
+  it('shows an "未配置" hint for the meal rate when the institution has never set one', async () => {
+    vi.mocked(institutionApi.fetchInstitutionSettings).mockResolvedValue({
+      ...INSTITUTION_SETTINGS,
+      offCampusMealRatePerDay: null,
+    })
+    render(<AdminPricingModule custodyEnabled={false} offCampusEnabled />)
+
+    const heading = await screen.findByText('课外课用餐单价')
+    const card = heading.closest('div') as HTMLElement
+    expect(within(card).getByText('未配置')).toBeInTheDocument()
+  })
+
+  it('shows a validation error for invalid off-campus meal rate input', async () => {
+    render(<AdminPricingModule custodyEnabled={false} offCampusEnabled />)
+    await screen.findByText('课外课用餐单价')
+
+    fireEvent.change(screen.getByLabelText('课外课用餐单价'), { target: { value: 'abc' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+
+    expect(await screen.findByText('请输入有效的单价')).toBeInTheDocument()
+    expect(institutionApi.updateOffCampusMealRate).not.toHaveBeenCalled()
   })
 
   it('edits a course price from the pricing center', async () => {

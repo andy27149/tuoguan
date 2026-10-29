@@ -120,7 +120,7 @@ describe('CourseConsumptionPage', () => {
     await screen.findByText('小明')
 
     expect(screen.getByRole('checkbox', { name: /小明/ })).toBeChecked()
-    expect(screen.getByRole('checkbox', { name: /小红/ })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: '小红' })).toBeChecked()
 
     fireEvent.click(screen.getByRole('button', { name: '确认消课（2人）' }))
     fireEvent.click(await screen.findByRole('button', { name: '确认消课' }))
@@ -196,7 +196,7 @@ describe('CourseConsumptionPage', () => {
     setup()
     await screen.findByText('小明')
 
-    fireEvent.click(screen.getByRole('checkbox', { name: /小红/ }))
+    fireEvent.click(screen.getByRole('checkbox', { name: '小红' }))
     expect(screen.getByRole('button', { name: '确认消课（1人）' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '确认消课（1人）' }))
@@ -252,5 +252,79 @@ describe('CourseConsumptionPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '完成' }))
 
     expect(screen.queryByRole('dialog', { name: '家长专属链接' })).not.toBeInTheDocument()
+  })
+
+  it('shows a meal icon only for pure off-campus students, not for dual-identity ones', async () => {
+    setup()
+    await screen.findByText('小明')
+
+    expect(screen.queryByRole('button', { name: '小明用餐' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '小红用餐' })).toBeInTheDocument()
+  })
+
+  it('clicking the meal icon immediately records the meal and flips to the recorded state', async () => {
+    vi.mocked(courseApi.setMeal).mockResolvedValue(undefined)
+    setup()
+    await screen.findByText('小明')
+
+    fireEvent.click(screen.getByRole('button', { name: '小红用餐' }))
+
+    await waitFor(() => expect(courseApi.setMeal).toHaveBeenCalledWith(1, 200, expect.any(String)))
+    expect(await screen.findByRole('button', { name: '小红已用餐，点击取消' })).toBeInTheDocument()
+    expect(await screen.findByText('已记录用餐')).toBeInTheDocument()
+  })
+
+  it('clicking an already-recorded meal icon clears it immediately', async () => {
+    vi.mocked(courseApi.setMeal).mockResolvedValue(undefined)
+    vi.mocked(courseApi.clearMeal).mockResolvedValue(undefined)
+    setup()
+    await screen.findByText('小明')
+
+    fireEvent.click(screen.getByRole('button', { name: '小红用餐' }))
+    await screen.findByRole('button', { name: '小红已用餐，点击取消' })
+
+    fireEvent.click(screen.getByRole('button', { name: '小红已用餐，点击取消' }))
+
+    await waitFor(() => expect(courseApi.clearMeal).toHaveBeenCalledWith(1, 200, expect.any(String)))
+    expect(await screen.findByRole('button', { name: '小红用餐' })).toBeInTheDocument()
+    expect(await screen.findByText('已取消用餐记录')).toBeInTheDocument()
+  })
+
+  it('reverts the optimistic meal update when the API call fails', async () => {
+    vi.mocked(courseApi.setMeal).mockRejectedValue(new Error('network'))
+    setup()
+    await screen.findByText('小明')
+
+    fireEvent.click(screen.getByRole('button', { name: '小红用餐' }))
+    // 乐观更新先翻成"已用餐"，接口失败后应该翻回去，而不是停留在一个和后端不一致的状态。
+    await screen.findByRole('button', { name: '小红已用餐，点击取消' })
+    expect(await screen.findByRole('button', { name: '小红用餐' })).toBeInTheDocument()
+  })
+
+  it('does not toggle the attendance checkbox when clicking the meal icon', async () => {
+    vi.mocked(courseApi.setMeal).mockResolvedValue(undefined)
+    setup()
+    await screen.findByText('小明')
+    expect(screen.getByRole('checkbox', { name: '小红' })).toBeChecked()
+
+    fireEvent.click(screen.getByRole('button', { name: '小红用餐' }))
+
+    expect(screen.getByRole('checkbox', { name: '小红' })).toBeChecked()
+  })
+
+  it('resets the meal icon state when switching to a different date, to avoid misreporting a stale "已用餐" status', async () => {
+    // 架构 review 发现的真实漏记场景：日期选择器支持补登记过去的日期，如果用餐
+    // 状态不随日期切换重置，老师会看到上一个日期残留的"已用餐"图标，误以为新
+    // 日期也记过了从而不再点击，导致真正漏记。
+    vi.mocked(courseApi.setMeal).mockResolvedValue(undefined)
+    setup()
+    await screen.findByText('小明')
+
+    fireEvent.click(screen.getByRole('button', { name: '小红用餐' }))
+    await screen.findByRole('button', { name: '小红已用餐，点击取消' })
+
+    fireEvent.change(screen.getByLabelText('消课日期'), { target: { value: '2024-01-01' } })
+
+    expect(await screen.findByRole('button', { name: '小红用餐' })).toBeInTheDocument()
   })
 })

@@ -8,6 +8,7 @@ export interface InstitutionSettings {
   custodyEnabled: boolean
   offCampusEnabled: boolean
   billTuitionInAdvance: boolean
+  offCampusMealRatePerDay: number | null
 }
 
 export function fetchInstitutionSettings(): Promise<InstitutionSettings> {
@@ -32,6 +33,14 @@ export function updateBillTuitionInAdvance(billTuitionInAdvance: boolean): Promi
   return apiFetch<InstitutionSettings>('/admin/institution/bill-tuition-in-advance', {
     method: 'PUT',
     body: JSON.stringify({ billTuitionInAdvance }),
+  })
+}
+
+// 纯课外课学生没有托管班、没有班级计费单价可用，这笔餐费按机构统一配置一个单价。
+export function updateOffCampusMealRate(offCampusMealRatePerDay: number | null): Promise<InstitutionSettings> {
+  return apiFetch<InstitutionSettings>('/admin/institution/off-campus-meal-rate', {
+    method: 'PUT',
+    body: JSON.stringify({ offCampusMealRatePerDay }),
   })
 }
 

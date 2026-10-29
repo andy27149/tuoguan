@@ -12,6 +12,7 @@ const INSTITUTION: institutionApi.InstitutionSettings = {
   custodyEnabled: true,
   offCampusEnabled: true,
   billTuitionInAdvance: false,
+  offCampusMealRatePerDay: null,
 }
 
 describe('AdminSettingsModule', () => {

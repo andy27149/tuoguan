@@ -1,13 +1,16 @@
 package com.tuoguan.backend.course.service;
 
 import com.tuoguan.backend.course.dao.CourseConsumptionRecordDao;
+import com.tuoguan.backend.course.dao.CourseMealRecordDao;
 import com.tuoguan.backend.course.dao.CourseRechargeRecordDao;
 import com.tuoguan.backend.course.domain.CourseConsumptionRecord;
+import com.tuoguan.backend.course.domain.CourseMealRecord;
 import com.tuoguan.backend.course.domain.CourseRechargeRecord;
 import com.tuoguan.backend.course.web.CourseNotEnrolledException;
 import com.tuoguan.backend.course.web.CoursePriceNotConfiguredException;
 import com.tuoguan.backend.course.web.CourseRosterEntry;
 import com.tuoguan.backend.course.web.DuplicateConsumptionException;
+import com.tuoguan.backend.course.web.OffCampusMealNotApplicableException;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.roster.web.NotFoundException;
@@ -31,16 +34,19 @@ public class CourseConsumptionService {
     private final StudentUnitEnrollmentDao enrollmentDao;
     private final CourseConsumptionRecordDao consumptionRecordDao;
     private final CourseRechargeRecordDao rechargeRecordDao;
+    private final CourseMealRecordDao mealRecordDao;
 
     public CourseConsumptionService(CourseService courseService, StudentDao studentDao,
                                      StudentUnitEnrollmentDao enrollmentDao,
                                      CourseConsumptionRecordDao consumptionRecordDao,
-                                     CourseRechargeRecordDao rechargeRecordDao) {
+                                     CourseRechargeRecordDao rechargeRecordDao,
+                                     CourseMealRecordDao mealRecordDao) {
         this.courseService = courseService;
         this.studentDao = studentDao;
         this.enrollmentDao = enrollmentDao;
         this.consumptionRecordDao = consumptionRecordDao;
         this.rechargeRecordDao = rechargeRecordDao;
+        this.mealRecordDao = mealRecordDao;
     }
 
     public List<CourseRosterEntry> listRosterForCourse(Long teacherId, Long courseId) {
@@ -132,5 +138,38 @@ public class CourseConsumptionService {
         log.info("课外课点名消课：institutionId={}, courseId={}, date={}, teacherId={}, 提交到={}, 实际新记={}",
                 teachingUnit.institutionId(), courseId, date, teacherId, presentStudentIds.size(), recorded.size());
         return recorded;
+    }
+
+    // 纯课外课学生此前完全没有用餐记录的入口——只对报了这门课、且没有托管班（双重身份
+    // 学生的用餐走托管看板那套，这里拒绝记录，避免同一天被算两次餐费）的学生生效。
+    // 交互上和托管看板的"用餐"图标一致：老师点一下立即生效，不是先勾选再批量确认。
+    // 按学生+日期去重（而不是按"这门课"去重）：同一个孩子今天不管报了几门课、被哪个老师
+    // 先标记，都只算一次——这是业务事实本身的语义（"今天吃没吃饭"不分课），不是实现细节。
+    // 用原子的 upsert（跟 kanban 模块 StudentMealRecordDao.upsert 同款写法）而不是
+    // "先查是否存在、不存在才插入"，天然对并发安全：同一个学生当天报了两门课，两个
+    // 老师几乎同时点击记用餐，不会有竞态窗口，也不需要额外 catch 唯一约束冲突。
+    public void setMeal(Long teacherId, Long courseId, Long studentId, LocalDate date) {
+        TeachingUnit teachingUnit = courseService.getOwnedByTeacher(teacherId, courseId);
+        requireEligibleOffCampusStudent(teachingUnit, studentId);
+        mealRecordDao.upsert(new CourseMealRecord(null, teachingUnit.institutionId(), studentId, date,
+                teacherId, null));
+    }
+
+    public void clearMeal(Long teacherId, Long courseId, Long studentId, LocalDate date) {
+        TeachingUnit teachingUnit = courseService.getOwnedByTeacher(teacherId, courseId);
+        requireEligibleOffCampusStudent(teachingUnit, studentId);
+        mealRecordDao.delete(studentId, date);
+    }
+
+    private void requireEligibleOffCampusStudent(TeachingUnit teachingUnit, Long studentId) {
+        enrollmentDao.findByStudentIdAndTeachingUnitId(studentId, teachingUnit.id())
+                .filter(StudentUnitEnrollment::active)
+                .orElseThrow(() -> new CourseNotEnrolledException("Student not enrolled in course: " + studentId));
+        Student student = studentDao.findById(studentId)
+                .orElseThrow(() -> new NotFoundException("Student not found: " + studentId));
+        if (student.teachingUnitId() != null) {
+            throw new OffCampusMealNotApplicableException(
+                    "该学生已有托管班，用餐请在托管看板登记: " + studentId);
+        }
     }
 }

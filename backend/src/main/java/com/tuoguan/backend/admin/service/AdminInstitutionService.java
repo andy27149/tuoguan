@@ -9,6 +9,7 @@ import com.tuoguan.backend.roster.web.NotFoundException;
 import com.tuoguan.backend.storage.StorageService;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.Set;
 
 @Service
@@ -60,6 +61,16 @@ public class AdminInstitutionService {
         return toResponse(requireInstitution(institutionId));
     }
 
+    // 纯课外课学生没有托管班、没有 ClassBillingRate 可用，这笔餐费按机构统一配置一个
+    // 单价（而不是按课程/班级单独配置）。允许传 null 清空配置——清空后，只要当月还有
+    // 课外课用餐记录，BillGenerationService.generateBill 就会在生成账单时报错提醒配置。
+    public InstitutionSettingsResponse updateOffCampusMealRatePerDay(Long institutionId,
+                                                                      BigDecimal offCampusMealRatePerDay) {
+        requireInstitution(institutionId);
+        institutionDao.updateOffCampusMealRatePerDay(institutionId, offCampusMealRatePerDay);
+        return toResponse(requireInstitution(institutionId));
+    }
+
     public InstitutionSettingsResponse updateLogo(Long institutionId, String contentType, byte[] content) {
         if (!ALLOWED_LOGO_CONTENT_TYPES.contains(contentType)) {
             throw new InvalidLogoException("Unsupported logo content type: " + contentType);
@@ -82,6 +93,7 @@ public class AdminInstitutionService {
     private InstitutionSettingsResponse toResponse(Institution institution) {
         return new InstitutionSettingsResponse(institution.id(), institution.name(),
                 storageService.avatarUrl(institution.logoObjectKey()), institution.custodyEnabled(),
-                institution.offCampusEnabled(), institution.billTuitionInAdvance());
+                institution.offCampusEnabled(), institution.billTuitionInAdvance(),
+                institution.offCampusMealRatePerDay());
     }
 }

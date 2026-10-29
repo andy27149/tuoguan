@@ -27,11 +27,13 @@ public class JdbcInstitutionDao implements InstitutionDao {
             rs.getString("address"),
             rs.getDate("valid_until") != null ? rs.getDate("valid_until").toLocalDate() : null,
             rs.getTimestamp("created_at").toInstant(),
-            rs.getBoolean("bill_tuition_in_advance"));
+            rs.getBoolean("bill_tuition_in_advance"),
+            rs.getBigDecimal("off_campus_meal_rate_per_day"));
 
     private static final String SELECT_COLUMNS =
             "id, name, logo_object_key, custody_enabled, off_campus_enabled, "
-                    + "contact_name, contact_phone, address, valid_until, created_at, bill_tuition_in_advance";
+                    + "contact_name, contact_phone, address, valid_until, created_at, bill_tuition_in_advance, "
+                    + "off_campus_meal_rate_per_day";
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -100,5 +102,11 @@ public class JdbcInstitutionDao implements InstitutionDao {
     public void updateBillTuitionInAdvance(Long id, boolean billTuitionInAdvance) {
         jdbcTemplate.update("UPDATE institution SET bill_tuition_in_advance = ? WHERE id = ?",
                 billTuitionInAdvance, id);
+    }
+
+    @Override
+    public void updateOffCampusMealRatePerDay(Long id, java.math.BigDecimal offCampusMealRatePerDay) {
+        jdbcTemplate.update("UPDATE institution SET off_campus_meal_rate_per_day = ? WHERE id = ?",
+                offCampusMealRatePerDay, id);
     }
 }

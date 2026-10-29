@@ -114,6 +114,22 @@ export function recordBatchConsumption(
   })
 }
 
+// 只对花名册里纯课外课的学生（offCampusOnly）生效，点一下立即生效（跟托管看板
+// api/meal.ts 的 setMeal/clearMeal 是同一套交互）；后端按学生+日期去重——不管
+// 这个孩子今天报的哪门课，同一天不会被重复计一次用餐。
+export function setMeal(courseId: number, studentId: number, date: string): Promise<void> {
+  return apiFetch<void>(`/courses/${courseId}/students/${studentId}/meal`, {
+    method: 'PATCH',
+    body: JSON.stringify({ date }),
+  })
+}
+
+export function clearMeal(courseId: number, studentId: number, date: string): Promise<void> {
+  return apiFetch<void>(`/courses/${courseId}/students/${studentId}/meal?date=${date}`, {
+    method: 'DELETE',
+  })
+}
+
 // 管理员端
 // 课程（教学单元）的增删改已统一收归 api/unit.ts 的 teaching-units 接口；这里只保留
 // 课外课预充值账户相关的管理员操作（对账单、充值、消课统计），维持独立不并入月度账单。

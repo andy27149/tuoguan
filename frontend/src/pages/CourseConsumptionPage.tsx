@@ -37,6 +37,22 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
   const [sharingLinkStudent, setSharingLinkStudent] = useState<courseApi.CourseRosterEntry | null>(null)
   const { toastMessage, showToast } = useToast()
 
+  // 用餐登记只对纯课外课学生生效（双重身份学生的用餐走托管看板那套，这里不重复
+  // 记录/计费）。跟托管看板的"用餐"图标一个交互：点一下立即生效、再点一下取消，
+  // 不是先勾选一批人再单独点"确认用餐"——这是两件独立的事实，不需要走消课那套
+  // 批量+二次确认的流程。
+  const [mealRecordedStudentIds, setMealRecordedStudentIds] = useState<Set<number>>(new Set())
+
+  // 架构review发现的真实漏记风险：这个页面的日期选择器允许老师切到过去的日期做
+  // 补登记，但用餐状态只在切课程时重置（applyRoster），不会随日期切换而重置——
+  // 如果不清空，老师把日期从"今天"改成"昨天"（补登记昨天忘记标记的用餐），UI
+  // 还残留着"今天"点过的"已用餐"图标，老师会误以为昨天也记过了从而不再点击，
+  // 导致昨天这顿饭真的没被记录。日期一变就清空，让老师回到诚实的起点（全部未
+  // 用餐），而不是显示一个确定过时/错误的状态。
+  useEffect(() => {
+    setMealRecordedStudentIds(new Set())
+  }, [rollCallDate])
+
   useEffect(() => {
     loadCourses()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -76,6 +92,7 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
     const sorted = [...list].sort((a, b) => a.name.localeCompare(b.name))
     setRoster(sorted)
     setPresentStudentIds(new Set(sorted.map((r) => r.studentId)))
+    setMealRecordedStudentIds(new Set())
   }
 
   function balanceBadgeClass(balance: number): string {
@@ -94,6 +111,41 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
       }
       return next
     })
+  }
+
+  // 乐观更新：立即翻转图标状态，接口失败再翻回去——跟托管看板 KanbanPage 的
+  // handleSetMeal/handleClearMeal 是同一套写法。
+  async function handleMealClick(studentId: number) {
+    if (activeCourseId === null) return
+    const alreadyRecorded = mealRecordedStudentIds.has(studentId)
+    setMealRecordedStudentIds((prev) => {
+      const next = new Set(prev)
+      if (alreadyRecorded) {
+        next.delete(studentId)
+      } else {
+        next.add(studentId)
+      }
+      return next
+    })
+    try {
+      if (alreadyRecorded) {
+        await courseApi.clearMeal(activeCourseId, studentId, rollCallDate)
+        showToast('已取消用餐记录')
+      } else {
+        await courseApi.setMeal(activeCourseId, studentId, rollCallDate)
+        showToast('已记录用餐')
+      }
+    } catch {
+      setMealRecordedStudentIds((prev) => {
+        const next = new Set(prev)
+        if (alreadyRecorded) {
+          next.add(studentId)
+        } else {
+          next.delete(studentId)
+        }
+        return next
+      })
+    }
   }
 
   function handleRollCallClick() {
@@ -179,6 +231,7 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
             <ul className="roster-grid">
               {roster.map((entry) => {
                 const present = presentStudentIds.has(entry.studentId)
+                const hasMeal = mealRecordedStudentIds.has(entry.studentId)
                 return (
                   <li key={entry.studentId}>
                     <label
@@ -186,6 +239,7 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
                     >
                       <input
                         type="checkbox"
+                        aria-label={entry.name}
                         className="roster-card__input"
                         checked={present}
                         onChange={() => togglePresent(entry.studentId)}
@@ -202,6 +256,20 @@ export function CourseConsumptionPage({ onBack }: CourseConsumptionPageProps) {
                         )}
                       </span>
                       <span className="roster-card__actions">
+                        {entry.offCampusOnly && (
+                          <button
+                            type="button"
+                            className={`roster-card__action-btn${hasMeal ? ' is-active' : ''}`}
+                            aria-label={`${entry.name}${hasMeal ? '已用餐，点击取消' : '用餐'}`}
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              void handleMealClick(entry.studentId)
+                            }}
+                          >
+                            🍚
+                          </button>
+                        )}
                         <button
                           type="button"
                           className="roster-card__action-btn"

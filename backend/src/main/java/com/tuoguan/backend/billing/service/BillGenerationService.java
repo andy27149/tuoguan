@@ -28,6 +28,8 @@ import com.tuoguan.backend.billing.domain.MonthlyBillLeaveLine;
 import com.tuoguan.backend.billing.domain.MonthlyBillMealLine;
 import com.tuoguan.backend.billing.domain.PaymentMethod;
 import com.tuoguan.backend.billing.domain.StudentLeaveRecord;
+import com.tuoguan.backend.course.dao.CourseMealRecordDao;
+import com.tuoguan.backend.course.domain.CourseMealRecord;
 import com.tuoguan.backend.course.service.CourseAccountService;
 import com.tuoguan.backend.course.web.ConsumptionCoverage;
 import com.tuoguan.backend.kanban.dao.StudentMealRecordDao;
@@ -72,6 +74,7 @@ public class BillGenerationService {
     private final MonthlyBillMealLineDao monthlyBillMealLineDao;
     private final MonthlyBillLeaveLineDao monthlyBillLeaveLineDao;
     private final StudentMealRecordDao studentMealRecordDao;
+    private final CourseMealRecordDao courseMealRecordDao;
     private final StudentDao studentDao;
     private final TeachingUnitDao teachingUnitDao;
     private final TeacherDao teacherDao;
@@ -93,7 +96,8 @@ public class BillGenerationService {
                                   MonthlyBillExtraFeeLineDateDao monthlyBillExtraFeeLineDateDao,
                                   MonthlyBillMealLineDao monthlyBillMealLineDao,
                                   MonthlyBillLeaveLineDao monthlyBillLeaveLineDao,
-                                  StudentMealRecordDao studentMealRecordDao, StudentDao studentDao,
+                                  StudentMealRecordDao studentMealRecordDao, CourseMealRecordDao courseMealRecordDao,
+                                  StudentDao studentDao,
                                   TeachingUnitDao teachingUnitDao, TeacherDao teacherDao,
                                   StudentUnitEnrollmentDao enrollmentDao, InstitutionDao institutionDao,
                                   @Lazy BillGenerationService self) {
@@ -106,6 +110,7 @@ public class BillGenerationService {
         this.monthlyBillMealLineDao = monthlyBillMealLineDao;
         this.monthlyBillLeaveLineDao = monthlyBillLeaveLineDao;
         this.studentMealRecordDao = studentMealRecordDao;
+        this.courseMealRecordDao = courseMealRecordDao;
         this.studentDao = studentDao;
         this.teachingUnitDao = teachingUnitDao;
         this.teacherDao = teacherDao;
@@ -269,6 +274,23 @@ public class BillGenerationService {
                     .map(StudentMealRecord::mealDate)
                     .toList();
             mealAmount = rate.mealRatePerDay().multiply(BigDecimal.valueOf(mealDates.size()));
+        } else {
+            // 纯课外课学生没有托管班、没有 ClassBillingRate 可用，餐费改按机构统一配置的
+            // 单价计算（见 Institution.offCampusMealRatePerDay）；复用同一张
+            // monthly_bill_meal_line 快照表，它本来就只挂 bill_id，不区分来源。只有当月
+            // 真的产生了用餐记录才要求机构必须配置好单价，没用过这个功能的机构不受影响。
+            mealDates = courseMealRecordDao.findAllByStudentIdAndDateRange(studentId, start, end).stream()
+                    .map(CourseMealRecord::mealDate)
+                    .toList();
+            if (!mealDates.isEmpty()) {
+                Institution institution = institutionDao.findById(institutionId)
+                        .orElseThrow(() -> new NotFoundException("Institution not found: " + institutionId));
+                BigDecimal offCampusMealRate = institution.offCampusMealRatePerDay();
+                if (offCampusMealRate == null) {
+                    throw new BillingRateNotConfiguredException("机构未配置课外课用餐单价");
+                }
+                mealAmount = offCampusMealRate.multiply(BigDecimal.valueOf(mealDates.size()));
+            }
         }
         List<CourseConsumptionSummaryRow> extraFeeRows =
                 computeCourseConsumptionRows(studentId, usageMonth, !isMonthAlreadyPaid(studentId, month));
