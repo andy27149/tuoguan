@@ -167,6 +167,34 @@ describe('AdminPricingModule', () => {
     await waitFor(() => expect(institutionApi.updateOffCampusMealRate).toHaveBeenCalledWith(18))
   })
 
+  it('lets the admin clear a configured off-campus meal rate back to "未配置"', async () => {
+    vi.mocked(institutionApi.updateOffCampusMealRate).mockResolvedValue({
+      ...INSTITUTION_SETTINGS,
+      offCampusMealRatePerDay: null,
+    })
+    render(<AdminPricingModule custodyEnabled={false} offCampusEnabled />)
+    const heading = await screen.findByText('课外课用餐单价')
+    const card = heading.closest('div') as HTMLElement
+
+    expect(within(card).queryByText('未配置')).not.toBeInTheDocument()
+    fireEvent.click(within(card).getByRole('button', { name: '清除配置' }))
+
+    await waitFor(() => expect(institutionApi.updateOffCampusMealRate).toHaveBeenCalledWith(null))
+    expect(await within(card).findByText('未配置')).toBeInTheDocument()
+    expect(within(card).queryByRole('button', { name: '清除配置' })).not.toBeInTheDocument()
+  })
+
+  it('does not show a clear button for the meal rate when it is already unconfigured', async () => {
+    vi.mocked(institutionApi.fetchInstitutionSettings).mockResolvedValue({
+      ...INSTITUTION_SETTINGS,
+      offCampusMealRatePerDay: null,
+    })
+    render(<AdminPricingModule custodyEnabled={false} offCampusEnabled />)
+    await screen.findByText('课外课用餐单价')
+
+    expect(screen.queryByRole('button', { name: '清除配置' })).not.toBeInTheDocument()
+  })
+
   it('shows an "未配置" hint for the meal rate when the institution has never set one', async () => {
     vi.mocked(institutionApi.fetchInstitutionSettings).mockResolvedValue({
       ...INSTITUTION_SETTINGS,

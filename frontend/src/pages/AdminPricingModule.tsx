@@ -64,12 +64,24 @@ export function AdminPricingModule({ custodyEnabled, offCampusEnabled }: AdminPr
       setMealRateError('请输入有效的单价')
       return
     }
+    await applyMealRate(rate)
+  }
+
+  // 清空配置：传 null 让机构退回"未配置"状态，再有课外课用餐记录时生成账单会
+  // 明确报错提醒配置，而不是静默按 0 元计费——后端已经支持这个状态，这里补上
+  // UI 入口，不然管理员永远够不到这个状态。
+  async function handleClearMealRate() {
+    setMealRateInput('')
+    await applyMealRate(null)
+  }
+
+  async function applyMealRate(rate: number | null) {
     setMealRateSubmitting(true)
     setMealRateError(null)
     try {
       const updated = await institutionApi.updateOffCampusMealRate(rate)
       setOffCampusMealRate(updated.offCampusMealRatePerDay)
-      showToast('已更新课外课用餐单价')
+      showToast(rate === null ? '已清空课外课用餐单价' : '已更新课外课用餐单价')
     } catch {
       setMealRateError('保存失败，请重试')
     } finally {
@@ -445,6 +457,16 @@ export function AdminPricingModule({ custodyEnabled, offCampusEnabled }: AdminPr
               >
                 保存
               </button>
+              {offCampusMealRate !== null && (
+                <button
+                  type="button"
+                  onClick={handleClearMealRate}
+                  disabled={mealRateSubmitting}
+                  className="rounded-full border border-panel-border px-4 py-1 text-sm text-[#5d5480] hover:bg-[#faf7ff] disabled:opacity-50"
+                >
+                  清除配置
+                </button>
+              )}
               {offCampusMealRate === null && <span className="text-xs text-panel-warn">未配置</span>}
             </div>
           )}

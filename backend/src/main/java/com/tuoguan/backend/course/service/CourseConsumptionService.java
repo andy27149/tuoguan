@@ -18,6 +18,7 @@ import com.tuoguan.backend.unit.domain.StudentUnitEnrollment;
 import com.tuoguan.backend.unit.domain.TeachingUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -162,9 +163,19 @@ public class CourseConsumptionService {
             if (mealRecordDao.findByStudentIdAndDate(studentId, date).isPresent()) {
                 continue;
             }
-            mealRecordDao.insert(new CourseMealRecord(null, teachingUnit.institutionId(), studentId, date,
-                    teacherId, null));
-            recordedCount++;
+            try {
+                mealRecordDao.insert(new CourseMealRecord(null, teachingUnit.institutionId(), studentId, date,
+                        teacherId, null));
+                recordedCount++;
+            } catch (DataIntegrityViolationException e) {
+                // 查完"没记录"到真正插入之间存在竞态窗口：同一个学生当天报了两门课，
+                // 两个老师几乎同时点名提交，都会在上面的 isPresent() 检查里看到"还没记"。
+                // uq_course_meal_record_student_date 唯一约束兜底拦住了第二次插入，这里
+                // 按"已被并发请求记录"静默跳过，保持和"查到已存在"完全一样的去重语义，
+                // 而不是让老师看到一个莫名其妙的 500。
+                log.info("课外课用餐登记遇到并发去重：institutionId={}, studentId={}, date={}",
+                        teachingUnit.institutionId(), studentId, date);
+            }
         }
         log.info("课外课用餐登记：institutionId={}, courseId={}, date={}, teacherId={}, 提交到={}, 实际新记={}",
                 teachingUnit.institutionId(), courseId, date, teacherId, presentStudentIds.size(), recordedCount);
