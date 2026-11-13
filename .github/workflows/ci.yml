@@ -22,11 +22,19 @@ jobs:
           java-version: "17"
           cache: maven
 
-      # GitHub-hosted runner 自带标准 Docker Engine，Testcontainers 不需要本地开发机
-      # 那套 colima 专用环境变量（见 docs/architecture/技术架构.md「测试基建」一节），
-      # 这里直接跑就行。
+      # GitHub 托管 runner 的 Docker Engine 版本升级之后，docker-java 启动探测硬编码
+      # 发的第一个请求（固定打 /v1.32/）被拒绝（"client version 1.32 is too old,
+      # minimum supported API version is 1.40"），跟本地 colima 那次是同一个根因（见
+      # docs/architecture/技术架构.md「测试基建」一节和项目记忆
+      # project_colima_testcontainers_incompatibility）。这里不需要本地那套
+      # DOCKER_HOST/TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE（那是绕 colima 专属的 socket
+      # 路径问题），标准 Docker socket 本来就在默认路径上；只需要让 docker-java 跳过
+      # 那次过时的版本探测，固定用一个双方都支持的 API 版本。
       - name: Run backend tests
         working-directory: backend
+        env:
+          DOCKER_API_VERSION: "1.44"
+          JAVA_TOOL_OPTIONS: "-Dapi.version=1.44"
         run: mvn -B test
 
   frontend:

@@ -40,12 +40,17 @@ describe('RenewalModal', () => {
     expect(screen.getByText('平台')).toBeInTheDocument()
   })
 
+  // 下面几个用例的 currentValidUntil 要特意选一个远未来的日期——baseDateFor 只有在
+  // currentValidUntil 还没到期时才会拿它当基准算新到期日，过期了就改成从"今天"算。
+  // 用写死的近期日期（比如这个文件改动前用过的 2026-11-01）过一阵子就会被真实时间
+  // 赶上变成"过期"，断言的到期日就从"基于 currentValidUntil 算"变成"基于真实今天
+  // 算"，测试会在未来某天突然且莫名其妙地挂掉。
   it('defaults to MONTHLY plan with a 299 amount and a suggested valid-until one month after the current one', async () => {
     render(
       <RenewalModal
         institutionId={1}
         institutionName="机构A"
-        currentValidUntil="2026-11-01"
+        currentValidUntil="2099-03-01"
         onClose={vi.fn()}
         onSaved={vi.fn()}
       />,
@@ -53,7 +58,7 @@ describe('RenewalModal', () => {
     await screen.findByText('平台')
 
     expect(screen.getByLabelText('金额')).toHaveValue(299)
-    expect(screen.getByLabelText('新的到期日')).toHaveValue('2026-12-01')
+    expect(screen.getByLabelText('新的到期日')).toHaveValue('2099-04-01')
   })
 
   it('switching to TRIAL clears and disables the amount field', async () => {
@@ -61,7 +66,7 @@ describe('RenewalModal', () => {
       <RenewalModal
         institutionId={1}
         institutionName="机构A"
-        currentValidUntil="2026-11-01"
+        currentValidUntil="2099-03-01"
         onClose={vi.fn()}
         onSaved={vi.fn()}
       />,
@@ -71,7 +76,7 @@ describe('RenewalModal', () => {
     fireEvent.change(screen.getByLabelText('套餐'), { target: { value: 'TRIAL' } })
 
     expect(screen.getByLabelText('金额')).toBeDisabled()
-    expect(screen.getByLabelText('新的到期日')).toHaveValue('2026-12-01')
+    expect(screen.getByLabelText('新的到期日')).toHaveValue('2099-03-31')
   })
 
   it('switching plan updates the suggested amount and valid-until', async () => {
@@ -79,7 +84,7 @@ describe('RenewalModal', () => {
       <RenewalModal
         institutionId={1}
         institutionName="机构A"
-        currentValidUntil="2026-11-01"
+        currentValidUntil="2099-03-01"
         onClose={vi.fn()}
         onSaved={vi.fn()}
       />,
@@ -89,7 +94,7 @@ describe('RenewalModal', () => {
     fireEvent.change(screen.getByLabelText('套餐'), { target: { value: 'YEARLY' } })
 
     expect(screen.getByLabelText('金额')).toHaveValue(2899)
-    expect(screen.getByLabelText('新的到期日')).toHaveValue('2027-11-01')
+    expect(screen.getByLabelText('新的到期日')).toHaveValue('2100-03-01')
   })
 
   it('suggests the last day of the target month instead of overflowing into the next month', async () => {
@@ -118,7 +123,7 @@ describe('RenewalModal', () => {
       <RenewalModal
         institutionId={1}
         institutionName="机构A"
-        currentValidUntil="2026-11-01"
+        currentValidUntil="2099-03-01"
         onClose={onClose}
         onSaved={onSaved}
       />,
@@ -129,7 +134,7 @@ describe('RenewalModal', () => {
     fireEvent.click(screen.getByRole('button', { name: '提交' }))
 
     await waitFor(() =>
-      expect(platformApi.createRenewal).toHaveBeenCalledWith(1, 'MONTHLY', 299, '2026-12-01', '老客户优惠'),
+      expect(platformApi.createRenewal).toHaveBeenCalledWith(1, 'MONTHLY', 299, '2099-04-01', '老客户优惠'),
     )
     expect(onSaved).toHaveBeenCalled()
     expect(onClose).toHaveBeenCalled()
@@ -140,7 +145,7 @@ describe('RenewalModal', () => {
       <RenewalModal
         institutionId={1}
         institutionName="机构A"
-        currentValidUntil="2026-11-01"
+        currentValidUntil="2099-03-01"
         onClose={vi.fn()}
         onSaved={vi.fn()}
       />,
@@ -151,7 +156,7 @@ describe('RenewalModal', () => {
     fireEvent.click(screen.getByRole('button', { name: '提交' }))
 
     await waitFor(() =>
-      expect(platformApi.createRenewal).toHaveBeenCalledWith(1, 'MONTHLY', null, '2026-12-01', ''),
+      expect(platformApi.createRenewal).toHaveBeenCalledWith(1, 'MONTHLY', null, '2099-04-01', ''),
     )
   })
 
