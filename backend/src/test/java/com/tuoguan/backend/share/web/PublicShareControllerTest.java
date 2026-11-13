@@ -139,7 +139,11 @@ class PublicShareControllerTest extends IntegrationTestBase {
 
         String shareToken = studentDao.findShareToken(studentId);
 
-        mockMvc.perform(get("/api/public/share/" + shareToken))
+        // 不传 month 的话，PublicShareController 会用 YearMonth.now() 兜底——两条消课记录
+        // 一条9月一条10月，测的就是"只有当前月那条会出现在 courseActivity 里"，但哪个月是
+        // "当前月"完全取决于测试跑的那一刻的真实日期，离作者写这个用例的时间越远越容易
+        // 失效（之前就真的失效过一次）。显式传 month，不依赖真实时钟。
+        mockMvc.perform(get("/api/public/share/" + shareToken).param("month", "2026-10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.studentName").value("小双"))
                 .andExpect(jsonPath("$.stats").exists())
