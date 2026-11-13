@@ -116,6 +116,86 @@ class MonthlyQuickBillControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void resubmittingWithDifferentCountsReplacesRatherThanAddsToThePreviousSubmission() throws Exception {
+        Long institutionId = institutionDao.insert("快速账单测试机构H");
+        String adminPhone = uniquePhone();
+        teacherDao.insert(new Teacher(null, institutionId, adminPhone,
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, uniquePhone(),
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "快速六班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小紫", "六班",
+                true, null, null));
+        String adminToken = login(adminPhone, "admin-password");
+
+        mockMvc.perform(put("/api/admin/classes/" + classRoomId + "/billing-rate")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tuitionRatePerMonth\":500.00,\"mealRatePerDay\":10.00}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/admin/monthly-quick-bill/students/" + studentId + "/submit")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"month\":\"2030-07\",\"mealDays\":5,\"leaveDays\":3,\"courseConsumptions\":[]}"))
+                .andExpect(status().isNoContent());
+
+        // 改小一个数字重新提交——不应该在旧记录基础上叠加，账单要跟着新数字变，不是累加。
+        mockMvc.perform(post("/api/admin/monthly-quick-bill/students/" + studentId + "/submit")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"month\":\"2030-07\",\"mealDays\":2,\"leaveDays\":1,\"courseConsumptions\":[]}"))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(post("/api/admin/classes/" + classRoomId + "/bills/generate?month=2030-07")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].mealAmount").value(20.00))
+                .andExpect(jsonPath("$[0].mealRecordDates.length()").value(2))
+                .andExpect(jsonPath("$[0].leaveDays").value(1));
+    }
+
+    @Test
+    void resubmittingCourseConsumptionForTheSameMonthIsRejectedInsteadOfSilentlyMiscounting() throws Exception {
+        Long institutionId = institutionDao.insert("快速账单测试机构I");
+        String adminPhone = uniquePhone();
+        teacherDao.insert(new Teacher(null, institutionId, adminPhone,
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, uniquePhone(),
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "快速七班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long courseId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "跳绳课",
+                BillingMode.LESSON_COUNT, 60, new BigDecimal("40.00"), true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小橙", "七班",
+                true, null, null));
+        enrollmentDao.insert(new StudentUnitEnrollment(null, institutionId, studentId, courseId, true, null));
+        String adminToken = login(adminPhone, "admin-password");
+
+        mockMvc.perform(post("/api/admin/monthly-quick-bill/students/" + studentId + "/submit")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"month\":\"2030-08\",\"mealDays\":0,\"leaveDays\":0,"
+                                + "\"courseConsumptions\":[{\"courseId\":" + courseId + ",\"count\":2}]}"))
+                .andExpect(status().isNoContent());
+
+        // 同一个学生同一门课这个月已经提交过了，再提交应该明确拒绝，而不是悄悄叠加/少算。
+        mockMvc.perform(post("/api/admin/monthly-quick-bill/students/" + studentId + "/submit")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"month\":\"2030-08\",\"mealDays\":0,\"leaveDays\":0,"
+                                + "\"courseConsumptions\":[{\"courseId\":" + courseId + ",\"count\":5}]}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/admin/students/" + studentId + "/course-consumption")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .param("month", "2030-08"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].lessonCount").value(2));
+    }
+
+    @Test
     void submitRecordsCourseConsumptionForEnrolledCourse() throws Exception {
         Long institutionId = institutionDao.insert("快速账单测试机构C");
         String adminPhone = uniquePhone();

@@ -87,21 +87,28 @@ export function AdminMonthlyQuickBillModule() {
     setError(null)
     setBills(null)
     try {
-      for (const student of students) {
-        const row = rows[student.studentId]
-        const request: quickBillApi.QuickBillSubmitRequest = {
-          month,
-          mealDays: Number(row.mealDays) || 0,
-          leaveDays: Number(row.leaveDays) || 0,
-          courseConsumptions: student.courses
-            .map((c) => ({ courseId: c.courseId, count: Number(row.courseConsumptions[c.courseId]) || 0 }))
-            .filter((c) => c.count > 0),
-        }
-        if (request.mealDays === 0 && request.leaveDays === 0 && request.courseConsumptions.length === 0) {
-          continue
-        }
-        await quickBillApi.submitQuickBill(student.studentId, request)
-      }
+      // 后端 submit 对同一个学生同一个月是幂等的（重新提交会先清掉上一次本工具自己写的
+      // 记录，再按新数字重新分配，不会叠加），所以这里可以放心并发提交、也可以放心在
+      // 失败后整体重试，不用担心把之前成功的学生重复计费。
+      const submissions = students
+        .map((student) => {
+          const row = rows[student.studentId]
+          const request: quickBillApi.QuickBillSubmitRequest = {
+            month,
+            mealDays: Number(row.mealDays) || 0,
+            leaveDays: Number(row.leaveDays) || 0,
+            courseConsumptions: student.courses
+              .map((c) => ({ courseId: c.courseId, count: Number(row.courseConsumptions[c.courseId]) || 0 }))
+              .filter((c) => c.count > 0),
+          }
+          return { student, request }
+        })
+        .filter(
+          ({ request }) =>
+            request.mealDays > 0 || request.leaveDays > 0 || request.courseConsumptions.length > 0,
+        )
+
+      await Promise.all(submissions.map(({ student, request }) => quickBillApi.submitQuickBill(student.studentId, request)))
       const generated = await billingApi.generateClassBills(classId, month)
       setBills(generated)
       showToast('本月账单已生成')
