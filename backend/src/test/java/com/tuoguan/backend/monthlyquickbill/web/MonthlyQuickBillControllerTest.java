@@ -6,6 +6,7 @@ import com.tuoguan.backend.auth.dao.TeacherDao;
 import com.tuoguan.backend.auth.domain.Role;
 import com.tuoguan.backend.auth.domain.Teacher;
 import com.tuoguan.backend.auth.web.LoginResponse;
+import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
 import com.tuoguan.backend.roster.dao.StudentDao;
 import com.tuoguan.backend.roster.domain.Student;
 import com.tuoguan.backend.support.IntegrationTestBase;
@@ -22,6 +23,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import java.math.BigDecimal;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -44,6 +46,9 @@ class MonthlyQuickBillControllerTest extends IntegrationTestBase {
 
     @Autowired
     private StudentUnitEnrollmentDao enrollmentDao;
+
+    @Autowired
+    private StudentArrivalCheckinDao arrivalCheckinDao;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -116,6 +121,50 @@ class MonthlyQuickBillControllerTest extends IntegrationTestBase {
     }
 
     @Test
+    void submitWritesIntoThePreviousMonthWhenInstitutionBillsTuitionInAdvance() throws Exception {
+        // 本地用真实 E2E 数据手动验证时踩到的真实bug：机构开了"托管费提前收"之后，
+        // BillGenerationService.resolveUsageMonth 规定第 M 月账单的出勤/用餐/消课数据要看
+        // 第 M-1 月的真实记录。如果这里直接把 request.month 当成记录该落在哪个月，运营人员
+        // 对着"2030-10月账单"填的数字会被写进10月，但账单引擎读的是9月，表面提交成功、
+        // 账单数字却纹丝不动。
+        Long institutionId = institutionDao.insert("快速账单测试机构J");
+        institutionDao.updateBillTuitionInAdvance(institutionId, true);
+        String adminPhone = uniquePhone();
+        teacherDao.insert(new Teacher(null, institutionId, adminPhone,
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, uniquePhone(),
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "快速八班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小黑", "八班",
+                true, null, null));
+        String adminToken = login(adminPhone, "admin-password");
+
+        mockMvc.perform(put("/api/admin/classes/" + classRoomId + "/billing-rate")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tuitionRatePerMonth\":500.00,\"mealRatePerDay\":10.00}"))
+                .andExpect(status().isOk());
+
+        // 提交时传的是"2030-10"（这期账单的标签），用餐记录应该落在2030-09（提前收款机构
+        // 的 usageMonth），不是字面上的2030-10。
+        mockMvc.perform(post("/api/admin/monthly-quick-bill/students/" + studentId + "/submit")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"month\":\"2030-10\",\"mealDays\":4,\"leaveDays\":1,\"courseConsumptions\":[]}"))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(post("/api/admin/classes/" + classRoomId + "/bills/generate?month=2030-10")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].mealAmount").value(40.00))
+                .andExpect(jsonPath("$[0].mealRecordDates.length()").value(4))
+                .andExpect(jsonPath("$[0].mealRecordDates[0]", org.hamcrest.Matchers.startsWith("2030-09")))
+                .andExpect(jsonPath("$[0].leaveDays").value(1))
+                .andExpect(jsonPath("$[0].leaveLines[0].leaveDate", org.hamcrest.Matchers.startsWith("2030-09")));
+    }
+
+    @Test
     void resubmittingWithDifferentCountsReplacesRatherThanAddsToThePreviousSubmission() throws Exception {
         Long institutionId = institutionDao.insert("快速账单测试机构H");
         String adminPhone = uniquePhone();
@@ -154,6 +203,52 @@ class MonthlyQuickBillControllerTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$[0].mealAmount").value(20.00))
                 .andExpect(jsonPath("$[0].mealRecordDates.length()").value(2))
                 .andExpect(jsonPath("$[0].leaveDays").value(1));
+    }
+
+    @Test
+    void resubmittingNeverTouchesARealArrivalRecordEvenIfItCoincidentallyMatchesTheDefaultTime() throws Exception {
+        // 真实踩到过的事故：早期实现靠"到校时间是不是固定的哨兵值"猜一条记录是不是本工具
+        // 自己写的，结果机构数据里一条真实打卡记录凑巧用的也是同一个时间字符串，重新提交时
+        // 被误判成"自己写的"直接删掉。这里故意构造这种巧合，验证现在靠专门的记账表
+        // （monthly_quick_bill_record）识别，不会再犯同样的错误。
+        Long institutionId = institutionDao.insert("快速账单测试机构K");
+        String adminPhone = uniquePhone();
+        teacherDao.insert(new Teacher(null, institutionId, adminPhone,
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, uniquePhone(),
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "快速九班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小粉", "九班",
+                true, null, null));
+        String adminToken = login(adminPhone, "admin-password");
+
+        mockMvc.perform(put("/api/admin/classes/" + classRoomId + "/billing-rate")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tuitionRatePerMonth\":500.00,\"mealRatePerDay\":10.00}"))
+                .andExpect(status().isOk());
+
+        // 真实的一条到校记录，巧合地用了跟本工具默认值一模一样的时间字符串"15:30"。
+        arrivalCheckinDao.upsert(institutionId, classRoomId, studentId, java.time.LocalDate.of(2030, 9, 2), "15:30");
+
+        mockMvc.perform(post("/api/admin/monthly-quick-bill/students/" + studentId + "/submit")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"month\":\"2030-09\",\"mealDays\":3,\"leaveDays\":0,\"courseConsumptions\":[]}"))
+                .andExpect(status().isNoContent());
+
+        // 重新提交一次（数字不变），如果还在靠猜值识别，这条真实记录会被当成"自己写的"清掉。
+        mockMvc.perform(post("/api/admin/monthly-quick-bill/students/" + studentId + "/submit")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"month\":\"2030-09\",\"mealDays\":3,\"leaveDays\":0,\"courseConsumptions\":[]}"))
+                .andExpect(status().isNoContent());
+
+        assertThat(arrivalCheckinDao.findAllByStudentIdAndDateRange(studentId,
+                java.time.LocalDate.of(2030, 9, 1), java.time.LocalDate.of(2030, 9, 30)))
+                .extracting(a -> a.checkinDate())
+                .contains(java.time.LocalDate.of(2030, 9, 2));
     }
 
     @Test

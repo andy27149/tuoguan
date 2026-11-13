@@ -1,5 +1,7 @@
 package com.tuoguan.backend.monthlyquickbill.service;
 
+import com.tuoguan.backend.auth.dao.InstitutionDao;
+import com.tuoguan.backend.auth.domain.Institution;
 import com.tuoguan.backend.billing.dao.StudentLeaveRecordDao;
 import com.tuoguan.backend.billing.domain.StudentLeaveRecord;
 import com.tuoguan.backend.course.dao.CourseConsumptionRecordDao;
@@ -9,6 +11,9 @@ import com.tuoguan.backend.kanban.domain.StudentArrivalCheckin;
 import com.tuoguan.backend.kanban.service.StudentArrivalCheckinService;
 import com.tuoguan.backend.kanban.service.StudentLeaveRecordService;
 import com.tuoguan.backend.kanban.service.StudentMealRecordService;
+import com.tuoguan.backend.monthlyquickbill.dao.MonthlyQuickBillRecordDao;
+import com.tuoguan.backend.monthlyquickbill.domain.MonthlyQuickBillRecord;
+import com.tuoguan.backend.monthlyquickbill.domain.QuickBillRecordType;
 import com.tuoguan.backend.monthlyquickbill.web.CourseConsumptionInput;
 import com.tuoguan.backend.monthlyquickbill.web.InvalidQuickBillRequestException;
 import com.tuoguan.backend.monthlyquickbill.web.QuickBillCourseResponse;
@@ -37,13 +42,14 @@ import java.util.Set;
 // 把"这个学生这个月用餐几天/请假几天/课外课上了几节"这几个聚合数字，转换成最少必要的
 // 真实到校/用餐/请假/消课记录，再交给现有账单引擎（BillGenerationService）计算——不新增
 // 任何计费规则，只是省掉逐日打卡这一步。合成日期不追求"看起来像真的"，只保证数量和
-// 不与已有记录冲突；默认到校时间固定写死，不是要以假乱真。
+// 不与已有记录冲突。
 @Service
 public class MonthlyQuickBillService {
 
     private static final String DEFAULT_ARRIVAL_TIME = "15:30";
-    private static final String SYNTHETIC_LEAVE_REASON = "月度批量录入";
+    private static final String DEFAULT_LEAVE_REASON = "月度批量录入";
 
+    private final InstitutionDao institutionDao;
     private final StudentDao studentDao;
     private final TeachingUnitDao teachingUnitDao;
     private final StudentUnitEnrollmentDao enrollmentDao;
@@ -54,8 +60,10 @@ public class MonthlyQuickBillService {
     private final StudentLeaveRecordService leaveRecordService;
     private final CourseConsumptionRecordDao consumptionRecordDao;
     private final CourseConsumptionService courseConsumptionService;
+    private final MonthlyQuickBillRecordDao quickBillRecordDao;
 
-    public MonthlyQuickBillService(StudentDao studentDao, TeachingUnitDao teachingUnitDao,
+    public MonthlyQuickBillService(InstitutionDao institutionDao, StudentDao studentDao,
+                                    TeachingUnitDao teachingUnitDao,
                                     StudentUnitEnrollmentDao enrollmentDao,
                                     StudentArrivalCheckinDao arrivalCheckinDao,
                                     StudentArrivalCheckinService arrivalCheckinService,
@@ -63,7 +71,9 @@ public class MonthlyQuickBillService {
                                     StudentLeaveRecordDao leaveRecordDao,
                                     StudentLeaveRecordService leaveRecordService,
                                     CourseConsumptionRecordDao consumptionRecordDao,
-                                    CourseConsumptionService courseConsumptionService) {
+                                    CourseConsumptionService courseConsumptionService,
+                                    MonthlyQuickBillRecordDao quickBillRecordDao) {
+        this.institutionDao = institutionDao;
         this.studentDao = studentDao;
         this.teachingUnitDao = teachingUnitDao;
         this.enrollmentDao = enrollmentDao;
@@ -74,6 +84,7 @@ public class MonthlyQuickBillService {
         this.leaveRecordService = leaveRecordService;
         this.consumptionRecordDao = consumptionRecordDao;
         this.courseConsumptionService = courseConsumptionService;
+        this.quickBillRecordDao = quickBillRecordDao;
     }
 
     public List<QuickBillStudentResponse> listStudents(Long institutionId, Long classRoomId) {
@@ -89,13 +100,20 @@ public class MonthlyQuickBillService {
         Student student = requireStudentInInstitution(institutionId, studentId);
         TeachingUnit classRoom = teachingUnitDao.findById(student.teachingUnitId())
                 .orElseThrow(() -> new NotFoundException("ClassRoom not found: " + student.teachingUnitId()));
-        YearMonth month = YearMonth.parse(request.month());
 
-        int weekdaysInMonth = countWeekdays(month);
+        // request.month 是运营人员心里"这期账单对应哪个月"的标签（前端月份选择器上显示
+        // 的那个月），不一定是记录该落在哪个自然月——机构开了"托管费提前收"（见
+        // BillGenerationService.resolveUsageMonth 的同一条规则）时，这期账单的学费是
+        // 上个月就收了，这个月生成账单实际结算的是"上个月"的真实出勤/用餐/消课数据。这里
+        // 必须和账单引擎用同一套月份换算，不然运营人员填的数字会被写进引擎根本不读的那个
+        // 月份，表面上提交成功、账单却纹丝不动（live-tested 2026-11-13 时真实踩到过）。
+        YearMonth usageMonth = resolveUsageMonth(institutionId, YearMonth.parse(request.month()));
+
+        int weekdaysInMonth = countWeekdays(usageMonth);
         if (request.mealDays() + request.leaveDays() > weekdaysInMonth) {
             throw new InvalidQuickBillRequestException(
                     "用餐天数(" + request.mealDays() + ") + 请假天数(" + request.leaveDays()
-                            + ") 超过了 " + month + " 的工作日总数(" + weekdaysInMonth + ")");
+                            + ") 超过了 " + usageMonth + " 的工作日总数(" + weekdaysInMonth + ")");
         }
 
         Long classTeacherId = classRoom.teacherId();
@@ -103,40 +121,52 @@ public class MonthlyQuickBillService {
         // 同一个学生同一个月可能会被重新提交（改个数字、网络超时重试、前端误触重复点击）。
         // 先把上一次本工具自己写的记录清掉，再按新的数字重新分配，而不是在旧记录基础上
         // 继续叠加——否则改小一个数字重新生成，账单金额不会跟着变小，改大则会被重复计费。
-        clearPreviousSubmission(classTeacherId, studentId, month);
+        clearPreviousSubmission(classTeacherId, studentId, usageMonth);
 
         // 到校/请假是互斥的两类真实记录，都要占用日期池，新分配的日期不能跟任何一类
         // 已有的真实记录（不是刚清掉的那些合成记录）冲突。
         Set<LocalDate> occupied = new HashSet<>();
         occupied.addAll(arrivalCheckinDao
-                .findAllByStudentIdAndDateRange(studentId, month.atDay(1), month.atEndOfMonth()).stream()
+                .findAllByStudentIdAndDateRange(studentId, usageMonth.atDay(1), usageMonth.atEndOfMonth()).stream()
                 .map(StudentArrivalCheckin::checkinDate)
                 .toList());
         occupied.addAll(leaveRecordDao
-                .findAllByStudentIdAndDateRange(studentId, month.atDay(1), month.atEndOfMonth()).stream()
+                .findAllByStudentIdAndDateRange(studentId, usageMonth.atDay(1), usageMonth.atEndOfMonth()).stream()
                 .map(StudentLeaveRecord::leaveDate)
                 .toList());
 
-        List<LocalDate> leaveDates = pickDates(month, request.leaveDays(), occupied,
+        List<LocalDate> leaveDates = pickDates(usageMonth, request.leaveDays(), occupied,
                 "请假天数(" + request.leaveDays() + ")");
         for (LocalDate date : leaveDates) {
-            leaveRecordService.setLeave(classTeacherId, studentId, date, SYNTHETIC_LEAVE_REASON);
+            leaveRecordService.setLeave(classTeacherId, studentId, date, DEFAULT_LEAVE_REASON);
+            quickBillRecordDao.insert(institutionId, studentId, QuickBillRecordType.LEAVE, date);
         }
         occupied.addAll(leaveDates);
 
-        List<LocalDate> mealDates = pickDates(month, request.mealDays(), occupied,
+        List<LocalDate> mealDates = pickDates(usageMonth, request.mealDays(), occupied,
                 "用餐天数(" + request.mealDays() + ")");
         for (LocalDate date : mealDates) {
             arrivalCheckinService.setArrival(classTeacherId, studentId, date, DEFAULT_ARRIVAL_TIME);
             mealRecordService.setMeal(classTeacherId, studentId, date);
+            quickBillRecordDao.insert(institutionId, studentId, QuickBillRecordType.ARRIVAL_MEAL, date);
         }
 
         for (CourseConsumptionInput input : request.courseConsumptions()) {
             if (input.count() == 0) {
                 continue;
             }
-            recordCourseConsumption(institutionId, studentId, month, input);
+            recordCourseConsumption(institutionId, studentId, usageMonth, input);
         }
+    }
+
+    // 跟 BillGenerationService.resolveUsageMonth 保持同一条规则，故意不直接依赖那个类的
+    // private 方法——两边各自维护一份一行逻辑，比为了复用把这个新模块的依赖伸到计费服务
+    // 内部实现细节上更安全；BillGenerationService 是跑在生产、力达托管在用的真实计费代码，
+    // 不想让这次新加的功能跟它产生除了"读同一张表"以外的耦合。
+    private YearMonth resolveUsageMonth(Long institutionId, YearMonth billMonth) {
+        Institution institution = institutionDao.findById(institutionId)
+                .orElseThrow(() -> new NotFoundException("Institution not found: " + institutionId));
+        return institution.billTuitionInAdvance() ? billMonth.minusMonths(1) : billMonth;
     }
 
     private void recordCourseConsumption(Long institutionId, Long studentId, YearMonth month,
@@ -165,20 +195,22 @@ public class MonthlyQuickBillService {
         }
     }
 
-    // 到校/用餐/请假记录都用固定的哨兵值写入（DEFAULT_ARRIVAL_TIME / SYNTHETIC_LEAVE_REASON），
-    // 真实的老师打卡/请假几乎不会凑巧写出一模一样的值，所以重新提交时可以安全地先把"上次是
-    // 本工具自己写的"那些记录清掉，而不会动到任何真实数据。
+    // 靠猜（固定到校时间/固定请假原因）识别"是不是本工具自己写的"曾经出过真实事故：
+    // live测试时机构种子数据里凑巧也用了同一个到校时间字符串，被误判成"自己写的"直接
+    // 清掉，删了一条真实数据。现在靠 monthly_quick_bill_record 这张专门的记账表——只有
+    // 这里插入过的 (学生, 日期) 才是本工具自己写的，不靠猜值。
     private void clearPreviousSubmission(Long classTeacherId, Long studentId, YearMonth month) {
         LocalDate start = month.atDay(1);
         LocalDate end = month.atEndOfMonth();
 
-        arrivalCheckinDao.findAllByStudentIdAndDateRange(studentId, start, end).stream()
-                .filter(a -> DEFAULT_ARRIVAL_TIME.equals(a.arrivedAt()))
-                .forEach(a -> arrivalCheckinService.clearArrival(classTeacherId, studentId, a.checkinDate()));
-
-        leaveRecordDao.findAllByStudentIdAndDateRange(studentId, start, end).stream()
-                .filter(l -> SYNTHETIC_LEAVE_REASON.equals(l.reason()))
-                .forEach(l -> leaveRecordService.clearLeave(classTeacherId, studentId, l.leaveDate()));
+        for (MonthlyQuickBillRecord record : quickBillRecordDao.findAllByStudentIdAndDateRange(studentId, start, end)) {
+            if (record.recordType() == QuickBillRecordType.ARRIVAL_MEAL) {
+                arrivalCheckinService.clearArrival(classTeacherId, studentId, record.recordDate());
+            } else {
+                leaveRecordService.clearLeave(classTeacherId, studentId, record.recordDate());
+            }
+        }
+        quickBillRecordDao.deleteAllByStudentIdAndDateRange(studentId, start, end);
     }
 
     private List<QuickBillCourseResponse> enrolledCourses(Long studentId) {
