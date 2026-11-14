@@ -102,10 +102,12 @@ export function AdminMonthlyQuickBillModule() {
       const submissions = students
         .map((student) => {
           const row = rows[student.studentId]
+          const mealDays = Number(row.mealDays) || 0
+          const leaveDays = Number(row.leaveDays) || 0
           const request: quickBillApi.QuickBillSubmitRequest = {
             month,
-            mealDays: Number(row.mealDays) || 0,
-            leaveDays: Number(row.leaveDays) || 0,
+            mealDays,
+            leaveDays,
             // 已经有消课记录的课外课不提交——后端不支持重新提交覆盖，发了只会被拒绝，
             // 而且会连带把这个学生这次提交里本来能成功的用餐/请假也一起回滚掉。
             courseConsumptions: student.courses
@@ -113,12 +115,16 @@ export function AdminMonthlyQuickBillModule() {
               .map((c) => ({ courseId: c.courseId, count: Number(row.courseConsumptions[c.courseId]) || 0 }))
               .filter((c) => c.count > 0),
           }
-          return { student, request }
+          // 跟"已经保存的数"比，不是跟"0"比——分次录入场景下，运营人员可能是要把之前
+          // 存错的数字改回 0（比如误填了用餐天数，这次要清掉），这种情况下 mealDays/
+          // leaveDays 本身就是 0，但跟学生身上已经保存的值不一样，是一次真实的改动，
+          // 应该被提交；不能因为"这次填的数字是0"就直接跳过，不然会把之前存错的数字
+          // 原封不动地留在系统里，操作者还以为已经改好了。
+          const changed =
+            mealDays !== student.mealDays || leaveDays !== student.leaveDays || request.courseConsumptions.length > 0
+          return { student, request, changed }
         })
-        .filter(
-          ({ request }) =>
-            request.mealDays > 0 || request.leaveDays > 0 || request.courseConsumptions.length > 0,
-        )
+        .filter(({ changed }) => changed)
 
       await Promise.all(submissions.map(({ student, request }) => quickBillApi.submitQuickBill(student.studentId, request)))
       showToast('本月数据已保存')

@@ -426,6 +426,66 @@ class MonthlyQuickBillControllerTest extends IntegrationTestBase {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void submitRejectsCourseConsumptionInsteadOfSilentlySucceedingWhenStudentIsNotEnrolled() throws Exception {
+        // recordBatchConsumption 对没报名这门课的学生是静默跳过、不抛异常（这是给"一次
+        // 点名一整班"场景设计的行为）。这里故意不建报名关系，验证 quickbill 自己会把这种
+        // "实际一条记录都没写成"的情况识别出来并报错，而不是回 204 让运营人员误以为存上了。
+        Long institutionId = institutionDao.insert("快速账单测试机构M");
+        String adminPhone = uniquePhone();
+        teacherDao.insert(new Teacher(null, institutionId, adminPhone,
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, uniquePhone(),
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "快速十一班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long courseId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "围棋课",
+                BillingMode.LESSON_COUNT, 60, new BigDecimal("70.00"), true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小灰", "十一班",
+                true, null, null));
+        // 故意不插入报名记录。
+        String adminToken = login(adminPhone, "admin-password");
+
+        mockMvc.perform(post("/api/admin/monthly-quick-bill/students/" + studentId + "/submit")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"month\":\"2030-10\",\"mealDays\":0,\"leaveDays\":0,"
+                                + "\"courseConsumptions\":[{\"courseId\":" + courseId + ",\"count\":3}]}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/admin/students/" + studentId + "/course-consumption")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .param("month", "2030-10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void submitRejectsMalformedMonthWithBadRequestInsteadOfServerError() throws Exception {
+        Long institutionId = institutionDao.insert("快速账单测试机构N");
+        String adminPhone = uniquePhone();
+        teacherDao.insert(new Teacher(null, institutionId, adminPhone,
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, uniquePhone(),
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "快速十二班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小橄", "十二班",
+                true, null, null));
+        String adminToken = login(adminPhone, "admin-password");
+
+        mockMvc.perform(post("/api/admin/monthly-quick-bill/students/" + studentId + "/submit")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"month\":\"2030-13\",\"mealDays\":0,\"leaveDays\":0,\"courseConsumptions\":[]}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/admin/monthly-quick-bill/classes/" + classRoomId + "/students")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .param("month", "not-a-month"))
+                .andExpect(status().isBadRequest());
+    }
+
     private String login(String phone, String password) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

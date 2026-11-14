@@ -78,12 +78,15 @@ describe('AdminMonthlyQuickBillModule', () => {
     render(<AdminMonthlyQuickBillModule />)
     await screen.findByText('小明')
 
-    expect(screen.getByDisplayValue('5')).toBeInTheDocument()
+    const mealInput = screen.getByDisplayValue('5')
+    expect(mealInput).toBeInTheDocument()
     expect(screen.getByDisplayValue('1')).toBeInTheDocument()
     // 已经有消课记录的课外课不该再是输入框，是一段锁死的说明文字
     expect(screen.getByText('3节（已记录）')).toBeInTheDocument()
     expect(screen.queryByRole('spinbutton', { name: /羽毛球/ })).not.toBeInTheDocument()
 
+    // 在已经预填的5天基础上改成7天，模拟"分次录入、这次追加"的真实场景。
+    fireEvent.change(mealInput, { target: { value: '7' } })
     fireEvent.click(screen.getByRole('button', { name: /保存.*本月数据/ }))
 
     // 哪怕羽毛球课之前存的是3节，提交也不该带上它——带上会被后端拒绝，还会连累用餐/
@@ -91,8 +94,44 @@ describe('AdminMonthlyQuickBillModule', () => {
     await waitFor(() =>
       expect(quickBillApi.submitQuickBill).toHaveBeenCalledWith(100, {
         month: expect.any(String),
-        mealDays: 5,
+        mealDays: 7,
         leaveDays: 1,
+        courseConsumptions: [],
+      }),
+    )
+  })
+
+  it('does not resubmit a student whose numbers are unchanged from what is already saved', async () => {
+    vi.mocked(quickBillApi.fetchQuickBillStudents).mockResolvedValue([
+      { studentId: 100, name: '小明', mealDays: 5, leaveDays: 0, courses: [] },
+    ])
+    render(<AdminMonthlyQuickBillModule />)
+    await screen.findByText('小明')
+
+    fireEvent.click(screen.getByRole('button', { name: /保存.*本月数据/ }))
+
+    // 没有任何字段被改动——不该发起一次没有意义的提交。
+    await waitFor(() => expect(screen.getByText('本月数据已保存')).toBeInTheDocument())
+    expect(quickBillApi.submitQuickBill).not.toHaveBeenCalled()
+  })
+
+  it('submits a correction back to zero instead of silently dropping it', async () => {
+    vi.mocked(quickBillApi.fetchQuickBillStudents).mockResolvedValue([
+      { studentId: 100, name: '小明', mealDays: 5, leaveDays: 0, courses: [] },
+    ])
+    render(<AdminMonthlyQuickBillModule />)
+    await screen.findByText('小明')
+
+    // 之前存错存成了5天，这次要改回0——改之后所有字段表面上看"都是0"，但不能因为
+    // 这样就被当成"没填东西"而跳过，不然错误的5天会原封不动留在系统里。
+    fireEvent.change(screen.getByDisplayValue('5'), { target: { value: '0' } })
+    fireEvent.click(screen.getByRole('button', { name: /保存.*本月数据/ }))
+
+    await waitFor(() =>
+      expect(quickBillApi.submitQuickBill).toHaveBeenCalledWith(100, {
+        month: expect.any(String),
+        mealDays: 0,
+        leaveDays: 0,
         courseConsumptions: [],
       }),
     )
