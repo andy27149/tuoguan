@@ -6,6 +6,7 @@ export type AdminModule =
   | 'taskStats'
   | 'pricing'
   | 'billing'
+  | 'quickBill'
   | 'settings'
 
 interface AdminSidebarProps {
@@ -46,6 +47,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { key: 'pricing', label: '定价中心' },
       { key: 'billing', label: '账单管理', hiddenWhen: 'custodyDisabled' },
+      { key: 'quickBill', label: '月度快速账单', hiddenWhen: 'custodyDisabled' },
     ],
   },
 ]

@@ -13,6 +13,7 @@ import com.tuoguan.backend.course.web.DuplicateCourseNameException;
 import com.tuoguan.backend.course.web.OffCampusMealNotApplicableException;
 import com.tuoguan.backend.kanban.web.AlreadyArrivedException;
 import com.tuoguan.backend.kanban.web.ArrivalRequiredException;
+import com.tuoguan.backend.monthlyquickbill.web.InvalidQuickBillRequestException;
 import com.tuoguan.backend.unit.web.FeatureDisabledException;
 import com.tuoguan.backend.unit.web.InvalidTeachingUnitRequestException;
 import org.slf4j.Logger;
@@ -147,6 +148,11 @@ public class RosterExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(AlreadyArrivedException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public void handleAlreadyArrived() {
+    }
+
+    @ExceptionHandler(InvalidQuickBillRequestException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public void handleInvalidQuickBillRequest() {
     }
 
     // @PreAuthorize 鉴权失败抛出的 AccessDeniedException 必须排除在兜底之外——它本来
