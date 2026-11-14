@@ -7,6 +7,7 @@ import { AdminStudentsModule } from './AdminStudentsModule'
 import { AdminTaskStatsModule } from './AdminTaskStatsModule'
 import { AdminPricingModule } from './AdminPricingModule'
 import { AdminBillingModule } from './AdminBillingModule'
+import { AdminMonthlyQuickBillModule } from './AdminMonthlyQuickBillModule'
 import { AdminSettingsModule } from './AdminSettingsModule'
 import { AdminOverviewModule } from './AdminOverviewModule'
 import { UpdatesButton } from '../components/UpdatesButton'
@@ -95,6 +96,7 @@ export function AdminDashboardPage({ onBack, onOpenClassKanban }: AdminDashboard
             {activeModule === 'billing' && (
               <AdminBillingModule billTuitionInAdvance={institution?.billTuitionInAdvance ?? false} />
             )}
+            {activeModule === 'quickBill' && <AdminMonthlyQuickBillModule />}
             {activeModule === 'settings' && <AdminSettingsModule onInstitutionUpdated={setInstitution} />}
           </div>
         </div>
