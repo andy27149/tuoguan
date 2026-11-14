@@ -28,7 +28,8 @@ export function AdminMonthlyQuickBillModule() {
   const [students, setStudents] = useState<quickBillApi.QuickBillStudent[]>([])
   const [rows, setRows] = useState<Record<number, RowInput>>({})
   const [loading, setLoading] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [generating, setGenerating] = useState(false)
   const [bills, setBills] = useState<billingApi.MonthlyBill[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const { toastMessage, showToast } = useToast()
@@ -81,11 +82,13 @@ export function AdminMonthlyQuickBillModule() {
     }))
   }
 
-  async function handleGenerate() {
+  // 录入数据和生成账单是两个独立动作，刻意不绑在一起：我们这边只负责把数字换算成
+  // 真实记录，什么时候出账单是机构自己的运营决定——他们可能想等数据都录完、或者跟
+  // 家长对完价格之后才点生成，不应该一填完数字就被迫连带生成一份账单出来。
+  async function handleSaveData() {
     if (classId === null) return
-    setSubmitting(true)
+    setSaving(true)
     setError(null)
-    setBills(null)
     try {
       // 后端 submit 对同一个学生同一个月是幂等的（重新提交会先清掉上一次本工具自己写的
       // 记录，再按新数字重新分配，不会叠加），所以这里可以放心并发提交、也可以放心在
@@ -109,13 +112,27 @@ export function AdminMonthlyQuickBillModule() {
         )
 
       await Promise.all(submissions.map(({ student, request }) => quickBillApi.submitQuickBill(student.studentId, request)))
+      showToast('本月数据已保存')
+    } catch {
+      setError('保存数据失败，请检查填写的数字是否超过当月可用天数')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleGenerateBill() {
+    if (classId === null) return
+    setGenerating(true)
+    setError(null)
+    setBills(null)
+    try {
       const generated = await billingApi.generateClassBills(classId, month)
       setBills(generated)
       showToast('本月账单已生成')
     } catch {
-      setError('生成账单失败，请检查填写的数字是否超过当月可用天数')
+      setError('生成账单失败')
     } finally {
-      setSubmitting(false)
+      setGenerating(false)
     }
   }
 
@@ -123,7 +140,8 @@ export function AdminMonthlyQuickBillModule() {
     <div className="p-6">
       <h2 className="mb-1 text-lg font-semibold text-panel-ink">月度快速账单</h2>
       <p className="mb-4 text-sm text-panel-muted">
-        不需要逐日打卡——按学生填本月用餐天数、课外课节数、请假天数，费率自动用机构已配置的标准，一键生成本月账单。
+        不需要逐日打卡——按学生填本月用餐天数、课外课节数、请假天数，先保存数据；账单什么时候生成由机构自己决定，
+        点"生成本月账单"即可用保存好的数据生成，费率自动用机构已配置的标准。
       </p>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -228,14 +246,24 @@ export function AdminMonthlyQuickBillModule() {
             </table>
           </div>
 
-          <button
-            type="button"
-            onClick={handleGenerate}
-            disabled={submitting}
-            className="mt-4 rounded-full bg-panel-primary px-5 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
-            {submitting ? '生成中...' : `生成${month}本月账单`}
-          </button>
+          <div className="mt-4 flex gap-2">
+            <button
+              type="button"
+              onClick={handleSaveData}
+              disabled={saving}
+              className="rounded-full bg-panel-primary px-5 py-2 text-sm font-medium text-white disabled:opacity-50"
+            >
+              {saving ? '保存中...' : `保存${month}本月数据`}
+            </button>
+            <button
+              type="button"
+              onClick={handleGenerateBill}
+              disabled={generating}
+              className="rounded-full border border-panel-primary px-5 py-2 text-sm font-medium text-panel-primary disabled:opacity-50"
+            >
+              {generating ? '生成中...' : `生成${month}本月账单`}
+            </button>
+          </div>
         </>
       )}
 

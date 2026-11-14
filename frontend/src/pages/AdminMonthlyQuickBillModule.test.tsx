@@ -59,7 +59,7 @@ describe('AdminMonthlyQuickBillModule', () => {
     expect(row.textContent).toContain('—')
   })
 
-  it('submits only students with non-zero input, then generates the class bill', async () => {
+  it('saves data only for students with non-zero input, without generating a bill', async () => {
     render(<AdminMonthlyQuickBillModule />)
     await screen.findByText('小明')
 
@@ -68,7 +68,7 @@ describe('AdminMonthlyQuickBillModule', () => {
     fireEvent.change(mealInputs[0], { target: { value: '3' } })
     fireEvent.change(mealInputs[2], { target: { value: '4' } })
 
-    fireEvent.click(screen.getByRole('button', { name: /生成.*本月账单/ }))
+    fireEvent.click(screen.getByRole('button', { name: /保存.*本月数据/ }))
 
     await waitFor(() =>
       expect(quickBillApi.submitQuickBill).toHaveBeenCalledWith(100, {
@@ -80,17 +80,38 @@ describe('AdminMonthlyQuickBillModule', () => {
     )
     // 小红全部留空，不应该发起提交
     expect(quickBillApi.submitQuickBill).toHaveBeenCalledTimes(1)
-    expect(billingApi.generateClassBills).toHaveBeenCalledWith(10, expect.any(String))
+    // 保存数据不应该连带生成账单——这是机构自己的决定
+    expect(billingApi.generateClassBills).not.toHaveBeenCalled()
+  })
+
+  it('generates the bill independently of saving data, using whatever data already exists', async () => {
+    render(<AdminMonthlyQuickBillModule />)
+    await screen.findByText('小明')
+
+    fireEvent.click(screen.getByRole('button', { name: /生成.*本月账单/ }))
+
+    await waitFor(() => expect(billingApi.generateClassBills).toHaveBeenCalledWith(10, expect.any(String)))
+    expect(quickBillApi.submitQuickBill).not.toHaveBeenCalled()
     expect(await screen.findByText('¥530.00')).toBeInTheDocument()
   })
 
-  it('shows an error message when submission fails', async () => {
+  it('shows an error message when saving data fails', async () => {
     vi.mocked(quickBillApi.submitQuickBill).mockRejectedValue(new Error('boom'))
     render(<AdminMonthlyQuickBillModule />)
     await screen.findByText('小明')
 
     const mealInputs = screen.getAllByDisplayValue('')
     fireEvent.change(mealInputs[0], { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: /保存.*本月数据/ }))
+
+    expect(await screen.findByText(/保存数据失败/)).toBeInTheDocument()
+  })
+
+  it('shows an error message when generating the bill fails', async () => {
+    vi.mocked(billingApi.generateClassBills).mockRejectedValue(new Error('boom'))
+    render(<AdminMonthlyQuickBillModule />)
+    await screen.findByText('小明')
+
     fireEvent.click(screen.getByRole('button', { name: /生成.*本月账单/ }))
 
     expect(await screen.findByText(/生成账单失败/)).toBeInTheDocument()
