@@ -10,9 +10,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.YearMonth;
 import java.util.List;
 
 // 月度批量录入+账单生成的入口：运营人员选一个已有班级，按学生填"本月用餐天数/课外课节数/
@@ -30,8 +32,8 @@ public class MonthlyQuickBillController {
 
     @GetMapping("/api/admin/monthly-quick-bill/classes/{classId}/students")
     public List<QuickBillStudentResponse> listStudents(@AuthenticationPrincipal TeacherPrincipal principal,
-                                                         @PathVariable Long classId) {
-        return monthlyQuickBillService.listStudents(principal.institutionId(), classId);
+                                                         @PathVariable Long classId, @RequestParam String month) {
+        return monthlyQuickBillService.listStudents(principal.institutionId(), classId, YearMonth.parse(month));
     }
 
     @PostMapping("/api/admin/monthly-quick-bill/students/{studentId}/submit")

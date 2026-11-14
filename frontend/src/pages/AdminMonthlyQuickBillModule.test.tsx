@@ -14,8 +14,14 @@ const CLASSES: adminApi.AdminClassRoom[] = [
 ]
 
 const STUDENTS: quickBillApi.QuickBillStudent[] = [
-  { studentId: 100, name: '小明', courses: [{ courseId: 200, name: '羽毛球课' }] },
-  { studentId: 101, name: '小红', courses: [] },
+  {
+    studentId: 100,
+    name: '小明',
+    mealDays: 0,
+    leaveDays: 0,
+    courses: [{ courseId: 200, name: '羽毛球课', consumptionCount: 0 }],
+  },
+  { studentId: 101, name: '小红', mealDays: 0, leaveDays: 0, courses: [] },
 ]
 
 const BILL: billingApi.MonthlyBill = {
@@ -57,6 +63,39 @@ describe('AdminMonthlyQuickBillModule', () => {
     // 小红没报课外课，那一格应该是占位符而不是输入框
     const row = screen.getByText('小红').closest('tr') as HTMLElement
     expect(row.textContent).toContain('—')
+  })
+
+  it('prefills already-saved numbers and locks a course that already has consumption recorded', async () => {
+    vi.mocked(quickBillApi.fetchQuickBillStudents).mockResolvedValue([
+      {
+        studentId: 100,
+        name: '小明',
+        mealDays: 5,
+        leaveDays: 1,
+        courses: [{ courseId: 200, name: '羽毛球课', consumptionCount: 3 }],
+      },
+    ])
+    render(<AdminMonthlyQuickBillModule />)
+    await screen.findByText('小明')
+
+    expect(screen.getByDisplayValue('5')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('1')).toBeInTheDocument()
+    // 已经有消课记录的课外课不该再是输入框，是一段锁死的说明文字
+    expect(screen.getByText('3节（已记录）')).toBeInTheDocument()
+    expect(screen.queryByRole('spinbutton', { name: /羽毛球/ })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /保存.*本月数据/ }))
+
+    // 哪怕羽毛球课之前存的是3节，提交也不该带上它——带上会被后端拒绝，还会连累用餐/
+    // 请假这两项本来能成功的一起失败。
+    await waitFor(() =>
+      expect(quickBillApi.submitQuickBill).toHaveBeenCalledWith(100, {
+        month: expect.any(String),
+        mealDays: 5,
+        leaveDays: 1,
+        courseConsumptions: [],
+      }),
+    )
   })
 
   it('saves data only for students with non-zero input, without generating a bill', async () => {

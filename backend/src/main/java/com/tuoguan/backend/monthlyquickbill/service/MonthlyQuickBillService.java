@@ -5,6 +5,7 @@ import com.tuoguan.backend.auth.domain.Institution;
 import com.tuoguan.backend.billing.dao.StudentLeaveRecordDao;
 import com.tuoguan.backend.billing.domain.StudentLeaveRecord;
 import com.tuoguan.backend.course.dao.CourseConsumptionRecordDao;
+import com.tuoguan.backend.course.domain.CourseConsumptionRecord;
 import com.tuoguan.backend.course.service.CourseConsumptionService;
 import com.tuoguan.backend.kanban.dao.StudentArrivalCheckinDao;
 import com.tuoguan.backend.kanban.domain.StudentArrivalCheckin;
@@ -87,11 +88,27 @@ public class MonthlyQuickBillService {
         this.quickBillRecordDao = quickBillRecordDao;
     }
 
-    public List<QuickBillStudentResponse> listStudents(Long institutionId, Long classRoomId) {
+    // billMonth 跟 submit() 收到的 request.month 是同一个意思（账单月份标签，不是记录
+    // 实际落在哪个自然月）——这里同样要换算成 usageMonth，查的才是运营人员下次提交时
+    // 实际会读写的那个月，预填出来的数字才对得上。
+    public List<QuickBillStudentResponse> listStudents(Long institutionId, Long classRoomId, YearMonth billMonth) {
         TeachingUnit classRoom = requireClassRoomInInstitution(institutionId, classRoomId);
+        YearMonth usageMonth = resolveUsageMonth(institutionId, billMonth);
+        LocalDate start = usageMonth.atDay(1);
+        LocalDate end = usageMonth.atEndOfMonth();
+
         return studentDao.findAllByTeachingUnitId(classRoom.id()).stream()
                 .filter(Student::enrolled)
-                .map(s -> new QuickBillStudentResponse(s.id(), s.name(), enrolledCourses(s.id())))
+                .map(s -> {
+                    List<MonthlyQuickBillRecord> records = quickBillRecordDao
+                            .findAllByStudentIdAndDateRange(s.id(), start, end);
+                    int mealDays = (int) records.stream()
+                            .filter(r -> r.recordType() == QuickBillRecordType.ARRIVAL_MEAL).count();
+                    int leaveDays = (int) records.stream()
+                            .filter(r -> r.recordType() == QuickBillRecordType.LEAVE).count();
+                    return new QuickBillStudentResponse(s.id(), s.name(), mealDays, leaveDays,
+                            enrolledCourses(s.id(), start, end));
+                })
                 .toList();
     }
 
@@ -213,13 +230,17 @@ public class MonthlyQuickBillService {
         quickBillRecordDao.deleteAllByStudentIdAndDateRange(studentId, start, end);
     }
 
-    private List<QuickBillCourseResponse> enrolledCourses(Long studentId) {
+    private List<QuickBillCourseResponse> enrolledCourses(Long studentId, LocalDate usageMonthStart,
+                                                           LocalDate usageMonthEnd) {
+        List<CourseConsumptionRecord> consumptions = consumptionRecordDao
+                .findAllByStudentIdAndDateRange(studentId, usageMonthStart, usageMonthEnd);
         return enrollmentDao.findAllByStudentId(studentId).stream()
                 .filter(StudentUnitEnrollment::active)
                 .map(e -> teachingUnitDao.findById(e.teachingUnitId()).orElse(null))
                 .filter(Objects::nonNull)
                 .filter(u -> u.billingMode() == BillingMode.LESSON_COUNT)
-                .map(u -> new QuickBillCourseResponse(u.id(), u.name()))
+                .map(u -> new QuickBillCourseResponse(u.id(), u.name(),
+                        (int) consumptions.stream().filter(r -> r.teachingUnitId().equals(u.id())).count()))
                 .toList();
     }
 

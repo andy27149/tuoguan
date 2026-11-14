@@ -15,10 +15,16 @@ interface RowInput {
   courseConsumptions: Record<number, string>
 }
 
-function emptyRow(courses: quickBillApi.QuickBillCourse[]): RowInput {
+// 预填成这个学生已经保存过的数字，而不是空字符串——运营人员可能分几次陆续录入同一个月
+// （月中录一次、月底再录一次），要在已有基础上改成新的整月累计数，不是凭记忆口算。
+function rowFrom(student: quickBillApi.QuickBillStudent): RowInput {
   const courseConsumptions: Record<number, string> = {}
-  for (const c of courses) courseConsumptions[c.courseId] = ''
-  return { mealDays: '', leaveDays: '', courseConsumptions }
+  for (const c of student.courses) courseConsumptions[c.courseId] = c.consumptionCount > 0 ? String(c.consumptionCount) : ''
+  return {
+    mealDays: student.mealDays > 0 ? String(student.mealDays) : '',
+    leaveDays: student.leaveDays > 0 ? String(student.leaveDays) : '',
+    courseConsumptions,
+  }
 }
 
 export function AdminMonthlyQuickBillModule() {
@@ -47,16 +53,16 @@ export function AdminMonthlyQuickBillModule() {
     setError(null)
     setBills(null)
     quickBillApi
-      .fetchQuickBillStudents(classId)
+      .fetchQuickBillStudents(classId, month)
       .then((list) => {
         setStudents(list)
         const next: Record<number, RowInput> = {}
-        for (const s of list) next[s.studentId] = emptyRow(s.courses)
+        for (const s of list) next[s.studentId] = rowFrom(s)
         setRows(next)
       })
       .catch(() => setError('加载班级学生失败，请刷新重试'))
       .finally(() => setLoading(false))
-  }, [classId])
+  }, [classId, month])
 
   // 一个班里不同学生报的课外课可能不一样，表格列取这个班所有学生报过的课外课的并集，
   // 没报某门课的学生在那一列直接不显示输入框。
@@ -100,7 +106,10 @@ export function AdminMonthlyQuickBillModule() {
             month,
             mealDays: Number(row.mealDays) || 0,
             leaveDays: Number(row.leaveDays) || 0,
+            // 已经有消课记录的课外课不提交——后端不支持重新提交覆盖，发了只会被拒绝，
+            // 而且会连带把这个学生这次提交里本来能成功的用餐/请假也一起回滚掉。
             courseConsumptions: student.courses
+              .filter((c) => c.consumptionCount === 0)
               .map((c) => ({ courseId: c.courseId, count: Number(row.courseConsumptions[c.courseId]) || 0 }))
               .filter((c) => c.count > 0),
           }
@@ -200,7 +209,7 @@ export function AdminMonthlyQuickBillModule() {
                 {students.map((s) => {
                   const row = rows[s.studentId]
                   if (!row) return null
-                  const enrolledCourseIds = new Set(s.courses.map((c) => c.courseId))
+                  const courseByCourseId = new Map(s.courses.map((c) => [c.courseId, c]))
                   return (
                     <tr key={s.studentId} className="border-t border-panel-border">
                       <td className="px-3 py-2 font-medium">{s.name}</td>
@@ -222,8 +231,23 @@ export function AdminMonthlyQuickBillModule() {
                           onChange={(e) => updateRow(s.studentId, { leaveDays: e.target.value })}
                         />
                       </td>
-                      {allCourses.map((c) =>
-                        enrolledCourseIds.has(c.courseId) ? (
+                      {allCourses.map((c) => {
+                        const enrolled = courseByCourseId.get(c.courseId)
+                        if (!enrolled) {
+                          return (
+                            <td key={c.courseId} className="px-3 py-2 text-panel-muted">
+                              —
+                            </td>
+                          )
+                        }
+                        if (enrolled.consumptionCount > 0) {
+                          return (
+                            <td key={c.courseId} className="px-3 py-2 text-panel-muted" title="已有消课记录，如需调整请前往课外课消课页面">
+                              {enrolled.consumptionCount}节（已记录）
+                            </td>
+                          )
+                        }
+                        return (
                           <td key={c.courseId} className="px-3 py-2">
                             <input
                               type="number"
@@ -233,12 +257,8 @@ export function AdminMonthlyQuickBillModule() {
                               onChange={(e) => updateCourseCount(s.studentId, c.courseId, e.target.value)}
                             />
                           </td>
-                        ) : (
-                          <td key={c.courseId} className="px-3 py-2 text-panel-muted">
-                            —
-                          </td>
-                        ),
-                      )}
+                        )
+                      })}
                     </tr>
                   )
                 })}

@@ -76,14 +76,57 @@ class MonthlyQuickBillControllerTest extends IntegrationTestBase {
         String adminToken = login(adminPhone, "admin-password");
 
         mockMvc.perform(get("/api/admin/monthly-quick-bill/classes/" + classRoomId + "/students")
-                        .header("Authorization", "Bearer " + adminToken))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .param("month", "2030-02"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].studentId").value(enrolledStudentId))
                 .andExpect(jsonPath("$[0].name").value("小明"))
+                .andExpect(jsonPath("$[0].mealDays").value(0))
+                .andExpect(jsonPath("$[0].leaveDays").value(0))
                 .andExpect(jsonPath("$[0].courses.length()").value(1))
                 .andExpect(jsonPath("$[0].courses[0].courseId").value(courseId))
-                .andExpect(jsonPath("$[0].courses[0].name").value("羽毛球课"));
+                .andExpect(jsonPath("$[0].courses[0].name").value("羽毛球课"))
+                .andExpect(jsonPath("$[0].courses[0].consumptionCount").value(0));
+    }
+
+    @Test
+    void listStudentsReflectsPreviouslySavedCountsSoOperatorsCanTopUpInAFollowUpVisit() throws Exception {
+        // 对应真实需求：运营人员可能分两次录入同一个月的数据（月中录一次、月底再录一次）。
+        // 界面要靠这个接口预填"已经保存的数"，运营人员在这个基础上改成新的整月累计数，
+        // 而不是凭记忆口算、一不小心把之前存的数字覆盖掉。
+        Long institutionId = institutionDao.insert("快速账单测试机构L");
+        String adminPhone = uniquePhone();
+        teacherDao.insert(new Teacher(null, institutionId, adminPhone,
+                passwordEncoder.encode("admin-password"), Role.ADMIN, false, null));
+        Long teacherId = teacherDao.insert(new Teacher(null, institutionId, uniquePhone(),
+                passwordEncoder.encode("teacher-password"), Role.TEACHER, false, null));
+        Long classRoomId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "快速十班",
+                BillingMode.MONTHLY, null, null, true, null));
+        Long courseId = teachingUnitDao.insert(new TeachingUnit(null, institutionId, teacherId, "声乐课",
+                BillingMode.LESSON_COUNT, 60, new BigDecimal("60.00"), true, null));
+        Long studentId = studentDao.insert(new Student(null, institutionId, classRoomId, "小银", "十班",
+                true, null, null));
+        enrollmentDao.insert(new StudentUnitEnrollment(null, institutionId, studentId, courseId, true, null));
+        String adminToken = login(adminPhone, "admin-password");
+
+        // 第一次录入（比如月中）：用餐5天、请假1天、声乐课2节。
+        mockMvc.perform(post("/api/admin/monthly-quick-bill/students/" + studentId + "/submit")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"month\":\"2030-11\",\"mealDays\":5,\"leaveDays\":1,"
+                                + "\"courseConsumptions\":[{\"courseId\":" + courseId + ",\"count\":2}]}"))
+                .andExpect(status().isNoContent());
+
+        // 再次打开页面，应该看到刚才保存的数字——用餐/请假是预填出来准备被改成新累计数，
+        // 课外课因为已经有消课记录，count>0，前端要把这一格锁成只读。
+        mockMvc.perform(get("/api/admin/monthly-quick-bill/classes/" + classRoomId + "/students")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .param("month", "2030-11"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].mealDays").value(5))
+                .andExpect(jsonPath("$[0].leaveDays").value(1))
+                .andExpect(jsonPath("$[0].courses[0].consumptionCount").value(2));
     }
 
     @Test
@@ -378,7 +421,8 @@ class MonthlyQuickBillControllerTest extends IntegrationTestBase {
         String token = login(teacherPhone, "teacher-password");
 
         mockMvc.perform(get("/api/admin/monthly-quick-bill/classes/" + classRoomId + "/students")
-                        .header("Authorization", "Bearer " + token))
+                        .header("Authorization", "Bearer " + token)
+                        .param("month", "2030-05"))
                 .andExpect(status().isForbidden());
     }
 
