@@ -12,8 +12,8 @@ importers:
         specifier: ^4.3.3
         version: 4.3.3(vite@8.3.8(@types/node@26.6.6)(jiti@2.7.0))
       html2canvas-pro:
-        specifier: ^2.6.3
-        version: 2.6.3
+        specifier: ^2.6.4
+        version: 2.6.4
       qrcode:
         specifier: ^1.5.4
         version: 1.5.4
@@ -735,8 +735,8 @@ packages:
     resolution: {integrity: sha512-CV9TW3Y3f8/wT0BRFc1/KAVQ3TUHiXmaAb6VW9vtiMFf7SLoMd1PdAc4W3KFOFETBJUb90KatHqlsZMWV+R9Gg==}
     engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
 
-  html2canvas-pro@2.6.3:
-    resolution: {integrity: sha512-le85rmO0p7b0lkkMJsb0TTb7w6zFgn7jol18N0pAUYRPkjYIkYQz+jMf1mznrRIzi2x7sKWpErIpP11ZsUjjtQ==}
+  html2canvas-pro@2.6.4:
+    resolution: {integrity: sha512-1SMOfXwMACgQPt1wcKOtuRnBxkcREiJQdOyVpgp6a4/z9Rb/v7QPcvyu5GlxdDDiMznLwKxX5KwvtSlNlZJ7Wg==}
     engines: {node: '>=24.0.0'}
 
   indent-string@4.0.0:
@@ -1789,7 +1789,7 @@ snapshots:
     transitivePeerDependencies:
       - '@noble/hashes'
 
-  html2canvas-pro@2.6.3: {}
+  html2canvas-pro@2.6.4: {}
 
   indent-string@4.0.0: {}
 
